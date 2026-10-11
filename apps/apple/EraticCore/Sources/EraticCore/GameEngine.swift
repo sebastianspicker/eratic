@@ -239,8 +239,10 @@ public enum GameEngine {
     public static func standings(of state: GameState) -> [[String]] {
         guard state.mode != .relay else { return [] }
         guard let sd = state.suddenDeath else { return state.mainStandings() }
-        let head = sd.winner.map { [[$0]] } ?? [sd.players]
-        return head + sd.eliminated.reversed() + sd.base.dropFirst()
+        var groups = sd.winner.map { [[$0]] } ?? [sd.players]
+        groups.append(contentsOf: sd.eliminated.reversed())
+        groups.append(contentsOf: sd.base.dropFirst())
+        return groups
     }
 
     /// The JSON object of section 7 with the mode's extras (JSONSerialization-compatible).
