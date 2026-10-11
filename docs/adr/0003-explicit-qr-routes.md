@@ -1,6 +1,6 @@
 # ADR 0003 Explicit QR routes and unverified official mappings
 
-Date: 2026-10-11. Status: implemented.
+Date: 2026-10-11. Status: implemented. Public product positioning amended by [ADR 0013](0013-public-card-support-positioning.md); the QR route behavior below is unchanged.
 
 ## Context
 

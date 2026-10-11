@@ -4,6 +4,8 @@ Updated 2026-10-11. Eratic is a native Mac/iPad/iPhone app and an independent st
 
 ## Implemented
 
+Public positioning focuses on user-curated decks and their linked QR codes. Original HITSTER-card support and official-app compatibility are not advertised features or public roadmap commitments. Existing supplied-URL fields remain technical capabilities, with no automatic catalogue lookup. See [ADR 0013](adr/0013-public-card-support-positioning.md).
+
 - **Decks:** strict import/export of deck versions 1 and 2, stable card IDs, source-backed year curation, optional clip starts, difficulty and related recordings. Both cores run the same contract cases.
 - **QR routes:** explicit direct-provider links or supplied official mappings labelled unverified. A provider-independent Eratic route is implemented but unavailable until a card domain is configured. No official-app arbitrary-song compatibility has been demonstrated.
 - **Games:** all [nine modes](game-modes.md), with their supported Name It, Stakes, Kids and Sudden Death modifiers. Session action logs and deck snapshots support saved games and replay; scores come from the cores.
@@ -54,7 +56,6 @@ These are focused checks, not exhaustive acceptance. Still unverified:
 | Accessibility variant | The original Snippet Ladder proposal included an untimed variant. Its intended behavior and acceptance still need definition; it is not claimed as a separate implemented mode. |
 | Print defaults | Card/page sizes, duplex convention and calibration need an implemented test sheet |
 | Licence and release identity | No distribution licence selected. Trademark, production bundle IDs, signing and native distribution remain unresolved. |
-| Official-app compatibility | No supported arbitrary-song extension demonstrated; do not infer compatibility from URL syntax or QR appearance |
 
 ## Public demo
 

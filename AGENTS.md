@@ -38,6 +38,7 @@ In a macOS Seatbelt-sandboxed agent session, `swift test`, `xcodegen` and `xcode
 - Era styling is presentation only: it follows a card's curated year and never changes deck data. Change era tokens in `design/eras.json` only; `src/ui/eras.test.ts` checks coverage and contrast. QR codes stay black on white.
 - Curated game years require a source. Keep stable card IDs separate from provider metadata and release dates.
 - Supplied official-card URLs stay unverified. Never infer official-app compatibility from a QR's appearance or syntax, and never fabricate official identifiers.
+- Do not advertise original HITSTER-card support or official-app compatibility in public product copy or roadmaps. Describe scanning as selecting cards in a loaded user-curated deck; private catalogue experiments are not a public feature (ADR 0013).
 - Keep playlist fetching, candidate review, curation, QR route selection and print rendering separate. Plan for both Spotify and Apple Music.
 - Keep the comments that credit upstream design ideas next to the code they describe, and update `docs/ATTRIBUTION.md` when an idea is adopted. Copying code requires recording its source revision, licence and notices first.
 - Local APKs, decompiled code, catalogue blobs, credentials, user decks, and build or QA output stay out of Git and out of app bundles (see `.gitignore`).

@@ -9,11 +9,9 @@ Eratic is a music year quiz built from cards you curate. A native SwiftUI app fo
 Current scope:
 
 - **Deck:** import and export a deck, select a card, curate its answer year and evidence, set the optional game fields (clip start, difficulty, related recording), and preview an explicitly chosen QR route.
-- **Play:** nine [game modes](docs/game-modes.md) — Timeline, Bullseye, Era Sort, Snippet Ladder, Higher or Lower, Relay, Lineup, Daily Eratic, Original or Imposter — on one host device, drawing cards from the deck or scanning printed cards with the camera, with Spotify or Apple Music playback (or "play it yourself" without an account). Both apps compute the same scores from the same [rules](contract/game-rules.md).
+- **Play:** nine [game modes](docs/game-modes.md) — Timeline, Bullseye, Era Sort, Snippet Ladder, Higher or Lower, Relay, Lineup, Daily Eratic, Original or Imposter — on one host device, drawing cards from the loaded deck or scanning QR codes linked to its cards, with Spotify or Apple Music playback (or "play it yourself" without an account). Both apps compute the same scores from the same [rules](contract/game-rules.md).
 
 The bundled songs and example.com links are fictional. Live playlist import and print-ready output are planned, not implemented. Provider playback needs your own Spotify app registration and MusicKit setup, and none of it has been tried against live accounts yet. See [status](docs/STATUS.md).
-
-Playing arbitrary custom songs through the unmodified official Hitster app is still an unresolved product requirement. Supplied official-card URLs are treated as **unverified mappings**. The direct provider-link preview has to be chosen explicitly, and it does not claim official-app compatibility.
 
 ## Run it
 

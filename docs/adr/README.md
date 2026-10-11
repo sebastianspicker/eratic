@@ -16,6 +16,7 @@ ADRs retain the reasons for consequential choices so a later session can continu
 | [0010](0010-own-scanner-and-streaming-playback.md) | Own scanner and player; Spotify and Apple Music playback for game modes | Accepted by the user; implemented (see 0011) |
 | [0011](0011-game-rules-contract-and-sessions.md) | Game rules as a shared contract, session files, deck version 2, ledger questions answered | Implemented |
 | [0012](0012-public-repository-and-private-archive.md) | Public source and Pages demo; historical research and ledgers remain private | Implemented |
+| [0013](0013-public-card-support-positioning.md) | Do not advertise original HITSTER-card support or official-app compatibility | Accepted by the user; documentation updated |
 
 ## Add or change a decision
 
