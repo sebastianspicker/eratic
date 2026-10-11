@@ -13,6 +13,7 @@ import {
   type PlaybackProps,
 } from "./playback";
 import type { GameController } from "./useGame";
+import { EmbeddedPreview } from "./EmbeddedPreview";
 
 const formatTime = (ms: number): string =>
   `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
@@ -143,6 +144,7 @@ export function CardStage({
   lengthMs?: number;
 }) {
   const [played, setPlayed] = useState(false);
+  const [previewRevision, setPreviewRevision] = useState(0);
   const { start, earlier, later } = useClipStart(card, deck, session);
   const { player, exact, route, play, stop, status, error } = useCardPlayer(playback, controller);
   const how = card && route(card);
@@ -150,6 +152,7 @@ export function CardStage({
   function onPlay() {
     if (!card) return;
     setPlayed(true);
+    setPreviewRevision(value => value + 1);
     void play(card, start, lengthMs ?? clipLengthFor(session));
   }
   return (
@@ -172,6 +175,7 @@ export function CardStage({
           </div>
         ) : (
           <>
+            {how.track.url ? <EmbeddedPreview key={previewRevision} url={how.track.url} /> : null}
             {tier?.kind === "unavailable" ? (
               <p className="muted">
                 Play it yourself: {PROVIDER_NAMES[player.provider]} isn't connected, so scan the code or open the song in a new tab.

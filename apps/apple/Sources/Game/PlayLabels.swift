@@ -75,9 +75,8 @@ struct ModeAvailability {
 }
 
 extension PlaybackProvider {
-    /// The provider's name, with the reason when this build can't use it.
+    /// Provider links remain usable even when timed playback isn't configured.
     var pickerLabel: String {
-        if self == .spotify, AppConfig.spotifyClientID == nil { return "Spotify (not set up in this build)" }
         return label
     }
 }
@@ -88,7 +87,7 @@ func tierDescription(provider: PlaybackProvider, tier: PlaybackTier, status: Pla
     switch tier {
     case .fullTrack: return provider == .spotify ? "Spotify Premium: exact clips" : "Apple Music: exact clips"
     case let .previewOnly(maxMs): return "\(provider.label) preview: \(maxMs / 1000)-second clips"
-    case .noExactPlayback: return provider == .spotify ? "Spotify Free: you start each song yourself" : "\(provider.label): you start each song yourself"
+    case .noExactPlayback: return provider == .spotify ? "Spotify: manual playback (Free or Premium)" : "\(provider.label): you start each song yourself"
     case let .unavailable(reason):
         if reason == PlaybackError.notConfigured.localizedDescription { return "Not set up in this build" }
         return status == .idle ? "Not connected yet" : reason

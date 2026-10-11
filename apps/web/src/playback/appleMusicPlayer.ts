@@ -62,23 +62,23 @@ export class AppleMusicPlayer implements Player {
     return this.current;
   }
 
-  async connect(): Promise<void> {
-    if (!this.token) {
-      this.current = { kind: "unavailable", reason: "Apple Music is not set up in this build." };
-      throw new PlaybackError("notConfigured", "Apple Music is not set up in this build.");
-    }
+  async connect(authorize = false): Promise<void> {
+    this.current = { kind: "noExactPlayback" };
+    if (!this.token) return;
     this.kit = await this.loadSdk();
     try {
-      this.music = await this.kit.configure({
+      this.music ??= await this.kit.configure({
         developerToken: this.token,
         app: { name: "Eratic", build: "0.1.0" },
       });
-      await this.music.authorize();
+      if (!this.music.isAuthorized && authorize) await this.music.authorize();
     } catch {
       throw new PlaybackError("notAuthorised", "Apple Music sign-in did not complete.");
     }
-    if (!this.music.isAuthorized)
-      throw new PlaybackError("notAuthorised", "Apple Music sign-in did not complete.");
+    if (!this.music.isAuthorized) {
+      if (authorize) throw new PlaybackError("notAuthorised", "Apple Music sign-in did not complete.");
+      return;
+    }
     // UNVERIFIED, needs a live check: a successful /v1/me/storefront call is
     // taken to mean an active subscription (full tracks); otherwise previews.
     try {

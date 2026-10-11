@@ -19,7 +19,7 @@ export interface AudibleStart {
 export interface Player {
   readonly provider: PlaybackProvider;
   tier(): PlaybackTier;
-  connect(): Promise<void>; // authorise + detect tier
+  connect(authorize?: boolean): Promise<void>; // reuse authorization; prompt only when explicitly requested
   prepare(track: PlayableTrack): Promise<void>;
   play(fromMs: number): Promise<AudibleStart>; // resolves once audio is audible
   stop(): Promise<void>;

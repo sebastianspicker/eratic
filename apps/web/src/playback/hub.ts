@@ -54,7 +54,11 @@ export class PlaybackHub {
   }
 
   availableProviders(): PlaybackProvider[] {
-    return (["spotify", "appleMusic", "manual"] as const).filter((p) => this.configured[p]);
+    return ["spotify", "appleMusic", "manual"];
+  }
+
+  canAuthorize(provider: PlaybackProvider): boolean {
+    return provider !== "manual" && this.configured[provider];
   }
 
   private create(provider: PlaybackProvider): Player {
@@ -73,23 +77,16 @@ export class PlaybackHub {
     return player;
   }
 
-  async connect(provider: PlaybackProvider): Promise<void> {
-    if (!this.configured[provider]) {
-      this.set({
-        provider: undefined,
-        tier: undefined,
-        error: "That provider is not set up in this build.",
-      });
-      return;
-    }
+  async connect(provider: PlaybackProvider, authorize = false): Promise<void> {
+    if (this.snapshot.connecting) return;
     const player = this.create(provider);
-    this.set({ provider, tier: player.tier(), error: undefined, connecting: true });
+    this.set({ provider, tier: { kind: "noExactPlayback" }, error: undefined, connecting: true });
     try {
-      await player.connect();
+      await player.connect(authorize);
       this.set({ tier: player.tier(), connecting: false });
     } catch (error) {
       this.set({
-        tier: player.tier(),
+        tier: { kind: "noExactPlayback" },
         connecting: false,
         error:
           error instanceof PlaybackError ? error.message : "Could not connect. Try again.",

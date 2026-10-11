@@ -26,14 +26,20 @@ final class SpotifyConnectPlayer: Player {
         self.auth = auth ?? SpotifyAuth()
     }
 
-    func connect() async throws {
-        guard AppConfig.spotifyClientID != nil else {
-            tier = .unavailable(reason: PlaybackError.notConfigured.localizedDescription)
-            throw PlaybackError.notConfigured
+    func connect(authorize: Bool) async throws {
+        // Separate free/manual playback from controlled playback, inspired by HITSTER's
+        // provider paths (ATTRIBUTION.md). App links work without API authorization.
+        tier = .noExactPlayback
+        guard AppConfig.spotifyClientID != nil else { return }
+        guard auth.isSignedIn || authorize else { return }
+        if authorize { _ = try await auth.accessToken(allowSignIn: true) }
+        do {
+            let (data, _) = try await send("GET", "/me")
+            let me = try? JSONDecoder().decode(Me.self, from: data)
+            tier = me?.product == "premium" ? .fullTrack : .noExactPlayback
+        } catch PlaybackError.noSubscription {
+            tier = .noExactPlayback
         }
-        let (data, _) = try await send("GET", "/me")
-        let me = try? JSONDecoder().decode(Me.self, from: data)
-        tier = me?.product == "premium" ? .fullTrack : .noExactPlayback
     }
 
     func prepare(_ track: PlayableTrack) async throws {

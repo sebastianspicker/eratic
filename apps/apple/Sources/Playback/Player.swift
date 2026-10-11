@@ -74,8 +74,8 @@ protocol Player: AnyObject {
     var provider: PlaybackProvider { get }
     /// Detected by `connect()`.
     var tier: PlaybackTier { get }
-    /// Authorise and detect the tier.
-    func connect() async throws
+    /// Reuse existing authorization; interactive Spotify sign-in is opt-in.
+    func connect(authorize: Bool) async throws
     func prepare(_ track: PlayableTrack) async throws
     /// Returns once audio is actually audible.
     func play(fromMs: Int) async throws -> AudibleStart

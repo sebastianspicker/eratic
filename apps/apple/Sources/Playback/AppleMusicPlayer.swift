@@ -13,8 +13,11 @@ final class AppleMusicPlayer: Player {
     private var usingPreview = false
     private let startTimeout = Duration.seconds(10)
 
-    func connect() async throws {
-        guard await MusicAuthorization.request() == .authorized else {
+    func connect(authorize: Bool) async throws {
+        // MusicKit uses the system account and subscription, never an Eratic credential form.
+        let status = MusicAuthorization.currentStatus == .notDetermined
+            ? await MusicAuthorization.request() : MusicAuthorization.currentStatus
+        guard status == .authorized else {
             tier = .unavailable(reason: PlaybackError.notAuthorised.localizedDescription)
             throw PlaybackError.notAuthorised
         }

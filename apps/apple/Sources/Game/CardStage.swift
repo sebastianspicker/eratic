@@ -170,6 +170,7 @@ private struct ClipPanel: View {
     @EnvironmentObject private var game: GameController
     @State private var nudgeMs = 0
     @State private var played = false
+    @State private var previewRevision = UUID()
     @State private var playError: String?
     /// Preparing the track; Play is disabled until the clip starts or preparing fails.
     @State private var prepareTask: Task<Void, Never>?
@@ -230,6 +231,7 @@ private struct ClipPanel: View {
                         Text("Scan with a phone to play the song there.").font(.callout).foregroundStyle(.secondary)
                     }
                 }
+                if let url = track.url { EmbeddedPreview(url: url).id(previewRevision) }
                 Button("Play on \(providerName(track))") { openManually(track) }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
@@ -307,6 +309,7 @@ private struct ClipPanel: View {
     }
 
     private func openManually(_ track: PlayableTrack) {
+        previewRevision = UUID()
         let manual = ManualPlayer(openURL: { ExternalURL.open($0) })
         Task {
             do {

@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Spotify's official loader requires eval. Its policy is confined to this
+       trusted bridge document; the main app retains its no-eval policy. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-eval' https://open.spotify.com/embed/iframe-api/ https://embed-cdn.spotifycdn.com/_next/static/; style-src 'unsafe-inline'; frame-src https://open.spotify.com; connect-src https://*.spotify.com; img-src https: data:; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin">
+  <title>Spotify preview</title>
+  <style>html,body{margin:0;background:transparent}iframe{border:0}</style>
+</head>
+<body><div id="player"></div><script src="./spotify-preview.js"></script></body>
+</html>

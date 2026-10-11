@@ -2,6 +2,8 @@
 
 Date: 2026-10-11. Status: implemented (agent decision following the user's direction to build the ledger; the product decisions it rests on are in [ADR 0010](0010-own-scanner-and-streaming-playback.md)).
 
+Provider availability and sign-in behavior are amended by [ADR 0014](0014-app-first-playback.md): QR/app-link playback is always available; interactive timed-playback authorization is optional.
+
 ## Context
 
 The original game-mode ledger proposed nine modes, modifiers and tie-breaks; its maintained [overview](../game-modes.md) now links to the contract and design. Both apps must score them identically: a game hosted on an iPad and replayed in a browser must give the same standings. The deck format already solved the same problem with written rules plus executable cases that both cores run ([ADR 0002](0002-versioned-deck-contract.md), [ADR 0008](0008-explicit-text-and-url-rules.md)). The ledger also left questions open (Q1–Q8) that the build needed answered.

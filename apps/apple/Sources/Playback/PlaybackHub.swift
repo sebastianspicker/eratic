@@ -28,21 +28,22 @@ final class PlaybackHub: ObservableObject {
     /// The adapter for the chosen provider, created on first use.
     var player: Player { adapter(provider) }
 
-    func connect(_ provider: PlaybackProvider) async {
+    func connect(_ provider: PlaybackProvider, authorize: Bool = false) async {
+        guard status != .connecting else { return }
         // Until the new adapter is connected, nothing may target it with exact clips.
-        if provider != self.provider { tier = .unavailable(reason: "Connecting…") }
+        tier = .noExactPlayback
         self.provider = provider
         status = .connecting
         error = nil
         let adapter = adapter(provider)
         do {
-            try await adapter.connect()
+            try await adapter.connect(authorize: authorize)
+            tier = adapter.tier
             status = .connected
         } catch {
             self.error = error as? PlaybackError ?? .network
             status = .failed
         }
-        tier = adapter.tier
     }
 
     func track(for card: SongCard) -> PlayableTrack? {

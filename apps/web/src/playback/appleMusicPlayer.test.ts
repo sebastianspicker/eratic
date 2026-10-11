@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { AppleMusicPlayer } from "./appleMusicPlayer";
 import { FakeClock } from "./testing";
 
-function setup(opts: { storefrontFails?: boolean; authorised?: boolean; startDelay?: number } = {}) {
+function setup(opts: { storefrontFails?: boolean; authorised?: boolean; alreadyAuthorized?: boolean; startDelay?: number } = {}) {
   const clock = new FakeClock();
   const log: string[] = [];
   let playedAt: number | undefined;
   let from = 0;
   const music = {
-    isAuthorized: false,
+    isAuthorized: opts.alreadyAuthorized ?? false,
     storefrontId: "de",
     get playbackState() {
       const delay = opts.startDelay ?? 0;
@@ -54,15 +54,32 @@ function setup(opts: { storefrontFails?: boolean; authorised?: boolean; startDel
 }
 
 describe("AppleMusicPlayer", () => {
-  it("is not configured without a developer token", async () => {
+  it("uses app links without prompting when MusicKit has no existing authorization", async () => {
+    const { player, log } = setup();
+    await player.connect();
+    expect(player.tier()).toEqual({ kind: "noExactPlayback" });
+    expect(log).toEqual([]);
+  });
+
+  it("reuses MusicKit authorization without requesting credentials again", async () => {
+    const { player, log, configured } = setup({ alreadyAuthorized: true });
+    await player.connect();
+    await player.connect(true);
+    expect(player.tier()).toEqual({ kind: "fullTrack" });
+    expect(log).not.toContain("authorize");
+    expect(configured).toHaveLength(1);
+  });
+
+  it("offers manual playback without a developer token", async () => {
     const player = new AppleMusicPlayer({ developerToken: "" });
     expect(player.tier().kind).toBe("unavailable");
-    await expect(player.connect()).rejects.toMatchObject({ code: "notConfigured" });
+    await player.connect();
+    expect(player.tier()).toEqual({ kind: "noExactPlayback" });
   });
 
   it("configures MusicKit and reports full tracks when the storefront call works", async () => {
     const { player, configured, log } = setup();
-    await player.connect();
+    await player.connect(true);
     expect(configured[0]).toEqual({
       developerToken: "dev",
       app: { name: "Eratic", build: "0.1.0" },
@@ -73,18 +90,18 @@ describe("AppleMusicPlayer", () => {
 
   it("falls back to 30 s previews when the storefront call fails", async () => {
     const { player } = setup({ storefrontFails: true });
-    await player.connect();
+    await player.connect(true);
     expect(player.tier()).toEqual({ kind: "previewOnly", maxMs: 30_000 });
   });
 
   it("reports notAuthorised when the user declines", async () => {
     const { player } = setup({ authorised: false });
-    await expect(player.connect()).rejects.toMatchObject({ code: "notAuthorised" });
+    await expect(player.connect(true)).rejects.toMatchObject({ code: "notAuthorised" });
   });
 
   it("queues, seeks, plays and finds the audible start", async () => {
     const { player, clock, log } = setup({ startDelay: 300 });
-    await player.connect();
+    await player.connect(true);
     await player.prepare({ provider: "appleMusic", id: "123", storefront: "us" });
     const started = player.play(30_000);
     await clock.advance(800);

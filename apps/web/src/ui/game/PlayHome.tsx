@@ -28,7 +28,7 @@ function PlaybackPanel({ hub, deck }: { hub: PlaybackHub; deck: Deck }) {
   const state = useHub(hub);
   const available = hub.availableProviders();
   const [choice, setChoice] = useState<PlaybackProvider>(
-    state.provider ?? available[0] ?? "manual",
+    state.provider ?? "manual",
   );
   const [fresh, setFresh] = useState<{ provider: PlaybackProvider; result: CalibrationResult }>();
   const [calibrating, setCalibrating] = useState(false);
@@ -71,12 +71,11 @@ function PlaybackPanel({ hub, deck }: { hub: PlaybackHub; deck: Deck }) {
                 name="provider"
                 value={item}
                 checked={choice === item}
-                disabled={!usable}
+                disabled={state.connecting || !usable}
                 onChange={() => setChoice(item)}
               />
               <span>
                 {PROVIDER_NAMES[item]}
-                {usable ? null : <span className="muted"> · Not set up in this build</span>}
               </span>
             </label>
           );
@@ -88,9 +87,18 @@ function PlaybackPanel({ hub, deck }: { hub: PlaybackHub; deck: Deck }) {
           disabled={state.connecting || !available.includes(choice)}
           onClick={() => void hub.connect(choice)}
         >
-          {state.connecting ? "Connecting…" : "Connect"}
+          {state.connecting ? "Connecting…" : "Use playback"}
         </button>
+        {hub.canAuthorize(choice) && !(provider === choice && exact) ? (
+          <button disabled={state.connecting} onClick={() => void hub.connect(choice, true)}>
+            Enable timed clips
+          </button>
+        ) : null}
       </div>
+      <p className="muted">
+        Song links open in your music app or browser, using the account signed in there.
+        Spotify Free works with manual playback. Timed clips need separate permission.
+      </p>
       <p className="tier" role="status">
         {provider && state.tier ? tierText(provider, state.tier) : "Not connected yet."}
       </p>

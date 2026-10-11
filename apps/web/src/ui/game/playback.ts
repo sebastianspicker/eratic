@@ -116,7 +116,7 @@ export function tierText(provider: PlaybackProvider, tier: PlaybackTier): string
     return `${PROVIDER_NAMES[provider]} preview: ${Math.round(tier.maxMs / 1000)}-second clips`;
   if (tier.kind === "noExactPlayback")
     return provider === "spotify"
-      ? "Spotify Free: you start each song yourself"
+      ? "Spotify: manual playback (Free or Premium)"
       : `${PROVIDER_NAMES[provider]}: you start each song yourself`;
   return provider === "spotify" ? "Spotify Premium: exact clips" : `${PROVIDER_NAMES[provider]}: exact clips`;
 }

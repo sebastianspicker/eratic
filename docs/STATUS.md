@@ -10,7 +10,7 @@ Public positioning focuses on user-curated decks and their linked QR codes. Orig
 - **QR routes:** explicit direct-provider links or supplied official mappings labelled unverified. A provider-independent Eratic route is implemented but unavailable until a card domain is configured. No official-app arbitrary-song compatibility has been demonstrated.
 - **Games:** all [nine modes](game-modes.md), with their supported Name It, Stakes, Kids and Sudden Death modifiers. Session action logs and deck snapshots support saved games and replay; scores come from the cores.
 - **Scanning:** AVFoundation/Vision on Apple; BarcodeDetector or jsQR on the web. Scanning selects cards in the loaded deck and does not open arbitrary URLs.
-- **Playback adapters:** Spotify, Apple Music and manual playback. Provider playback needs credentials and live-account verification. Exact clips use audible-start timing with an in-app calibration.
+- **Playback adapters:** Spotify, Apple Music and manual playback are selectable without credentials or developer configuration. Native links prefer installed music apps; ordinary provider selection reuses existing Eratic authorization or falls back to QR/song links. Native MusicKit uses the device's subscription after system permission. Interactive authorization for timed playback is optional and requires developer setup for Spotify/web MusicKit. Unknown accounts are not labelled Spotify Free. Without exact clips, Lineup uses titles; Snippet Ladder and Original or Imposter require exact clips. Single-card stages also offer on-demand Spotify and Apple Music embeds without app credentials. Spotify controls conceal song details; Apple uses an explicitly revealed host player. QR/app links remain available. Embeds do not qualify as exact clips. Live subscription/device behavior remains unverified. See [ADR 0014](adr/0014-app-first-playback.md).
 - **Storage:** web decks and games persist locally with unreadable-value quarantine; native games persist in Application Support and deck edits require export. No backend or cross-device synchronization.
 - **Presentation:** nine era styles, sourced from `design/eras.json`, with scoring boundaries in `contract/eras.json`. QR codes remain black on white.
 - **Playlist candidates:** both cores parse playlist references, normalize provider pages, report review issues and promote candidates only with a curated year and source. Shared fixtures cover these rules. No live retrieval or review screens yet.
@@ -21,17 +21,20 @@ Local verification on 2026-10-11 with macOS 27, Node 26.10 and Xcode Swift 6.4:
 
 | Check | Result |
 | --- | --- |
-| `make web-check` | Exit 0: 1712 tests in 26 files, TypeScript and production build |
+| `make web-check` | Exit 0: 1732 tests in 28 files, TypeScript and production build |
 | `make core-test` | Exit 0: actual SwiftPM, 94 tests, no failures; includes playlist candidates |
 | `make apple-build` | Exit 0: unsigned macOS and generic iOS Simulator builds |
 | Production CSP | Browser startup passes; standalone schema validators require no runtime code evaluation |
 | Native Mac smoke check | Deck and Bullseye setup, draw, locked guesses, reveal and results inspected; Start keeps Play selected |
 | Browser smoke checks | Chrome at 1440×1000 and 390×844: Bullseye (including reload/resume), Timeline, Era Sort, Higher or Lower, Relay, Lineup by name and five-round Daily Eratic through results |
+| Manual-play QR | Chrome at 1440×1000 and 390×844: Play it yourself → Bullseye → draw shows a QR; its rendered SVG rasterized at 180 px decodes to the current song link. Reload/resume and final results pass; scan-caption contrast corrected. Apple QR implementation compiles for macOS and iOS; native QR scanning/rendering not checked. |
+| Provider selection without credentials | Chrome at 1440×1000 and 390×844: Spotify, Apple Music and manual each reach Bullseye results, including reload/resume, with no provider network requests. Each QR decodes to the selected provider's supplied URL. Unit tests cover authorization reuse, explicit sign-in, Free fallback and stale-tier clearing after connect failure. Updated macOS/iOS app builds pass; installed-app routing and live subscriptions still need device checks. |
+| Embedded previews | Chrome production build at 1440×1000 and 390×1000: signed-out Spotify (manual and selected-provider routes) and Apple Music play real audio, stop/replay, hide metadata and remove frames on reveal. Six scenarios pass with no console/page errors or horizontal overflow. Loading starts only on request. A blocked-load test retains the QR, recovers via Retry and unloads audio before external app-link playback. A native macOS WebKit probe using the app's Spotify HTML reports ready → starting → playing → disposal; both native targets build. Full native UI, native Apple audio and iOS audio remain unverified. |
 | Browser accessibility/layout sample | Timeline arrow/Enter selection, era-grid arrow selection, Lineup reorder controls, reveal-heading focus, Reduce Motion, no console errors, error overlay or horizontal overflow in the tested flows |
 
 These are focused checks, not exhaustive acceptance. Still unverified:
 
-- Live Spotify/Apple Music playback, regional availability, provider CSP hosts, preview-tier behavior and the 150 ms clip-timing target.
+- Authorized Spotify/Apple Music playback, regional/catalogue availability, native end-to-end embed audio and the 150 ms clip-timing target. Browser embed playback has separate focused evidence below; it does not validate timed adapters or device subscriptions.
 - Rendered gameplay for Snippet Ladder and Original or Imposter; wider modifier/keyboard coverage, VoiceOver, Dynamic Type and mobile Safari.
 - Native iPhone/iPad rendering: builds pass; simulator UI checks were explicitly skipped in the latest acceptance pass.
 - Physical cameras/printed cards, physical devices, signing and release packaging.

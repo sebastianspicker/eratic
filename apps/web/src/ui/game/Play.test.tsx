@@ -81,7 +81,7 @@ async function toPlay() {
   await click(button("Play"));
 }
 async function connectManual() {
-  await click(button("Connect"));
+  await click(button("Use playback"));
 }
 async function setUp(mode: string, names: string[], options: Record<string, string> = {}) {
   await click(button(`Play ${mode}`));
@@ -127,12 +127,44 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   Reflect.deleteProperty(navigator, "mediaDevices");
   Reflect.deleteProperty(navigator, "clipboard");
 });
 
 describe("Play home", () => {
+  it.each(["spotify", "appleMusic"])("plays %s links without configuration or sign-in", async (provider) => {
+    const stored = {
+      ...demo,
+      cards: demo.cards.map((card, i) => ({
+        ...card,
+        links: [
+          ...card.links,
+          { provider: "spotify", url: `https://open.spotify.com/track/${String(i).padStart(22, "0")}` },
+          { provider: "appleMusic", url: `https://music.apple.com/us/album/example/123?i=${100 + i}` },
+        ],
+      })),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    const fetch = vi.fn().mockRejectedValue(new Error("Unexpected provider request"));
+    vi.stubGlobal("fetch", fetch);
+    await render();
+    await toPlay();
+    await click($(`input[value="${provider}"]`)!);
+    await click(button("Use playback"));
+    expect(hasButton("Enable timed clips")).toBe(false);
+    expect($("[role=alert]")).toBeNull();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    expect($(".song-qr")).not.toBeNull();
+    const card = stored.cards.find((item) => item.id === order[0])!;
+    expect(text()).not.toContain(card.title);
+    await click(button(provider === "spotify" ? "Play on Spotify" : "Play on Apple Music"));
+    expect(opened).toEqual([card.links.find((link) => link.provider === provider)!.url]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("navigates between Deck and Play and lists all nine modes with reasons in words", async () => {
     await render();
     expect(button("Deck").getAttribute("aria-current")).toBe("page");
@@ -155,8 +187,8 @@ describe("Play home", () => {
     expect(tiles[8].textContent).toContain("Needs exact clips");
     expect(tiles.filter((tile) => tile.textContent?.includes("Coming in this build"))).toHaveLength(0);
     const spotify = $('input[value="spotify"]') as HTMLInputElement;
-    expect(spotify.disabled).toBe(true);
-    expect(spotify.closest("label")?.textContent).toContain("Not set up in this build");
+    expect(spotify.disabled).toBe(false);
+    expect(spotify.closest("label")?.textContent).toBe("Spotify");
     await connectManual();
     expect($(".tier")?.textContent).toBe("Play it yourself: you start each song yourself");
     await click(button("Deck"));

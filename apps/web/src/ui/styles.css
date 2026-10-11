@@ -839,12 +839,24 @@ button.quiet {
   max-width: 180px;
   text-align: center;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--haze);
 }
 .clip-controls {
   flex: 1;
   min-width: 240px;
 }
+.embedded-preview {
+  position: relative;
+  margin-bottom: 18px;
+  color: var(--paper);
+}
+.embedded-preview > button { margin: 0 8px 8px 0; }
+.embedded-preview p { margin: 8px 0; }
+.embedded-preview .preview-note { color: var(--haze); font-size: 14px; max-width: 420px; }
+.embed-frame { width: 100%; max-width: 660px; margin-top: 12px; }
+.embed-frame iframe { display: block; border: 0; border-radius: 12px; }
+/* Keep the iframe alive for audio; conceal metadata from sight and keyboard/AT. */
+.embed-frame.concealed { position: absolute; width: 300px; height: 152px; opacity: 0; pointer-events: none; overflow: hidden; }
 .clip-controls .action-row {
   margin-top: 0;
 }

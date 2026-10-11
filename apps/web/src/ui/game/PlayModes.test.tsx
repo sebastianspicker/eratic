@@ -122,7 +122,8 @@ async function openPlay(stored: object, tier = "Spotify Premium: exact clips") {
     await import("./Play");
   });
   await click(button("Play"));
-  await click(button("Connect"));
+  await click($('input[value="spotify"]')!);
+  await click(button("Use playback"));
   expect($(".tier")?.textContent).toBe(tier);
 }
 async function setUp(mode: string, names: string[], options: Record<string, string> = {}) {
@@ -320,7 +321,7 @@ describe("Playback without exact clips", () => {
     fake.tier = { kind: "noExactPlayback" };
     const stored = deck({}, Object.fromEntries(YEARS.map((_, i) => [i, { links: links(i) }])));
     const card = drawOrder(stored.cards.map((item) => item.id), SEED)[0];
-    await openPlay(stored, "Spotify Free: you start each song yourself");
+    await openPlay(stored, "Spotify: manual playback (Free or Premium)");
     await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
     await click(button("Draw card"));
     await click(button("Play on Spotify"));
@@ -334,7 +335,7 @@ describe("Playback without exact clips", () => {
     fake.tier = { kind: "noExactPlayback" };
     const stored = deck({}, Object.fromEntries(YEARS.map((_, i) => [i, { links: links(i) }])));
     const card = drawOrder(stored.cards.map((item) => item.id), SEED)[0];
-    await openPlay(stored, "Spotify Free: you start each song yourself");
+    await openPlay(stored, "Spotify: manual playback (Free or Premium)");
     await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
     await click(button("Draw card"));
     await waitFor(() => !!$(".song-qr .qr-image svg"));
@@ -371,7 +372,7 @@ describe("Playback without exact clips", () => {
         [second]: { links: [] },
       },
     );
-    await openPlay(stored, "Spotify Free: you start each song yourself");
+    await openPlay(stored, "Spotify: manual playback (Free or Premium)");
     await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "2" });
     await click(button("Draw card"));
     await click(button("Open song link"));
@@ -389,10 +390,11 @@ describe("Playback without exact clips", () => {
     fake.connectError = "Spotify's player did not start.";
     const stored = deck();
     const card = drawOrder(stored.cards.map((item) => item.id), SEED)[0];
-    await openPlay(stored, "Spotify's player did not start.");
+    await openPlay(stored, "Spotify: manual playback (Free or Premium)");
+    expect(text()).toContain("Could not connect. Try again.");
     await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
     await click(button("Draw card"));
-    expect(text()).toContain("Play it yourself: Spotify isn't connected");
+    expect($(".song-qr")).not.toBeNull();
     await click(button("Play on Spotify"));
     expect(opened).toEqual([`https://open.spotify.com/track/${trackId(Number(card.split("-")[1]))}`]);
     expect(fake.plays).toEqual([]);

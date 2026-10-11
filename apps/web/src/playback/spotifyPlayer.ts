@@ -6,7 +6,7 @@ import {
   type PlaybackTier,
   type Player,
 } from "./player";
-import { accessToken, spotifyConfigured, type SpotifyAuthDeps } from "./spotifyAuth";
+import { accessToken, beginSpotifyLogin, loadTokens, spotifyConfigured, type SpotifyAuthDeps } from "./spotifyAuth";
 import { loadScript } from "./scriptLoader";
 
 const API = "https://api.spotify.com/v1";
@@ -98,10 +98,14 @@ export class SpotifyPlayer implements Player {
     }
   }
 
-  async connect(): Promise<void> {
-    if (!spotifyConfigured(this.auth)) {
-      this.current = { kind: "unavailable", reason: "Spotify is not set up in this build." };
-      throw new PlaybackError("notConfigured", "Spotify is not set up in this build.");
+  async connect(authorize = false): Promise<void> {
+    // Keep the free/manual route available without a developer registration or login.
+    // HITSTER's separate free/Premium paths informed this split; see ATTRIBUTION.md.
+    this.current = { kind: "noExactPlayback" };
+    if (!spotifyConfigured(this.auth)) return;
+    if (!loadTokens(this.auth.local)) {
+      if (authorize) await beginSpotifyLogin(this.auth);
+      return;
     }
     const me = await this.api("/me");
     if (!me.ok) throw new PlaybackError("notAuthorised", "Could not read your Spotify account.");

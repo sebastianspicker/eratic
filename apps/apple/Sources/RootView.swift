@@ -23,9 +23,28 @@ final class DeckStore: ObservableObject {
 enum ExternalURL {
     @MainActor
     static func open(_ url: URL) {
+        let track = ScanRules.providerTrack(url.absoluteString)
         #if os(iOS)
+        if let track, track.provider == .spotify,
+           let appURL = URL(string: "spotify:track:\(track.id)") {
+            // Ask the installed app first; a missing app falls back to the supplied HTTPS link.
+            UIApplication.shared.open(appURL) { opened in
+                if !opened { UIApplication.shared.open(url) }
+            }
+            return
+        }
         UIApplication.shared.open(url)
         #else
+        if let track {
+            let bundleID = track.provider == .spotify ? "com.spotify.client" : "com.apple.Music"
+            if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                let target = track.provider == .spotify ? URL(string: "spotify:track:\(track.id)") ?? url : url
+                NSWorkspace.shared.open([target], withApplicationAt: app, configuration: .init()) { _, error in
+                    if error != nil { DispatchQueue.main.async { NSWorkspace.shared.open(url) } }
+                }
+                return
+            }
+        }
         NSWorkspace.shared.open(url)
         #endif
     }

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SpotifyPlayer } from "./spotifyPlayer";
-import { saveTokens } from "./spotifyAuth";
+import { saveTokens, signOutSpotify } from "./spotifyAuth";
 import { FakeClock, jsonResponse, memoryStorage } from "./testing";
 
 interface Call {
@@ -104,12 +104,49 @@ function setup(opts: {
     auth: { clientId: "cid", local, now: () => Date.now() },
     loadSdk: async () => sdk,
   });
-  return { player, clock, calls, sdks };
+  return { player, clock, calls, sdks, local };
 }
 
 const track = { provider: "spotify", id: "trk" } as const;
 
 describe("SpotifyPlayer", () => {
+  it("starts provider authorization only for an explicit timed-playback request", async () => {
+    const navigate = vi.fn();
+    const fetch = vi.fn();
+    const player = new SpotifyPlayer({
+      auth: {
+        clientId: "test-client", local: memoryStorage(), session: memoryStorage(),
+        redirectUri: "https://eratic.example/", navigate,
+      },
+      fetch,
+    });
+    await player.connect();
+    expect(navigate).not.toHaveBeenCalled();
+    await player.connect(true);
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(new URL(navigate.mock.calls[0][0]).origin).toBe("https://accounts.spotify.com");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(player.tier()).toEqual({ kind: "noExactPlayback" });
+  });
+
+  it("falls back without network or SDK calls when no authorization is stored", async () => {
+    const { player, calls, sdks, local } = setup({});
+    signOutSpotify(local);
+    await player.connect();
+    expect(player.tier()).toEqual({ kind: "noExactPlayback" });
+    expect(calls).toEqual([]);
+    expect(sdks).toEqual([]);
+  });
+
+  it("clears a previous Premium tier after authorization is lost", async () => {
+    const { player, local } = setup({});
+    await player.connect();
+    expect(player.tier()).toEqual({ kind: "fullTrack" });
+    signOutSpotify(local);
+    await player.connect();
+    expect(player.tier()).toEqual({ kind: "noExactPlayback" });
+  });
+
   it("is full track for Premium and creates a named device", async () => {
     const { player, sdks, calls } = setup({});
     await player.connect();
@@ -144,12 +181,12 @@ describe("SpotifyPlayer", () => {
     expect(player.tier()).toEqual({ kind: "unavailable", reason: "Spotify's player did not start." });
   });
 
-  it("is not configured without a client id", async () => {
+  it("offers manual playback without a client id", async () => {
     const player = new SpotifyPlayer({ auth: { clientId: "" }, fetch: (async () => {
       throw new Error("no network");
     }) as unknown as typeof fetch });
-    await expect(player.connect()).rejects.toMatchObject({ code: "notConfigured" });
-    expect(player.tier().kind).toBe("unavailable");
+    await player.connect();
+    expect(player.tier()).toEqual({ kind: "noExactPlayback" });
   });
 
   it("sends uri and position and reports the audible start", async () => {

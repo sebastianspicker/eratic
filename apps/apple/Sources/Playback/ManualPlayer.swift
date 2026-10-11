@@ -13,7 +13,7 @@ final class ManualPlayer: Player {
         self.openURL = openURL
     }
 
-    func connect() async throws {}
+    func connect(authorize: Bool) async throws {}
 
     func prepare(_ track: PlayableTrack) async throws {
         url = track.url

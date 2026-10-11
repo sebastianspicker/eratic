@@ -96,14 +96,24 @@ private struct PlaybackPanel: View {
             Picker("Music from", selection: $choice) {
                 ForEach(PlaybackProvider.allCases) { provider in Text(provider.pickerLabel).tag(provider) }
             }
+            .disabled(playback.status == .connecting)
             HStack {
-                Button(playback.status == .connecting ? "Connecting…" : "Connect") {
+                Button(playback.status == .connecting ? "Connecting…" : "Use playback") {
                     Task { await playback.connect(choice) }
                 }
                 .disabled(playback.status == .connecting)
                 Text(tierDescription(provider: playback.provider, tier: playback.tier, status: playback.status))
                     .font(.callout.weight(.medium))
             }
+            if choice == .spotify, AppConfig.spotifyClientID != nil,
+               !(playback.provider == .spotify && playback.tier.exactClips) {
+                Button("Enable timed clips") { Task { await playback.connect(.spotify, authorize: true) } }
+                    .disabled(playback.status == .connecting)
+            }
+            Text(choice == .appleMusic
+                 ? "Uses Apple Music on this device. Allow music access to use your subscription."
+                 : "Song links open in your music app using its existing account. Spotify Free works with manual playback.")
+                .font(.caption).foregroundStyle(.secondary)
             if let error = playback.error {
                 Text(error.localizedDescription).foregroundStyle(.red).font(.callout)
             }

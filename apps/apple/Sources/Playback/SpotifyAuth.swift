@@ -46,11 +46,12 @@ final class SpotifyAuth: NSObject, ASWebAuthenticationPresentationContextProvidi
         Keychain.delete(service: Self.service, account: Self.account)
     }
 
-    /// A valid access token, refreshing or signing in as needed.
-    func accessToken() async throws -> String {
+    /// Reuse/refresh stored authorization. Only an explicit timed-playback request may sign in.
+    func accessToken(allowSignIn: Bool = false) async throws -> String {
         guard let clientID = AppConfig.spotifyClientID else { throw PlaybackError.notConfigured }
         if let tokens, tokens.expiresAt > Date().addingTimeInterval(30) { return tokens.accessToken }
         if tokens != nil { return try await refresh() }
+        guard allowSignIn else { throw PlaybackError.notAuthorised }
         return try await shared {
             try await self.signIn(clientID: clientID)
             guard let tokens = self.tokens else { throw PlaybackError.notAuthorised }

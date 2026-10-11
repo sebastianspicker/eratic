@@ -39,6 +39,7 @@ The npm dev, test, build and typecheck commands first run `scripts/generate-vali
 - Storage errors show an actionable notice, and editing continues in memory.
 - The default QR mode uses a supplied, recognized `officialCard.url`, labelled unverified. Direct provider links need an explicit opt-in.
 - `index.html` carries a Content Security Policy that allows only the Spotify and Apple Music SDK origins; the dev server strips it. Confirm its host list in a real browser with providers connected.
-- Provider scripts load only when the user connects a provider; a scanned QR only selects a card in the loaded deck and never opens anything.
+- Provider scripts load only when the user connects a provider or requests an embedded preview; a scanned QR only selects a card in the loaded deck and never opens anything.
+- All playback choices support QR/song links without sign-in or build credentials. Recognized song links also offer provider embeds on single-card stages: Spotify has concealed preview controls; Apple has an explicitly revealed host player. Previews do not provide exact timing. Spotify's loader runs in `public/spotify-preview.html` with its own CSP because it requires eval; the main page's policy stays eval-free. The bridge is trusted same-origin code, not a storage isolation boundary. *Use playback* reuses an existing Eratic authorization when configured; *Enable timed clips* explicitly requests provider authorization. Spotify Free and failed connections retain manual playback. Browser link handling may open the installed app, but the website cannot inherit its login. See [ADR 0014](../../docs/adr/0014-app-first-playback.md).
 
 Design-idea attribution is kept in comments next to the code and in [docs/ATTRIBUTION.md](../../docs/ATTRIBUTION.md).
