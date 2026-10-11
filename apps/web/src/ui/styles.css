@@ -853,6 +853,10 @@ button.quiet {
 .embedded-preview > button { margin: 0 8px 8px 0; }
 .embedded-preview p { margin: 8px 0; }
 .embedded-preview .preview-note { color: var(--haze); font-size: 14px; max-width: 420px; }
+.preview-transport { display: flex; flex-direction: column; gap: 8px; max-width: 660px; }
+.preview-transport .action-row { margin-top: 0; flex-wrap: wrap; }
+.preview-transport input[type="range"] { width: 100%; margin: 0; accent-color: var(--paper); }
+.preview-time { color: var(--haze); font-variant-numeric: tabular-nums; }
 .embed-frame { width: 100%; max-width: 660px; margin-top: 12px; }
 .embed-frame iframe { display: block; border: 0; border-radius: 12px; }
 /* Keep the iframe alive for audio; conceal metadata from sight and keyboard/AT. */

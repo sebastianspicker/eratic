@@ -7,9 +7,10 @@
   let controller;
   window.addEventListener("message", event => {
     if (event.source !== window.parent || event.origin !== location.origin || event.data?.channel !== "eratic-preview") return;
-    const command = event.data.command;
-    if (!["play", "pause", "restart"].includes(command) || !controller) return;
-    try { controller[command](); } catch { send("error"); }
+    const { command, seconds } = event.data;
+    if (!["play", "pause", "resume", "restart", "seek"].includes(command) || !controller) return;
+    if (command === "seek" && !(typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0)) return;
+    try { command === "seek" ? controller.seek(seconds) : controller[command](); } catch { send("error"); }
   });
   window.onSpotifyIframeApiReady = api => {
     try {

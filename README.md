@@ -11,7 +11,16 @@ Current scope:
 - **Deck:** import and export a deck, select a card, curate its answer year and evidence, set the optional game fields (clip start, difficulty, related recording), and preview an explicitly chosen QR route.
 - **Play:** nine [game modes](docs/game-modes.md) — Timeline, Bullseye, Era Sort, Snippet Ladder, Higher or Lower, Relay, Lineup, Daily Eratic, Original or Imposter — on one host device, drawing cards from the loaded deck or scanning QR codes linked to its cards, with Spotify or Apple Music playback (or "play it yourself" without an account). Both apps compute the same scores from the same [rules](contract/game-rules.md).
 
-The bundled songs and example.com links are fictional. Live playlist import and print-ready output are planned, not implemented. Provider playback needs your own Spotify app registration and MusicKit setup, and none of it has been tried against live accounts yet. See [status](docs/STATUS.md).
+The bundled songs and example.com links are fictional. Live playlist import and print-ready output are planned, not implemented. Without any account or setup, every card shows its song's QR code and link, and single-card rounds can play the provider's short preview from a hidden player; this works in Chrome with Spotify and Apple Music but is not yet verified on devices. Timed clips need your own Spotify app registration and MusicKit setup and have not been tried against live accounts. See [status](docs/STATUS.md).
+
+## Music, artists and legal notes
+
+**Support the artists.** If the game brings back songs you love or introduces new ones, please listen with a paid Spotify Premium or Apple Music subscription, or buy the music, so artists and songwriters get paid.
+
+- **No music is hosted here.** This repository and the apps contain no recordings, artwork or song catalogues. Audio and previews are streamed directly from Spotify or Apple Music through their public players and interfaces, subject to their terms. Song links and years in a deck are entered by its user.
+- **Your use is your responsibility.** Follow the terms of the music service you use. Playing music in public or commercially, for example at an event or venue, may need a performance licence from a collecting society (in Germany, GEMA).
+- **No affiliation.** Eratic is an independent project, not affiliated with or endorsed by Spotify, Apple or the makers of HITSTER. Their names and trademarks belong to their owners and are used only to identify their services.
+- **No warranty.** The software is provided as is, without warranty. This section is not legal advice.
 
 ## Run it
 
@@ -66,4 +75,4 @@ Historical research and superseded plans are kept in an ignored local archive an
 
 The code is written for this repository. It adapts design ideas from the projects credited in [the attribution map](docs/ATTRIBUTION.md) but copies none of their code. The [attribution map](docs/ATTRIBUTION.md) distinguishes adopted ideas, planned improvements, and practices we avoided. Playlist-to-card generation inspired by [Digibitz](https://www.digibitz.nl/hitster-kaarten/) is part of the [playlist import plan](docs/playlist-import.md).
 
-No distribution licence has been chosen for this project's own code yet. Upstream inspiration does not grant one, nor any rights to song metadata or artwork. Dependency licences remain separate.
+The project's own code is released under the [MIT License](LICENSE) ([ADR 0015](docs/adr/0015-mit-licence.md)). It grants no rights to song recordings, metadata, artwork or third-party trademarks. Dependencies and the bundled typeface keep their own licences.
