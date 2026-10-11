@@ -1,0 +1,1892 @@
+{
+  "description": "Session file text accepted or rejected by the strict session decoder (game-rules.md section 4), shared by Apple and web. A case carries `session` (a JSON value), `json` (exact file text) or `base64` (exact file bytes). When `padToBytes` is present, the runner appends ASCII spaces to `json` until its UTF-8 encoding is exactly that many bytes, so the 2 MiB limit is tested without storing 2 MiB here. A session is valid only when it matches session-v1.schema.json and replays without error.",
+  "cases": [
+    {
+      "name": "valid-minimal-session",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-session-text-with-actions",
+      "valid": true,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": [\n    {\n      \"type\": \"draw\",\n      \"at\": 0,\n      \"card\": {\n        \"cardId\": \"c1984\",\n        \"year\": 1984,\n        \"era\": \"neon\"\n      }\n    },\n    {\n      \"type\": \"guess\",\n      \"at\": 1000,\n      \"playerId\": \"p1\",\n      \"year\": 1984\n    },\n    {\n      \"type\": \"guess\",\n      \"at\": 2000,\n      \"playerId\": \"p2\",\n      \"year\": 1990\n    },\n    {\n      \"type\": \"reveal\",\n      \"at\": 3000\n    }\n  ]\n}"
+    },
+    {
+      "name": "valid-empty-options-take-defaults",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {},
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-every-mode-member-in-text",
+      "valid": true,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"timeline\",\n  \"options\": {\n    \"ownership\": \"shared\",\n    \"anchor\": \"custom\",\n    \"anchorYear\": 1975,\n    \"target\": 5,\n    \"challenges\": false,\n    \"tokens\": 0,\n    \"nameIt\": true,\n    \"stakes\": true,\n    \"clip\": \"10s\"\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    },\n    {\n      \"id\": \"p3\",\n      \"name\": \"Kai\"\n    }\n  ],\n  \"actions\": [\n    {\n      \"type\": \"anchor\",\n      \"at\": 0,\n      \"card\": {\n        \"cardId\": \"c1975\",\n        \"year\": 1975,\n        \"era\": \"disco\"\n      }\n    }\n  ]\n}"
+    },
+    {
+      "name": "valid-utf8-bom-ignored",
+      "valid": true,
+      "base64": "77u/ewogICJmb3JtYXQiOiAiZXJhdGljLXNlc3Npb24iLAogICJzZXNzaW9uVmVyc2lvbiI6IDEsCiAgImlkIjogInMtMjAyNjEwMTEtMSIsCiAgImNyZWF0ZWRBdCI6ICIyMDI2LTEwLTExVDE5OjMwOjAwWiIsCiAgImRlY2tJZCI6ICJkZW1vLWRlY2siLAogICJkZWNrVGl0bGUiOiAiRGVtbyBkZWNrIiwKICAibW9kZSI6ICJidWxsc2V5ZSIsCiAgIm9wdGlvbnMiOiB7CiAgICAicm91bmRzIjogMQogIH0sCiAgInNlZWQiOiA0MiwKICAicGxheWVycyI6IFsKICAgIHsKICAgICAgImlkIjogInAxIiwKICAgICAgIm5hbWUiOiAiQWRhIgogICAgfSwKICAgIHsKICAgICAgImlkIjogInAyIiwKICAgICAgIm5hbWUiOiAiTGluIgogICAgfQogIF0sCiAgImFjdGlvbnMiOiBbXQp9"
+    },
+    {
+      "name": "valid-player-members",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "team-a",
+            "name": "Team A",
+            "members": [
+              "Ada",
+              "Lin",
+              "Kai",
+              "Mo",
+              "Rui",
+              "Sol",
+              "Tam",
+              "Uma"
+            ]
+          },
+          {
+            "id": "team_b",
+            "name": "Team B",
+            "members": []
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-name-of-40-astral-code-points",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵🎵"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-player-id-of-32-characters",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-seed-4294967295",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 4294967295,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-seed-0",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 0,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-escaped-strings",
+      "valid": true,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo \\u00e9 deck \\ud83c\\udfb5\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "valid-exactly-2-mib",
+      "valid": true,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}",
+      "padToBytes": 2097152
+    },
+    {
+      "name": "invalid-over-2-mib",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}",
+      "padToBytes": 2097153
+    },
+    {
+      "name": "invalid-duplicate-member-name",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-duplicate-member-name-escaped",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"mo\\u0064e\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-duplicate-member-in-action",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": [\n    {\n      \"type\": \"draw\",\n      \"at\": 0,\n      \"card\": {\n        \"cardId\": \"c1984\",\n        \"year\": 1984,\n        \"era\": \"neon\"\n      }\n    },\n    {\n      \"type\": \"guess\",\n      \"at\": 1000,\n      \"playerId\": \"p1\",\n      \"playerId\": \"p1\",\n      \"year\": 1984\n    },\n    {\n      \"type\": \"guess\",\n      \"at\": 2000,\n      \"playerId\": \"p2\",\n      \"year\": 1990\n    },\n    {\n      \"type\": \"reveal\",\n      \"at\": 3000\n    }\n  ]\n}"
+    },
+    {
+      "name": "invalid-duplicate-member-in-player",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-null-member",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": null,\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-null-option",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": null\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-null-in-action",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": [\n    {\n      \"type\": \"draw\",\n      \"at\": 0,\n      \"card\": {\n        \"cardId\": \"c1984\",\n        \"year\": 1984,\n        \"era\": \"neon\"\n      }\n    },\n    {\n      \"type\": \"guess\",\n      \"at\": 1000,\n      \"playerId\": null,\n      \"year\": 1984\n    },\n    {\n      \"type\": \"guess\",\n      \"at\": 2000,\n      \"playerId\": \"p2\",\n      \"year\": 1990\n    },\n    {\n      \"type\": \"reveal\",\n      \"at\": 3000\n    }\n  ]\n}"
+    },
+    {
+      "name": "invalid-null-player",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    null,\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-unknown-top-level-member",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [],
+        "notes": "x"
+      }
+    },
+    {
+      "name": "invalid-unknown-option-member",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1,
+          "speed": 2
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-unknown-action-member",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            },
+            "at": 0,
+            "extra": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-unknown-card-member",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon",
+              "title": "x"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-unknown-player-member",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada",
+            "email": "a@example.com"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-format",
+      "valid": false,
+      "session": {
+        "format": "eratic-deck",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-session-version-2",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-session-version-string",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": "1",
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-missing-options",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-missing-actions",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-session-id-pattern",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "-s1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-deck-id-with-space",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-deck-id-of-65-characters",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-deck-id-trailing-newline",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo\n",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-player-id-of-33-characters",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-player-id-pattern",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "_p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-card-id-pattern",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c 1",
+              "year": 1984,
+              "era": "neon"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-whitespace-only-name",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "   "
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-ideographic-space-only-name",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "　"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-empty-name",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": ""
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-name-of-41-code-points",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-nine-members",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada",
+            "members": [
+              "x",
+              "x",
+              "x",
+              "x",
+              "x",
+              "x",
+              "x",
+              "x",
+              "x"
+            ]
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-empty-deck-title",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-deck-title-of-501-code-points",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-no-players",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-eleven-players",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p0",
+            "name": "x"
+          },
+          {
+            "id": "p1",
+            "name": "x"
+          },
+          {
+            "id": "p2",
+            "name": "x"
+          },
+          {
+            "id": "p3",
+            "name": "x"
+          },
+          {
+            "id": "p4",
+            "name": "x"
+          },
+          {
+            "id": "p5",
+            "name": "x"
+          },
+          {
+            "id": "p6",
+            "name": "x"
+          },
+          {
+            "id": "p7",
+            "name": "x"
+          },
+          {
+            "id": "p8",
+            "name": "x"
+          },
+          {
+            "id": "p9",
+            "name": "x"
+          },
+          {
+            "id": "p10",
+            "name": "x"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-seed-minus-1",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": -1,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-seed-2-to-the-32",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 4294967296,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-seed-fraction",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 1.5,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-created-at-format",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11 19:30:00",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-created-at-offset",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00+02:00",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-unknown-mode",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "trivia",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-non-integer-at",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            },
+            "at": 1.5
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-negative-at",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            },
+            "at": -1
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-missing-at",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-unknown-action-type",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "dance",
+            "at": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-unknown-era",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            },
+            "at": 0
+          },
+          {
+            "type": "pickEra",
+            "at": 1,
+            "playerId": "p1",
+            "era": "grunge"
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-card-year-1849",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1",
+              "year": 1849,
+              "era": "shellac"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-clip-length-0",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "clip",
+            "at": 1,
+            "fromMs": 0,
+            "lengthMs": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-step-index-5",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {},
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 5
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-option-type",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": "10"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-option-k-6",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "lineup",
+        "options": {
+          "k": 6
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-lineup-set-of-six",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "lineup",
+        "options": {},
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": [
+          {
+            "type": "drawSet",
+            "at": 0,
+            "cards": [
+              {
+                "cardId": "c1950",
+                "year": 1950,
+                "era": "jukebox"
+              },
+              {
+                "cardId": "c1960",
+                "year": 1960,
+                "era": "mod"
+              },
+              {
+                "cardId": "c1970",
+                "year": 1970,
+                "era": "disco"
+              },
+              {
+                "cardId": "c1980",
+                "year": 1980,
+                "era": "neon"
+              },
+              {
+                "cardId": "c1990",
+                "year": 1990,
+                "era": "zine"
+              },
+              {
+                "cardId": "c2000",
+                "year": 2000,
+                "era": "chrome"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-number-spelled-as-string-boolean",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1,
+          "stakes": "true"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-utf16-bytes",
+      "valid": false,
+      "base64": "//57AAoAIAAgACIAZgBvAHIAbQBhAHQAIgA6ACAAIgBlAHIAYQB0AGkAYwAtAHMAZQBzAHMAaQBvAG4AIgAsAAoAIAAgACIAcwBlAHMAcwBpAG8AbgBWAGUAcgBzAGkAbwBuACIAOgAgADEALAAKACAAIAAiAGkAZAAiADoAIAAiAHMALQAyADAAMgA2ADEAMAAxADEALQAxACIALAAKACAAIAAiAGMAcgBlAGEAdABlAGQAQQB0ACIAOgAgACIAMgAwADIANgAtADEAMAAtADEAMQBUADEAOQA6ADMAMAA6ADAAMABaACIALAAKACAAIAAiAGQAZQBjAGsASQBkACIAOgAgACIAZABlAG0AbwAtAGQAZQBjAGsAIgAsAAoAIAAgACIAZABlAGMAawBUAGkAdABsAGUAIgA6ACAAIgBEAGUAbQBvACAAZABlAGMAawAiACwACgAgACAAIgBtAG8AZABlACIAOgAgACIAYgB1AGwAbABzAGUAeQBlACIALAAKACAAIAAiAG8AcAB0AGkAbwBuAHMAIgA6ACAAewAKACAAIAAgACAAIgByAG8AdQBuAGQAcwAiADoAIAAxAAoAIAAgAH0ALAAKACAAIAAiAHMAZQBlAGQAIgA6ACAANAAyACwACgAgACAAIgBwAGwAYQB5AGUAcgBzACIAOgAgAFsACgAgACAAIAAgAHsACgAgACAAIAAgACAAIAAiAGkAZAAiADoAIAAiAHAAMQAiACwACgAgACAAIAAgACAAIAAiAG4AYQBtAGUAIgA6ACAAIgBBAGQAYQAiAAoAIAAgACAAIAB9ACwACgAgACAAIAAgAHsACgAgACAAIAAgACAAIAAiAGkAZAAiADoAIAAiAHAAMgAiACwACgAgACAAIAAgACAAIAAiAG4AYQBtAGUAIgA6ACAAIgBMAGkAbgAiAAoAIAAgACAAIAB9AAoAIAAgAF0ALAAKACAAIAAiAGEAYwB0AGkAbwBuAHMAIgA6ACAAWwBdAAoAfQA="
+    },
+    {
+      "name": "invalid-utf8-bytes",
+      "valid": false,
+      "base64": "ewogICJmb3JtYXQiOiAiZXJhdGnDKGMtc2Vzc2lvbiIsCiAgInNlc3Npb25WZXJzaW9uIjogMSwKICAiaWQiOiAicy0yMDI2MTAxMS0xIiwKICAiY3JlYXRlZEF0IjogIjIwMjYtMTAtMTFUMTk6MzA6MDBaIiwKICAiZGVja0lkIjogImRlbW8tZGVjayIsCiAgImRlY2tUaXRsZSI6ICJEZW1vIGRlY2siLAogICJtb2RlIjogImJ1bGxzZXllIiwKICAib3B0aW9ucyI6IHsKICAgICJyb3VuZHMiOiAxCiAgfSwKICAic2VlZCI6IDQyLAogICJwbGF5ZXJzIjogWwogICAgewogICAgICAiaWQiOiAicDEiLAogICAgICAibmFtZSI6ICJBZGEiCiAgICB9LAogICAgewogICAgICAiaWQiOiAicDIiLAogICAgICAibmFtZSI6ICJMaW4iCiAgICB9CiAgXSwKICAiYWN0aW9ucyI6IFtdCn0="
+    },
+    {
+      "name": "invalid-trailing-comma",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": [],\n}"
+    },
+    {
+      "name": "invalid-comment",
+      "valid": false,
+      "json": "// session\n{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-unpaired-surrogate-escape",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada \\ud800\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-unpaired-surrogate-in-member-name",
+      "valid": false,
+      "json": "{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"\\udc00\": 1,\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}"
+    },
+    {
+      "name": "invalid-top-level-array",
+      "valid": false,
+      "json": "[{\n  \"format\": \"eratic-session\",\n  \"sessionVersion\": 1,\n  \"id\": \"s-20261011-1\",\n  \"createdAt\": \"2026-10-11T19:30:00Z\",\n  \"deckId\": \"demo-deck\",\n  \"deckTitle\": \"Demo deck\",\n  \"mode\": \"bullseye\",\n  \"options\": {\n    \"rounds\": 1\n  },\n  \"seed\": 42,\n  \"players\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"Ada\"\n    },\n    {\n      \"id\": \"p2\",\n      \"name\": \"Lin\"\n    }\n  ],\n  \"actions\": []\n}]"
+    },
+    {
+      "name": "invalid-schema-valid-but-replay-fails",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reveal",
+            "at": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-schema-valid-but-setup-fails",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "kids": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-duplicate-player-ids",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p1",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "member-names-exact-nameIt-ascii-baseline",
+      "valid": true,
+      "json": "{\"format\": \"eratic-session\", \"sessionVersion\": 1, \"id\": \"s-20261011-1\", \"createdAt\": \"2026-10-11T19:30:00Z\", \"deckId\": \"demo-deck\", \"deckTitle\": \"Demo deck\", \"mode\": \"timeline\", \"options\": {\"nameIt\": true}, \"seed\": 42, \"players\": [{\"id\": \"p1\", \"name\": \"Ada\"}, {\"id\": \"p2\", \"name\": \"Lin\"}], \"actions\": [{\"type\": \"anchor\", \"at\": 0, \"playerId\": \"p1\", \"card\": {\"cardId\": \"c1960\", \"year\": 1960, \"era\": \"mod\"}}, {\"type\": \"anchor\", \"at\": 1000, \"playerId\": \"p2\", \"card\": {\"cardId\": \"c1990\", \"year\": 1990, \"era\": \"zine\"}}, {\"type\": \"draw\", \"at\": 2000, \"card\": {\"cardId\": \"c1970\", \"year\": 1970, \"era\": \"disco\"}}, {\"type\": \"place\", \"at\": 3000, \"playerId\": \"p1\", \"slot\": 1}, {\"type\": \"nameIt\", \"at\": 4000, \"playerId\": \"p1\", \"titleOK\": true, \"artistOK\": true}, {\"type\": \"reveal\", \"at\": 5000}]}"
+    },
+    {
+      "name": "member-name-titleOK-with-kelvin-sign-in-nameIt",
+      "valid": false,
+      "json": "{\"format\": \"eratic-session\", \"sessionVersion\": 1, \"id\": \"s-20261011-1\", \"createdAt\": \"2026-10-11T19:30:00Z\", \"deckId\": \"demo-deck\", \"deckTitle\": \"Demo deck\", \"mode\": \"timeline\", \"options\": {\"nameIt\": true}, \"seed\": 42, \"players\": [{\"id\": \"p1\", \"name\": \"Ada\"}, {\"id\": \"p2\", \"name\": \"Lin\"}], \"actions\": [{\"type\": \"anchor\", \"at\": 0, \"playerId\": \"p1\", \"card\": {\"cardId\": \"c1960\", \"year\": 1960, \"era\": \"mod\"}}, {\"type\": \"anchor\", \"at\": 1000, \"playerId\": \"p2\", \"card\": {\"cardId\": \"c1990\", \"year\": 1990, \"era\": \"zine\"}}, {\"type\": \"draw\", \"at\": 2000, \"card\": {\"cardId\": \"c1970\", \"year\": 1970, \"era\": \"disco\"}}, {\"type\": \"place\", \"at\": 3000, \"playerId\": \"p1\", \"slot\": 1}, {\"type\": \"nameIt\", \"at\": 4000, \"playerId\": \"p1\", \"titleOK\": true, \"artistOK\": true}, {\"type\": \"reveal\", \"at\": 5000}]}"
+    },
+    {
+      "name": "member-names-exact-mark-ascii-baseline",
+      "valid": true,
+      "json": "{\"format\": \"eratic-session\", \"sessionVersion\": 1, \"id\": \"s-20261011-1\", \"createdAt\": \"2026-10-11T19:30:00Z\", \"deckId\": \"demo-deck\", \"deckTitle\": \"Demo deck\", \"mode\": \"ladder\", \"options\": {\"rounds\": 1}, \"seed\": 42, \"players\": [{\"id\": \"p1\", \"name\": \"Ada\"}], \"actions\": [{\"type\": \"draw\", \"at\": 0, \"card\": {\"cardId\": \"c1984\", \"year\": 1984, \"era\": \"neon\"}}, {\"type\": \"step\", \"at\": 1000, \"index\": 0}, {\"type\": \"lock\", \"at\": 2000, \"playerId\": \"p1\"}, {\"type\": \"mark\", \"at\": 3000, \"playerId\": \"p1\", \"titleOK\": true, \"artistOK\": true}, {\"type\": \"reveal\", \"at\": 4000}]}"
+    },
+    {
+      "name": "member-name-titleOK-with-kelvin-escape-in-mark",
+      "valid": false,
+      "json": "{\"format\": \"eratic-session\", \"sessionVersion\": 1, \"id\": \"s-20261011-1\", \"createdAt\": \"2026-10-11T19:30:00Z\", \"deckId\": \"demo-deck\", \"deckTitle\": \"Demo deck\", \"mode\": \"ladder\", \"options\": {\"rounds\": 1}, \"seed\": 42, \"players\": [{\"id\": \"p1\", \"name\": \"Ada\"}], \"actions\": [{\"type\": \"draw\", \"at\": 0, \"card\": {\"cardId\": \"c1984\", \"year\": 1984, \"era\": \"neon\"}}, {\"type\": \"step\", \"at\": 1000, \"index\": 0}, {\"type\": \"lock\", \"at\": 2000, \"playerId\": \"p1\"}, {\"type\": \"mark\", \"at\": 3000, \"playerId\": \"p1\", \"titleO\\u212A\": true, \"artistOK\": true}, {\"type\": \"reveal\", \"at\": 4000}]}"
+    },
+    {
+      "name": "anchor-player-id-with-kelvin-sign",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "timeline",
+        "options": {},
+        "seed": 42,
+        "players": [
+          {
+            "id": "K1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "anchor",
+            "at": 0,
+            "playerId": "K1",
+            "card": {
+              "cardId": "c1960",
+              "year": 1960,
+              "era": "mod"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "anchor-player-id-K1-ascii-baseline",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "timeline",
+        "options": {},
+        "seed": 42,
+        "players": [
+          {
+            "id": "K1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "anchor",
+            "at": 0,
+            "playerId": "K1",
+            "card": {
+              "cardId": "c1960",
+              "year": 1960,
+              "era": "mod"
+            }
+          },
+          {
+            "type": "anchor",
+            "at": 1000,
+            "playerId": "p2",
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

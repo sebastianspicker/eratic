@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-deck",
+  "title": "A small collection",
+  "cards": [
+    {
+      "id": "demo-001",
+      "title": "Paper Satellites",
+      "artist": "The Quiet Hours",
+      "gameYear": {
+        "value": 1984,
+        "source": "Fictional sample for software testing",
+        "note": "Replace with a sourced original release year."
+      },
+      "recordingVersion": "Demo recording",
+      "links": [
+        {
+          "provider": "other",
+          "url": "https://example.com/music/demo-001",
+          "id": "demo-001"
+        }
+      ]
+    },
+    {
+      "id": "demo-002",
+      "title": "Sunday Static",
+      "artist": "June & the Lines",
+      "gameYear": {
+        "value": 1997,
+        "source": "Fictional sample for software testing"
+      },
+      "links": [
+        {
+          "provider": "other",
+          "url": "https://example.com/music/demo-002",
+          "id": "demo-002"
+        }
+      ]
+    },
+    {
+      "id": "demo-003",
+      "title": "After the Rain",
+      "artist": "Northbound",
+      "gameYear": {
+        "value": 2011,
+        "source": "Fictional sample for software testing"
+      },
+      "links": [
+        {
+          "provider": "other",
+          "url": "https://example.com/music/demo-003",
+          "id": "demo-003"
+        }
+      ]
+    }
+  ]
+}

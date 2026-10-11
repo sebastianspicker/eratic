@@ -1,0 +1,30 @@
+# Local collaboration state and machine files
+.agents/
+.codex/
+.claude/
+/private/
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Builds, dependencies and QA output
+node_modules/
+dist/
+coverage/
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+apps/apple/*.xcodeproj/
+artifacts/
+.cache/
+apps/web/src/core/generated/*.js
+
+# User decks are private by default; contract/ contains fictional data only.
+data/
+exports/
+
+# Historical research belongs in private/, including any old-path leftovers.
+/research/

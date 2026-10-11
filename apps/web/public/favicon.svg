@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <clipPath id="r"><rect width="64" height="64" rx="14"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="64" height="64" fill="#17131C"/>
+    <rect x="0" y="54" width="7.2" height="10" fill="#C98A45"/>
+    <rect x="7.1" y="54" width="7.2" height="10" fill="#F05A48"/>
+    <rect x="14.2" y="54" width="7.2" height="10" fill="#F0652A"/>
+    <rect x="21.3" y="54" width="7.2" height="10" fill="#F3A63B"/>
+    <rect x="28.4" y="54" width="7.2" height="10" fill="#FF3FA4"/>
+    <rect x="35.5" y="54" width="7.2" height="10" fill="#8A90FF"/>
+    <rect x="42.6" y="54" width="7.2" height="10" fill="#19B5DB"/>
+    <rect x="49.7" y="54" width="7.2" height="10" fill="#E2648E"/>
+    <rect x="56.8" y="54" width="7.2" height="10" fill="#B7FF3C"/>
+  </g>
+  <text x="32" y="43" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="44" font-weight="800" fill="#F7F2E8">e</text>
+</svg>

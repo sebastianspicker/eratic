@@ -1,0 +1,4280 @@
+{
+  "description": "Which card, if any, a scanned QR payload selects in a deck (game-rules.md section 8.2 resolveScan), shared by Apple and web. `hosts` are the configured Eratic card hosts, compared with the payload host as exact strings after ASCII-only lowercasing (no Unicode case mapping or canonical equivalence). Decks are valid version 1 or 2 decks. `expected` is the exact result object; kinds: card (cardId, via), unknownCard (cardId), otherDeck (deckId), unmatchedProvider (provider, trackId), unmatchedOfficial, unrecognized.",
+  "cases": [
+    {
+      "name": "eratic-route-selects-card",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "eraticCard"
+      }
+    },
+    {
+      "name": "eratic-route-host-case-insensitive-payload",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://Cards.EXAMPLE.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "eraticCard"
+      }
+    },
+    {
+      "name": "eratic-route-host-case-insensitive-config",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "CARDS.example.COM"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "eraticCard"
+      }
+    },
+    {
+      "name": "eratic-route-second-configured-host",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "a.example.org",
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c1",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "eraticCard"
+      }
+    },
+    {
+      "name": "eratic-route-explicit-port-443",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com:443/c/demo-deck/c3",
+      "expected": {
+        "kind": "card",
+        "cardId": "c3",
+        "via": "eraticCard"
+      }
+    },
+    {
+      "name": "eratic-route-ids-are-case-sensitive",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/Demo-Deck/c2",
+      "expected": {
+        "kind": "otherDeck",
+        "deckId": "Demo-Deck"
+      }
+    },
+    {
+      "name": "eratic-route-card-id-case-sensitive",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/C2",
+      "expected": {
+        "kind": "unknownCard",
+        "cardId": "C2"
+      }
+    },
+    {
+      "name": "eratic-route-other-deck",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/another-deck/c2",
+      "expected": {
+        "kind": "otherDeck",
+        "deckId": "another-deck"
+      }
+    },
+    {
+      "name": "eratic-route-other-deck-unknown-card-id-too",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/another-deck/zzz",
+      "expected": {
+        "kind": "otherDeck",
+        "deckId": "another-deck"
+      }
+    },
+    {
+      "name": "eratic-route-unknown-card",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/zzz",
+      "expected": {
+        "kind": "unknownCard",
+        "cardId": "zzz"
+      }
+    },
+    {
+      "name": "eratic-route-no-hosts-configured",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [],
+      "payload": "https://cards.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-unconfigured-host",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://other.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-query-is-not-eratic-card",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2?x=1",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-empty-query-is-not-eratic-card",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2?",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-fragment-is-not-eratic-card",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2#top",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-trailing-slash",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2/",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-extra-segment",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2/x",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-missing-card-segment",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-wrong-prefix",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/d/demo-deck/c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-http",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "http://cards.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-port-8443",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com:8443/c/demo-deck/c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-subdomain-is-another-host",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://www.cards.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-card-id-not-an-id",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/_c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-percent-encoded-id",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c%32",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-route-beats-exact-link-url",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://cards.example.com/c/demo-deck/zzz"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": []
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/zzz",
+      "expected": {
+        "kind": "unknownCard",
+        "cardId": "zzz"
+      }
+    },
+    {
+      "name": "exact-link-url-when-host-not-configured",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://cards.example.com/c/demo-deck/zzz"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": []
+          }
+        ]
+      },
+      "hosts": [],
+      "payload": "https://cards.example.com/c/demo-deck/zzz",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "exact-link-url",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://example.com/music/c3",
+      "expected": {
+        "kind": "card",
+        "cardId": "c3",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "exact-link-url-is-case-sensitive",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://EXAMPLE.com/music/c3",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "exact-link-url-trailing-slash-differs",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://example.com/music/c3/",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "exact-link-url-beats-track-identity",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=abc"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=abc",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-first-card-in-deck-order",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=abc"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=zzz",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-spotify-uri",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-spotify-intl-url",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://open.spotify.com/intl-de/track/4uLU6hMCjMI75M1A2tKUQC?si=q",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-spotify-upper-case-host",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://OPEN.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-apple-song-other-storefront",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://music.apple.com/de/song/other-slug/555",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-apple-album-i",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://music.apple.com/gb/album/whatever/9?i=555",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-apple-does-not-match-spotify",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://music.apple.com/us/song/467512",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "appleMusic",
+        "trackId": "467512"
+      }
+    },
+    {
+      "name": "track-identity-uses-link-id-not-url",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "0VjIjW4GlUZAMYd2vXMi3b"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-link-id-hides-url-track",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "0VjIjW4GlUZAMYd2vXMi3b"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=1",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "spotify",
+        "trackId": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "track-identity-ignores-other-providers",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/a",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              },
+              {
+                "provider": "youtube",
+                "url": "https://www.youtube.com/watch?v=x",
+                "id": "0VjIjW4GlUZAMYd2vXMi3b"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "spotify",
+        "trackId": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "track-identity-spotify-link-does-not-match-apple-scan",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=abc"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://music.apple.com/us/song/1",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "appleMusic",
+        "trackId": "1"
+      }
+    },
+    {
+      "name": "unmatched-provider-spotify",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "spotify",
+        "trackId": "0VjIjW4GlUZAMYd2vXMi3b"
+      }
+    },
+    {
+      "name": "unmatched-provider-apple",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://music.apple.com/us/song/999",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "appleMusic",
+        "trackId": "999"
+      }
+    },
+    {
+      "name": "unmatched-provider-spotify-uri",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "spotify:track:0VjIjW4GlUZAMYd2vXMi3b",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "spotify",
+        "trackId": "0VjIjW4GlUZAMYd2vXMi3b"
+      }
+    },
+    {
+      "name": "unmatched-provider-in-empty-link-deck",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": []
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+      "expected": {
+        "kind": "unmatchedProvider",
+        "provider": "spotify",
+        "trackId": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "official-exact-match",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://hitstergame.com/en/00012",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "officialCard"
+      }
+    },
+    {
+      "name": "official-exact-match-is-case-sensitive",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "officialCard": {
+              "url": "https://uqr.to/aB12"
+            }
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://UQR.to/aB12",
+      "expected": {
+        "kind": "unmatchedOfficial"
+      }
+    },
+    {
+      "name": "official-exact-match-spelling",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "officialCard": {
+              "url": "https://UQR.to/aB12"
+            }
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://UQR.to/aB12",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "officialCard"
+      }
+    },
+    {
+      "name": "official-unmatched",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://hitstergame.com/en/99999",
+      "expected": {
+        "kind": "unmatchedOfficial"
+      }
+    },
+    {
+      "name": "official-unmatched-other-family",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://uqr.to/ab1",
+      "expected": {
+        "kind": "unmatchedOfficial"
+      }
+    },
+    {
+      "name": "official-lookalike-with-query-is-unrecognized",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://hitstergame.com/en/00012?x=1",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "official-wrong-shape-is-unrecognized",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://hitstergame.com/en/123",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "provider-link-beats-official-card",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://hitstergame.com/en/00012"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://hitstergame.com/en/00012",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "official-duplicates-first-card-wins",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": []
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1991,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://hitstergame.com/en/00012",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "officialCard"
+      }
+    },
+    {
+      "name": "exact-link-duplicates-first-card-wins",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": []
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/dup"
+              }
+            ]
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1991,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/dup"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://example.com/dup",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "track-identity-duplicates-first-card-wins",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": []
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1991,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "unrecognized-text",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "hello world",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "unrecognized-empty",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "unrecognized-other-https-url",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://example.com/elsewhere",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "unrecognized-youtube",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "unrecognized-unsafe-url",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://user@cards.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "v2-deck-eratic-route",
+      "deck": {
+        "schemaVersion": 2,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "defaultClipStartMs": 0,
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ],
+            "clip": {
+              "startMs": 15000
+            },
+            "difficulty": 2
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "relatedTo": {
+              "cardId": "c1",
+              "relation": "coverOf"
+            }
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck/c2",
+      "expected": {
+        "kind": "card",
+        "cardId": "c2",
+        "via": "eraticCard"
+      }
+    },
+    {
+      "name": "v2-deck-track-identity",
+      "deck": {
+        "schemaVersion": 2,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "defaultClipStartMs": 0,
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ],
+            "clip": {
+              "startMs": 15000
+            },
+            "difficulty": 2
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "relatedTo": {
+              "cardId": "c1",
+              "relation": "coverOf"
+            }
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "providerLink"
+      }
+    },
+    {
+      "name": "v2-deck-other-deck",
+      "deck": {
+        "schemaVersion": 2,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "defaultClipStartMs": 0,
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ],
+            "clip": {
+              "startMs": 15000
+            },
+            "difficulty": 2
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1990,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [],
+            "relatedTo": {
+              "cardId": "c1",
+              "relation": "coverOf"
+            }
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.com"
+      ],
+      "payload": "https://cards.example.com/c/demo-deck-v1/c1",
+      "expected": {
+        "kind": "otherDeck",
+        "deckId": "demo-deck-v1"
+      }
+    },
+    {
+      "name": "eratic-card-host-nfd-payload-vs-nfc-configured",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "café.example"
+      ],
+      "payload": "https://café.example/c/demo-deck/c1",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-card-host-nfc-payload-vs-nfd-configured",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "café.example"
+      ],
+      "payload": "https://café.example/c/demo-deck/c1",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-card-host-non-ascii-exact-match",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "café.example"
+      ],
+      "payload": "https://café.example/c/demo-deck/c1",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "eraticCard"
+      }
+    },
+    {
+      "name": "eratic-card-host-kelvin-sign-is-not-ascii-k",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.kz"
+      ],
+      "payload": "https://cards.example.Kz/c/demo-deck/c1",
+      "expected": {
+        "kind": "unrecognized"
+      }
+    },
+    {
+      "name": "eratic-card-host-ascii-case-folded",
+      "deck": {
+        "schemaVersion": 1,
+        "id": "demo-deck",
+        "title": "Scan deck",
+        "cards": [
+          {
+            "id": "c1",
+            "title": "Title c1",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1984,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "spotify",
+                "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+                "id": "4uLU6hMCjMI75M1A2tKUQC"
+              }
+            ]
+          },
+          {
+            "id": "c2",
+            "title": "Title c2",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 1997,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "appleMusic",
+                "url": "https://music.apple.com/us/song/s/555",
+                "id": "555"
+              }
+            ],
+            "officialCard": {
+              "url": "https://hitstergame.com/en/00012"
+            }
+          },
+          {
+            "id": "c3",
+            "title": "Title c3",
+            "artist": "Artist",
+            "gameYear": {
+              "value": 2011,
+              "source": "Fictional sample for software testing"
+            },
+            "links": [
+              {
+                "provider": "other",
+                "url": "https://example.com/music/c3"
+              }
+            ]
+          }
+        ]
+      },
+      "hosts": [
+        "cards.example.kz"
+      ],
+      "payload": "https://CARDS.EXAMPLE.KZ/c/demo-deck/c1",
+      "expected": {
+        "kind": "card",
+        "cardId": "c1",
+        "via": "eraticCard"
+      }
+    }
+  ]
+}

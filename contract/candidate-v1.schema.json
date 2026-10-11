@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qr-song-quiz.example/schema/candidate-v1.json",
+  "title": "Eratic playlist review candidate version 1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provider": {
+      "enum": [
+        "spotify",
+        "appleMusic"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "track",
+        "local",
+        "unsupported",
+        "missing",
+        "malformed"
+      ]
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^(?:[0-9A-Za-z]{22}|[0-9]{1,15})(?![\\s\\S])"
+    },
+    "url": {
+      "type": "string",
+      "pattern": "^https://(?:open\\.spotify\\.com/track/[0-9A-Za-z]{22}|music\\.apple\\.com/[a-z]{2}/song/[0-9]{1,15})(?![\\s\\S])"
+    },
+    "title": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "artist": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "album": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "releaseDate": {
+      "type": "string",
+      "pattern": "^[0-9]{4}(?:-[0-9]{2}(?:-[0-9]{2})?)?(?![\\s\\S])"
+    },
+    "isrc": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}(?![\\s\\S])"
+    }
+  },
+  "required": [
+    "position",
+    "provider",
+    "kind"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "track"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "available",
+          "id",
+          "url",
+          "title",
+          "artist"
+        ]
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "available"
+              ]
+            },
+            {
+              "required": [
+                "id"
+              ]
+            },
+            {
+              "required": [
+                "url"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "unsupported",
+              "missing",
+              "malformed"
+            ]
+          }
+        }
+      },
+      "then": {
+        "maxProperties": 3
+      }
+    }
+  ]
+}

@@ -1,0 +1,595 @@
+{
+  "description": "Provider track identity parsed from a URL or a deck link (game-rules.md section 8.1), shared by Apple and web. `input` has `url` (providerTrack) or `link` (linkTrack: provider, url, optional id). `expected` is {provider, id, storefront?} or null; storefront appears only for Apple Music URLs.",
+  "cases": [
+    {
+      "name": "spotify-uri",
+      "input": {
+        "url": "spotify:track:4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "spotify-uri-wrong-length",
+      "input": {
+        "url": "spotify:track:4uLU6hMCjMI75M1A2tKUQCx"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-uri-short",
+      "input": {
+        "url": "spotify:track:uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-uri-album",
+      "input": {
+        "url": "spotify:album:4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-uri-upper-case-scheme",
+      "input": {
+        "url": "SPOTIFY:track:4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-with-query",
+      "input": {
+        "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=abc123"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "spotify-url-plain",
+      "input": {
+        "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "spotify-url-fragment",
+      "input": {
+        "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC#top"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "spotify-url-intl-path",
+      "input": {
+        "url": "https://open.spotify.com/intl-de/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "spotify-url-intl-hyphenated-tag",
+      "input": {
+        "url": "https://open.spotify.com/intl-pt-br/track/0VjIjW4GlUZAMYd2vXMi3b?si=x"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "0VjIjW4GlUZAMYd2vXMi3b"
+      }
+    },
+    {
+      "name": "spotify-url-intl-tag-with-combining-mark",
+      "input": {
+        "url": "https://open.spotify.com/intl-\u0301de/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-intl-digit-tag",
+      "input": {
+        "url": "https://open.spotify.com/intl-d3/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-upper-case-host",
+      "input": {
+        "url": "https://OPEN.Spotify.COM/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "spotify-url-id-too-long",
+      "input": {
+        "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQCa"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-id-too-short",
+      "input": {
+        "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQ"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-id-with-punctuation",
+      "input": {
+        "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQ-"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-album",
+      "input": {
+        "url": "https://open.spotify.com/album/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-trailing-slash",
+      "input": {
+        "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC/"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-other-host",
+      "input": {
+        "url": "https://play.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-http",
+      "input": {
+        "url": "http://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-credentials",
+      "input": {
+        "url": "https://user@open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+      },
+      "expected": null
+    },
+    {
+      "name": "spotify-url-case-sensitive-id",
+      "input": {
+        "url": "https://open.spotify.com/track/4ulu6hmcjmi75m1a2tkuqc"
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4ulu6hmcjmi75m1a2tkuqc"
+      }
+    },
+    {
+      "name": "apple-album-with-i",
+      "input": {
+        "url": "https://music.apple.com/us/album/paper-satellites/1234567890?i=1234567891"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "1234567891",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "apple-album-i-later-parameter",
+      "input": {
+        "url": "https://music.apple.com/de/album/some-album/1234567890?l=en&i=987654321"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "987654321",
+        "storefront": "de"
+      }
+    },
+    {
+      "name": "apple-album-i-first-of-two",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1?i=11&i=22"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "11",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "apple-album-i-not-digits-is-first-i",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1?i=x&i=22"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-album-i-empty",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1?i="
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-album-without-i",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1234567890"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-album-i-in-fragment-only",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1#?i=22"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-album-i-with-fragment",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1?i=22#frag"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "22",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "apple-album-parameter-named-like-i",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1?id=22"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-album-i-too-long",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1?i=1234567890123456"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-album-i-fifteen-digits",
+      "input": {
+        "url": "https://music.apple.com/us/album/a/1?i=123456789012345"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "123456789012345",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "apple-song-with-slug",
+      "input": {
+        "url": "https://music.apple.com/us/song/paper-satellites/1234567891"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "1234567891",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "apple-song-without-slug",
+      "input": {
+        "url": "https://music.apple.com/gb/song/1234567891"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "1234567891",
+        "storefront": "gb"
+      }
+    },
+    {
+      "name": "apple-song-with-query-ignored",
+      "input": {
+        "url": "https://music.apple.com/us/song/paper-satellites/42?i=7"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "42",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "apple-song-storefront-lowercased",
+      "input": {
+        "url": "https://music.apple.com/DE/song/1234567891"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "1234567891",
+        "storefront": "de"
+      }
+    },
+    {
+      "name": "apple-song-upper-case-host",
+      "input": {
+        "url": "https://MUSIC.apple.com/us/song/5"
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "5",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "apple-song-non-digit-id",
+      "input": {
+        "url": "https://music.apple.com/us/song/paper-satellites/12ab"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-song-slug-only",
+      "input": {
+        "url": "https://music.apple.com/us/song/paper-satellites"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-song-id-too-long",
+      "input": {
+        "url": "https://music.apple.com/us/song/s/1234567890123456"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-song-three-letter-storefront",
+      "input": {
+        "url": "https://music.apple.com/usa/song/1"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-song-one-letter-storefront",
+      "input": {
+        "url": "https://music.apple.com/u/song/1"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-song-digit-storefront",
+      "input": {
+        "url": "https://music.apple.com/u5/song/1"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-song-no-storefront",
+      "input": {
+        "url": "https://music.apple.com/song/1"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-playlist",
+      "input": {
+        "url": "https://music.apple.com/us/playlist/mix/pl.1234"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-http",
+      "input": {
+        "url": "http://music.apple.com/us/song/1"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-other-host",
+      "input": {
+        "url": "https://itunes.apple.com/us/song/1"
+      },
+      "expected": null
+    },
+    {
+      "name": "apple-trailing-slash",
+      "input": {
+        "url": "https://music.apple.com/us/song/1/"
+      },
+      "expected": null
+    },
+    {
+      "name": "not-a-url",
+      "input": {
+        "url": "hello"
+      },
+      "expected": null
+    },
+    {
+      "name": "empty",
+      "input": {
+        "url": ""
+      },
+      "expected": null
+    },
+    {
+      "name": "youtube",
+      "input": {
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      },
+      "expected": null
+    },
+    {
+      "name": "link-spotify-id-wins-over-url",
+      "input": {
+        "link": {
+          "provider": "spotify",
+          "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+          "id": "0VjIjW4GlUZAMYd2vXMi3b"
+        }
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "0VjIjW4GlUZAMYd2vXMi3b"
+      }
+    },
+    {
+      "name": "link-spotify-url-when-no-id",
+      "input": {
+        "link": {
+          "provider": "spotify",
+          "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?si=1"
+        }
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "link-spotify-malformed-id-falls-back-to-url",
+      "input": {
+        "link": {
+          "provider": "spotify",
+          "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+          "id": "demo-001"
+        }
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "link-spotify-short-id-no-url-track",
+      "input": {
+        "link": {
+          "provider": "spotify",
+          "url": "https://open.spotify.com/album/x",
+          "id": "short"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "link-spotify-id-without-track-url",
+      "input": {
+        "link": {
+          "provider": "spotify",
+          "url": "https://example.com/x",
+          "id": "4uLU6hMCjMI75M1A2tKUQC"
+        }
+      },
+      "expected": {
+        "provider": "spotify",
+        "id": "4uLU6hMCjMI75M1A2tKUQC"
+      }
+    },
+    {
+      "name": "link-apple-id-wins-over-url",
+      "input": {
+        "link": {
+          "provider": "appleMusic",
+          "url": "https://music.apple.com/us/song/111",
+          "id": "222"
+        }
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "222"
+      }
+    },
+    {
+      "name": "link-apple-url-keeps-storefront",
+      "input": {
+        "link": {
+          "provider": "appleMusic",
+          "url": "https://music.apple.com/us/song/s/111"
+        }
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "111",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "link-apple-non-digit-id-falls-back-to-url",
+      "input": {
+        "link": {
+          "provider": "appleMusic",
+          "url": "https://music.apple.com/us/album/a/1?i=333",
+          "id": "abc"
+        }
+      },
+      "expected": {
+        "provider": "appleMusic",
+        "id": "333",
+        "storefront": "us"
+      }
+    },
+    {
+      "name": "link-apple-id-too-long",
+      "input": {
+        "link": {
+          "provider": "appleMusic",
+          "url": "https://example.com/x",
+          "id": "1234567890123456"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "link-provider-mismatch-spotify-url-on-apple-link",
+      "input": {
+        "link": {
+          "provider": "appleMusic",
+          "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "link-provider-mismatch-apple-url-on-spotify-link",
+      "input": {
+        "link": {
+          "provider": "spotify",
+          "url": "https://music.apple.com/us/song/111"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "link-youtube-has-no-identity",
+      "input": {
+        "link": {
+          "provider": "youtube",
+          "url": "https://www.youtube.com/watch?v=x",
+          "id": "x"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "link-other-has-no-identity",
+      "input": {
+        "link": {
+          "provider": "other",
+          "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC",
+          "id": "4uLU6hMCjMI75M1A2tKUQC"
+        }
+      },
+      "expected": null
+    }
+  ]
+}

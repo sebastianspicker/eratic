@@ -1,0 +1,158 @@
+{
+  "description": "Eratic era design tokens shared by the web and Apple apps. The era IDs, names and year bounds live in contract/eras.json (scores depend on them); this file lists the same IDs in the same order and holds presentation only. Colours (#RRGGBB): ground (background), ink (text on ground), accent (year and highlights on ground), onAccent (text on an accent fill), glow (the era colour on the dark stage). Type moves vary one typeface: width (75-100, percent of normal), weight (300-800), case, tracking (em), tilt (degrees) and glow (a soft halo in the glow colour). Contrast, token format and the ID match with contract/eras.json are tested in apps/web/src/ui/eras.test.ts and EraticCore's EraTokensTests. The era patterns are web-only CSS in apps/web/src/ui/eras.ts, hand-synced with these colours.",
+  "eras": [
+    {
+      "id": "shellac",
+      "label": "Before 1950",
+      "ground": "#EDE3CC",
+      "ink": "#2B2016",
+      "accent": "#9A5B1E",
+      "onAccent": "#FFF8EA",
+      "glow": "#C98A45",
+      "type": {
+        "width": 75,
+        "weight": 500,
+        "case": "upper",
+        "tracking": 0.12,
+        "tilt": 0,
+        "glow": false
+      }
+    },
+    {
+      "id": "jukebox",
+      "label": "1950s",
+      "ground": "#FDF0E0",
+      "ink": "#1B2A4A",
+      "accent": "#D3362A",
+      "onAccent": "#FFFFFF",
+      "glow": "#F05A48",
+      "type": {
+        "width": 100,
+        "weight": 800,
+        "case": "none",
+        "tracking": -0.01,
+        "tilt": 0,
+        "glow": false
+      }
+    },
+    {
+      "id": "mod",
+      "label": "1960s",
+      "ground": "#F6F2E8",
+      "ink": "#141414",
+      "accent": "#C2410C",
+      "onAccent": "#FFFFFF",
+      "glow": "#F0652A",
+      "type": {
+        "width": 75,
+        "weight": 800,
+        "case": "none",
+        "tracking": -0.04,
+        "tilt": 0,
+        "glow": false
+      }
+    },
+    {
+      "id": "disco",
+      "label": "1970s",
+      "ground": "#2B1330",
+      "ink": "#FFE8C4",
+      "accent": "#F3A63B",
+      "onAccent": "#2B1330",
+      "glow": "#F3A63B",
+      "type": {
+        "width": 100,
+        "weight": 700,
+        "case": "none",
+        "tracking": 0,
+        "tilt": 0,
+        "glow": false
+      }
+    },
+    {
+      "id": "neon",
+      "label": "1980s",
+      "ground": "#0D0A1E",
+      "ink": "#F4F1FF",
+      "accent": "#FF3FA4",
+      "onAccent": "#0D0A1E",
+      "glow": "#FF3FA4",
+      "type": {
+        "width": 100,
+        "weight": 800,
+        "case": "upper",
+        "tracking": 0.04,
+        "tilt": 0,
+        "glow": true
+      }
+    },
+    {
+      "id": "zine",
+      "label": "1990s",
+      "ground": "#E6E5DF",
+      "ink": "#121212",
+      "accent": "#2F3BD9",
+      "onAccent": "#FFFFFF",
+      "glow": "#8A90FF",
+      "type": {
+        "width": 75,
+        "weight": 700,
+        "case": "upper",
+        "tracking": 0,
+        "tilt": -2,
+        "glow": false
+      }
+    },
+    {
+      "id": "chrome",
+      "label": "2000s",
+      "ground": "#E6EEF5",
+      "ink": "#0E1A2B",
+      "accent": "#007A9C",
+      "onAccent": "#FFFFFF",
+      "glow": "#19B5DB",
+      "type": {
+        "width": 87,
+        "weight": 600,
+        "case": "none",
+        "tracking": 0,
+        "tilt": 0,
+        "glow": false
+      }
+    },
+    {
+      "id": "pastel",
+      "label": "2010s",
+      "ground": "#FBEFF1",
+      "ink": "#2A2233",
+      "accent": "#B8325E",
+      "onAccent": "#FFFFFF",
+      "glow": "#E2648E",
+      "type": {
+        "width": 100,
+        "weight": 300,
+        "case": "lower",
+        "tracking": 0,
+        "tilt": 0,
+        "glow": false
+      }
+    },
+    {
+      "id": "now",
+      "label": "2020s+",
+      "ground": "#111111",
+      "ink": "#F2F2F2",
+      "accent": "#B7FF3C",
+      "onAccent": "#111111",
+      "glow": "#B7FF3C",
+      "type": {
+        "width": 100,
+        "weight": 800,
+        "case": "lower",
+        "tracking": -0.05,
+        "tilt": 0,
+        "glow": false
+      }
+    }
+  ]
+}

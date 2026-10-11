@@ -1,0 +1,6483 @@
+{
+  "description": "Deterministic primitives, eras, scoring, imposter pairs and the Eratic card URL (game-rules.md sections 1-3, 6.8, 8.2 and 8.3), shared by Apple and web. Each case calls `fn` with the named `args` and expects `expected`, or expects the call to fail when `error` is true. Expected values were computed by an independent reference implementation written from the pseudo-code. Sets of IDs and lists are compared exactly; compareCodePoints compares the sign. eraticCardURL expects the URL string, or null when the host or either ID is invalid.",
+  "cases": [
+    {
+      "name": "mulberry32-seed-0",
+      "fn": "mulberry32",
+      "args": {
+        "seed": 0,
+        "count": 5
+      },
+      "expected": [
+        1144304738,
+        1416247,
+        958946056,
+        627933444,
+        2007157716
+      ]
+    },
+    {
+      "name": "mulberry32-seed-1",
+      "fn": "mulberry32",
+      "args": {
+        "seed": 1,
+        "count": 5
+      },
+      "expected": [
+        2693262067,
+        11749833,
+        2265367787,
+        4213581821,
+        4159151403
+      ]
+    },
+    {
+      "name": "mulberry32-seed-42",
+      "fn": "mulberry32",
+      "args": {
+        "seed": 42,
+        "count": 5
+      },
+      "expected": [
+        2581720956,
+        1925393290,
+        3661312704,
+        2876485805,
+        750819978
+      ]
+    },
+    {
+      "name": "mulberry32-seed-4294967295",
+      "fn": "mulberry32",
+      "args": {
+        "seed": 4294967295,
+        "count": 5
+      },
+      "expected": [
+        3850105811,
+        813802916,
+        3073704848,
+        4054706436,
+        3630262831
+      ]
+    },
+    {
+      "name": "fnv1a32-\"\"",
+      "fn": "fnv1a32",
+      "args": {
+        "text": ""
+      },
+      "expected": 2166136261
+    },
+    {
+      "name": "fnv1a32-\"a\"",
+      "fn": "fnv1a32",
+      "args": {
+        "text": "a"
+      },
+      "expected": 3826002220
+    },
+    {
+      "name": "fnv1a32-\"eratic\"",
+      "fn": "fnv1a32",
+      "args": {
+        "text": "eratic"
+      },
+      "expected": 1620394295
+    },
+    {
+      "name": "fnv1a32-\"Zürich ♪ 𝄞 日本\"",
+      "fn": "fnv1a32",
+      "args": {
+        "text": "Zürich ♪ 𝄞 日本"
+      },
+      "expected": 3720120862
+    },
+    {
+      "name": "deriveSeed-0-\"draw\"",
+      "fn": "deriveSeed",
+      "args": {
+        "seed": 0,
+        "salt": "draw"
+      },
+      "expected": 2091641453
+    },
+    {
+      "name": "deriveSeed-42-\"anchor\"",
+      "fn": "deriveSeed",
+      "args": {
+        "seed": 42,
+        "salt": "anchor"
+      },
+      "expected": 3526235042
+    },
+    {
+      "name": "deriveSeed-4294967295-\"pairs\"",
+      "fn": "deriveSeed",
+      "args": {
+        "seed": 4294967295,
+        "salt": "pairs"
+      },
+      "expected": 747939933
+    },
+    {
+      "name": "deriveSeed-7-\"\"",
+      "fn": "deriveSeed",
+      "args": {
+        "seed": 7,
+        "salt": ""
+      },
+      "expected": 2514868772
+    },
+    {
+      "name": "deriveSeed-1-\"ß\"",
+      "fn": "deriveSeed",
+      "args": {
+        "seed": 1,
+        "salt": "ß"
+      },
+      "expected": 1775869652
+    },
+    {
+      "name": "shuffle-8-seed-0",
+      "fn": "shuffle",
+      "args": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h"
+        ],
+        "seed": 0
+      },
+      "expected": [
+        "d",
+        "b",
+        "h",
+        "g",
+        "f",
+        "e",
+        "a",
+        "c"
+      ]
+    },
+    {
+      "name": "shuffle-8-seed-1",
+      "fn": "shuffle",
+      "args": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h"
+        ],
+        "seed": 1
+      },
+      "expected": [
+        "g",
+        "a",
+        "c",
+        "h",
+        "b",
+        "f",
+        "e",
+        "d"
+      ]
+    },
+    {
+      "name": "shuffle-8-seed-42",
+      "fn": "shuffle",
+      "args": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h"
+        ],
+        "seed": 42
+      },
+      "expected": [
+        "b",
+        "d",
+        "h",
+        "g",
+        "f",
+        "a",
+        "c",
+        "e"
+      ]
+    },
+    {
+      "name": "shuffle-8-seed-4294967295",
+      "fn": "shuffle",
+      "args": {
+        "items": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h"
+        ],
+        "seed": 4294967295
+      },
+      "expected": [
+        "a",
+        "e",
+        "f",
+        "g",
+        "b",
+        "c",
+        "h",
+        "d"
+      ]
+    },
+    {
+      "name": "shuffle-empty",
+      "fn": "shuffle",
+      "args": {
+        "items": [],
+        "seed": 5
+      },
+      "expected": []
+    },
+    {
+      "name": "shuffle-single",
+      "fn": "shuffle",
+      "args": {
+        "items": [
+          "x"
+        ],
+        "seed": 5
+      },
+      "expected": [
+        "x"
+      ]
+    },
+    {
+      "name": "shuffle-two",
+      "fn": "shuffle",
+      "args": {
+        "items": [
+          "x",
+          "y"
+        ],
+        "seed": 3
+      },
+      "expected": [
+        "y",
+        "x"
+      ]
+    },
+    {
+      "name": "shuffle-keeps-duplicates",
+      "fn": "shuffle",
+      "args": {
+        "items": [
+          "x",
+          "x",
+          "y"
+        ],
+        "seed": 9
+      },
+      "expected": [
+        "y",
+        "x",
+        "x"
+      ]
+    },
+    {
+      "name": "compareCodePoints-\"a\"-\"a\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "a",
+        "b": "a"
+      },
+      "expected": 0
+    },
+    {
+      "name": "compareCodePoints-\"a\"-\"b\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "a",
+        "b": "b"
+      },
+      "expected": -1
+    },
+    {
+      "name": "compareCodePoints-\"b\"-\"a\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "b",
+        "b": "a"
+      },
+      "expected": 1
+    },
+    {
+      "name": "compareCodePoints-\"B\"-\"a\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "B",
+        "b": "a"
+      },
+      "expected": -1
+    },
+    {
+      "name": "compareCodePoints-\"Z\"-\"a\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "Z",
+        "b": "a"
+      },
+      "expected": -1
+    },
+    {
+      "name": "compareCodePoints-\"ab\"-\"a\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "ab",
+        "b": "a"
+      },
+      "expected": 1
+    },
+    {
+      "name": "compareCodePoints-\"\"-\"a\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "",
+        "b": "a"
+      },
+      "expected": -1
+    },
+    {
+      "name": "compareCodePoints-\"～\"-\"🎵\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "～",
+        "b": "🎵"
+      },
+      "expected": -1
+    },
+    {
+      "name": "compareCodePoints-\"🎵\"-\"～\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "🎵",
+        "b": "～"
+      },
+      "expected": 1
+    },
+    {
+      "name": "compareCodePoints-\"𐀀\"-\"￿\"",
+      "fn": "compareCodePoints",
+      "args": {
+        "a": "𐀀",
+        "b": "￿"
+      },
+      "expected": 1
+    },
+    {
+      "name": "drawOrder-mixed-case-and-non-bmp-seed-1",
+      "fn": "drawOrder",
+      "args": {
+        "cardIds": [
+          "b",
+          "B",
+          "a",
+          "Z",
+          "🎵",
+          "～",
+          "a",
+          "c1",
+          "c-1",
+          "C1"
+        ],
+        "seed": 1
+      },
+      "expected": [
+        "Z",
+        "a",
+        "c-1",
+        "～",
+        "B",
+        "🎵",
+        "C1",
+        "b",
+        "c1"
+      ]
+    },
+    {
+      "name": "drawOrder-input-order-irrelevant",
+      "fn": "drawOrder",
+      "args": {
+        "cardIds": [
+          "C1",
+          "c-1",
+          "c1",
+          "a",
+          "～",
+          "🎵",
+          "Z",
+          "a",
+          "B",
+          "b"
+        ],
+        "seed": 1
+      },
+      "expected": [
+        "Z",
+        "a",
+        "c-1",
+        "～",
+        "B",
+        "🎵",
+        "C1",
+        "b",
+        "c1"
+      ]
+    },
+    {
+      "name": "drawOrder-duplicates-removed",
+      "fn": "drawOrder",
+      "args": {
+        "cardIds": [
+          "x",
+          "y",
+          "x",
+          "z",
+          "y"
+        ],
+        "seed": 42
+      },
+      "expected": [
+        "z",
+        "y",
+        "x"
+      ]
+    },
+    {
+      "name": "drawOrder-seed-0",
+      "fn": "drawOrder",
+      "args": {
+        "cardIds": [
+          "c1",
+          "c2",
+          "c3",
+          "c4",
+          "c5",
+          "c6"
+        ],
+        "seed": 0
+      },
+      "expected": [
+        "c3",
+        "c1",
+        "c6",
+        "c4",
+        "c5",
+        "c2"
+      ]
+    },
+    {
+      "name": "drawOrder-max-seed",
+      "fn": "drawOrder",
+      "args": {
+        "cardIds": [
+          "c1",
+          "c2",
+          "c3",
+          "c4",
+          "c5",
+          "c6"
+        ],
+        "seed": 4294967295
+      },
+      "expected": [
+        "c5",
+        "c6",
+        "c2",
+        "c3",
+        "c1",
+        "c4"
+      ]
+    },
+    {
+      "name": "drawOrder-empty",
+      "fn": "drawOrder",
+      "args": {
+        "cardIds": [],
+        "seed": 1
+      },
+      "expected": []
+    },
+    {
+      "name": "pickAnchors-12-beginning-seed-42-count-1",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "beginning",
+        "seed": 42,
+        "count": 1
+      },
+      "expected": [
+        "c01"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-beginning-seed-42-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "beginning",
+        "seed": 42,
+        "count": 3
+      },
+      "expected": [
+        "c01",
+        "c02",
+        "c03"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-beginning-seed-7-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "beginning",
+        "seed": 7,
+        "count": 3
+      },
+      "expected": [
+        "c02",
+        "c01",
+        "c03"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-middle-seed-42-count-1",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "middle",
+        "seed": 42,
+        "count": 1
+      },
+      "expected": [
+        "c06"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-middle-seed-42-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "middle",
+        "seed": 42,
+        "count": 3
+      },
+      "expected": [
+        "c06",
+        "c07",
+        "c05"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-middle-seed-7-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "middle",
+        "seed": 7,
+        "count": 3
+      },
+      "expected": [
+        "c07",
+        "c06",
+        "c05"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-random-seed-42-count-1",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "random",
+        "seed": 42,
+        "count": 1
+      },
+      "expected": [
+        "c03"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-random-seed-42-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "random",
+        "seed": 42,
+        "count": 3
+      },
+      "expected": [
+        "c03",
+        "c11",
+        "c09"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-random-seed-7-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "random",
+        "seed": 7,
+        "count": 3
+      },
+      "expected": [
+        "c04",
+        "c09",
+        "c05"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-custom-seed-42-count-1",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "custom",
+        "seed": 42,
+        "count": 1,
+        "year": 1990
+      },
+      "expected": [
+        "c07"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-custom-seed-42-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "custom",
+        "seed": 42,
+        "count": 3,
+        "year": 1990
+      },
+      "expected": [
+        "c07",
+        "c05",
+        "c06"
+      ]
+    },
+    {
+      "name": "pickAnchors-12-custom-seed-7-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "custom",
+        "seed": 7,
+        "count": 3,
+        "year": 1990
+      },
+      "expected": [
+        "c07",
+        "c05",
+        "c06"
+      ]
+    },
+    {
+      "name": "pickAnchors-card-order-irrelevant",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c01",
+            "year": 1962
+          }
+        ],
+        "kind": "random",
+        "seed": 42,
+        "count": 3
+      },
+      "expected": [
+        "c03",
+        "c11",
+        "c09"
+      ]
+    },
+    {
+      "name": "pickAnchors-all-12",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "random",
+        "seed": 3,
+        "count": 12
+      },
+      "expected": [
+        "c10",
+        "c11",
+        "c07",
+        "c08",
+        "c06",
+        "c04",
+        "c09",
+        "c05",
+        "c03",
+        "c02",
+        "c01",
+        "c12"
+      ]
+    },
+    {
+      "name": "pickAnchors-custom-ties",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "custom",
+        "seed": 1,
+        "count": 2,
+        "year": 1975
+      },
+      "expected": [
+        "c03",
+        "c02"
+      ]
+    },
+    {
+      "name": "pickAnchors-custom-equidistant-years",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "a",
+            "year": 1980
+          },
+          {
+            "id": "b",
+            "year": 1990
+          },
+          {
+            "id": "c",
+            "year": 2010
+          }
+        ],
+        "kind": "custom",
+        "seed": 4,
+        "count": 1,
+        "year": 1985
+      },
+      "expected": [
+        "a"
+      ]
+    },
+    {
+      "name": "pickAnchors-custom-exact-year-tie-by-id",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "b",
+            "year": 1984
+          },
+          {
+            "id": "a",
+            "year": 1984
+          },
+          {
+            "id": "c",
+            "year": 1999
+          }
+        ],
+        "kind": "custom",
+        "seed": 4,
+        "count": 2,
+        "year": 1984
+      },
+      "expected": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "pickAnchors-custom-year-beyond-range",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          },
+          {
+            "id": "c04",
+            "year": 1980
+          },
+          {
+            "id": "c05",
+            "year": 1984
+          },
+          {
+            "id": "c06",
+            "year": 1984
+          },
+          {
+            "id": "c07",
+            "year": 1991
+          },
+          {
+            "id": "c08",
+            "year": 1997
+          },
+          {
+            "id": "c09",
+            "year": 2003
+          },
+          {
+            "id": "c10",
+            "year": 2011
+          },
+          {
+            "id": "c11",
+            "year": 2016
+          },
+          {
+            "id": "c12",
+            "year": 2022
+          }
+        ],
+        "kind": "custom",
+        "seed": 2,
+        "count": 1,
+        "year": 2100
+      },
+      "expected": [
+        "c12"
+      ]
+    },
+    {
+      "name": "pickAnchors-n1-beginning",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          }
+        ],
+        "kind": "beginning",
+        "seed": 11,
+        "count": 1
+      },
+      "expected": [
+        "c01"
+      ]
+    },
+    {
+      "name": "pickAnchors-n1-middle",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          }
+        ],
+        "kind": "middle",
+        "seed": 11,
+        "count": 1
+      },
+      "expected": [
+        "c01"
+      ]
+    },
+    {
+      "name": "pickAnchors-n2-beginning",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          }
+        ],
+        "kind": "beginning",
+        "seed": 11,
+        "count": 1
+      },
+      "expected": [
+        "c01"
+      ]
+    },
+    {
+      "name": "pickAnchors-n2-middle",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          }
+        ],
+        "kind": "middle",
+        "seed": 11,
+        "count": 1
+      },
+      "expected": [
+        "c01"
+      ]
+    },
+    {
+      "name": "pickAnchors-n3-beginning",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          }
+        ],
+        "kind": "beginning",
+        "seed": 11,
+        "count": 1
+      },
+      "expected": [
+        "c01"
+      ]
+    },
+    {
+      "name": "pickAnchors-n3-middle",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          }
+        ],
+        "kind": "middle",
+        "seed": 11,
+        "count": 1
+      },
+      "expected": [
+        "c02"
+      ]
+    },
+    {
+      "name": "pickAnchors-n3-beginning-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          }
+        ],
+        "kind": "beginning",
+        "seed": 6,
+        "count": 3
+      },
+      "expected": [
+        "c01",
+        "c02",
+        "c03"
+      ]
+    },
+    {
+      "name": "pickAnchors-n3-middle-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          }
+        ],
+        "kind": "middle",
+        "seed": 6,
+        "count": 3
+      },
+      "expected": [
+        "c02",
+        "c01",
+        "c03"
+      ]
+    },
+    {
+      "name": "pickAnchors-n3-random-count-3",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          }
+        ],
+        "kind": "random",
+        "seed": 6,
+        "count": 3
+      },
+      "expected": [
+        "c01",
+        "c03",
+        "c02"
+      ]
+    },
+    {
+      "name": "pickAnchors-25-beginning-count-4",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "s00",
+            "year": 1950
+          },
+          {
+            "id": "s01",
+            "year": 1952
+          },
+          {
+            "id": "s02",
+            "year": 1954
+          },
+          {
+            "id": "s03",
+            "year": 1956
+          },
+          {
+            "id": "s04",
+            "year": 1958
+          },
+          {
+            "id": "s05",
+            "year": 1960
+          },
+          {
+            "id": "s06",
+            "year": 1962
+          },
+          {
+            "id": "s07",
+            "year": 1964
+          },
+          {
+            "id": "s08",
+            "year": 1966
+          },
+          {
+            "id": "s09",
+            "year": 1968
+          },
+          {
+            "id": "s10",
+            "year": 1970
+          },
+          {
+            "id": "s11",
+            "year": 1972
+          },
+          {
+            "id": "s12",
+            "year": 1974
+          },
+          {
+            "id": "s13",
+            "year": 1976
+          },
+          {
+            "id": "s14",
+            "year": 1978
+          },
+          {
+            "id": "s15",
+            "year": 1980
+          },
+          {
+            "id": "s16",
+            "year": 1982
+          },
+          {
+            "id": "s17",
+            "year": 1984
+          },
+          {
+            "id": "s18",
+            "year": 1986
+          },
+          {
+            "id": "s19",
+            "year": 1988
+          },
+          {
+            "id": "s20",
+            "year": 1990
+          },
+          {
+            "id": "s21",
+            "year": 1992
+          },
+          {
+            "id": "s22",
+            "year": 1994
+          },
+          {
+            "id": "s23",
+            "year": 1996
+          },
+          {
+            "id": "s24",
+            "year": 1998
+          }
+        ],
+        "kind": "beginning",
+        "seed": 13,
+        "count": 4
+      },
+      "expected": [
+        "s01",
+        "s02",
+        "s04",
+        "s00"
+      ]
+    },
+    {
+      "name": "pickAnchors-25-middle-count-4",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "s00",
+            "year": 1950
+          },
+          {
+            "id": "s01",
+            "year": 1952
+          },
+          {
+            "id": "s02",
+            "year": 1954
+          },
+          {
+            "id": "s03",
+            "year": 1956
+          },
+          {
+            "id": "s04",
+            "year": 1958
+          },
+          {
+            "id": "s05",
+            "year": 1960
+          },
+          {
+            "id": "s06",
+            "year": 1962
+          },
+          {
+            "id": "s07",
+            "year": 1964
+          },
+          {
+            "id": "s08",
+            "year": 1966
+          },
+          {
+            "id": "s09",
+            "year": 1968
+          },
+          {
+            "id": "s10",
+            "year": 1970
+          },
+          {
+            "id": "s11",
+            "year": 1972
+          },
+          {
+            "id": "s12",
+            "year": 1974
+          },
+          {
+            "id": "s13",
+            "year": 1976
+          },
+          {
+            "id": "s14",
+            "year": 1978
+          },
+          {
+            "id": "s15",
+            "year": 1980
+          },
+          {
+            "id": "s16",
+            "year": 1982
+          },
+          {
+            "id": "s17",
+            "year": 1984
+          },
+          {
+            "id": "s18",
+            "year": 1986
+          },
+          {
+            "id": "s19",
+            "year": 1988
+          },
+          {
+            "id": "s20",
+            "year": 1990
+          },
+          {
+            "id": "s21",
+            "year": 1992
+          },
+          {
+            "id": "s22",
+            "year": 1994
+          },
+          {
+            "id": "s23",
+            "year": 1996
+          },
+          {
+            "id": "s24",
+            "year": 1998
+          }
+        ],
+        "kind": "middle",
+        "seed": 13,
+        "count": 4
+      },
+      "expected": [
+        "s12",
+        "s11",
+        "s14",
+        "s09"
+      ]
+    },
+    {
+      "name": "pickAnchors-ids-in-code-point-order",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "b",
+            "year": 1990
+          },
+          {
+            "id": "B",
+            "year": 1990
+          },
+          {
+            "id": "a",
+            "year": 1990
+          }
+        ],
+        "kind": "beginning",
+        "seed": 8,
+        "count": 3
+      },
+      "expected": [
+        "B",
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "pickAnchors-count-exceeds-cards",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          }
+        ],
+        "kind": "random",
+        "seed": 1,
+        "count": 4
+      },
+      "error": true
+    },
+    {
+      "name": "pickAnchors-count-exceeds-cards-beginning",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          }
+        ],
+        "kind": "beginning",
+        "seed": 1,
+        "count": 2
+      },
+      "error": true
+    },
+    {
+      "name": "pickAnchors-no-cards",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [],
+        "kind": "random",
+        "seed": 1,
+        "count": 1
+      },
+      "error": true
+    },
+    {
+      "name": "pickAnchors-custom-without-year",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          },
+          {
+            "id": "c02",
+            "year": 1971
+          },
+          {
+            "id": "c03",
+            "year": 1971
+          }
+        ],
+        "kind": "custom",
+        "seed": 1,
+        "count": 1
+      },
+      "error": true
+    },
+    {
+      "name": "dailySelection-seven-cards",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-001",
+          "demo-002",
+          "demo-003",
+          "demo-004",
+          "demo-005",
+          "demo-006",
+          "demo-007"
+        ],
+        "date": "2026-10-11",
+        "deckId": "demo-deck"
+      },
+      "expected": [
+        "demo-001",
+        "demo-002",
+        "demo-003",
+        "demo-004",
+        "demo-005"
+      ]
+    },
+    {
+      "name": "dailySelection-input-order-irrelevant",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-007",
+          "demo-006",
+          "demo-005",
+          "demo-004",
+          "demo-003",
+          "demo-002",
+          "demo-001"
+        ],
+        "date": "2026-10-11",
+        "deckId": "demo-deck"
+      },
+      "expected": [
+        "demo-001",
+        "demo-002",
+        "demo-003",
+        "demo-004",
+        "demo-005"
+      ]
+    },
+    {
+      "name": "dailySelection-shuffled-input",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-003",
+          "demo-001",
+          "demo-002",
+          "demo-005",
+          "demo-007",
+          "demo-004",
+          "demo-006"
+        ],
+        "date": "2026-10-11",
+        "deckId": "demo-deck"
+      },
+      "expected": [
+        "demo-001",
+        "demo-002",
+        "demo-003",
+        "demo-004",
+        "demo-005"
+      ]
+    },
+    {
+      "name": "dailySelection-next-day",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-001",
+          "demo-002",
+          "demo-003",
+          "demo-004",
+          "demo-005",
+          "demo-006",
+          "demo-007"
+        ],
+        "date": "2026-10-12",
+        "deckId": "demo-deck"
+      },
+      "expected": [
+        "demo-006",
+        "demo-004",
+        "demo-003",
+        "demo-001",
+        "demo-002"
+      ]
+    },
+    {
+      "name": "dailySelection-other-deck",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-001",
+          "demo-002",
+          "demo-003",
+          "demo-004",
+          "demo-005",
+          "demo-006",
+          "demo-007"
+        ],
+        "date": "2026-10-11",
+        "deckId": "other"
+      },
+      "expected": [
+        "demo-005",
+        "demo-004",
+        "demo-007",
+        "demo-002",
+        "demo-006"
+      ]
+    },
+    {
+      "name": "dailySelection-plain-concatenation",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-001",
+          "demo-002",
+          "demo-003",
+          "demo-004",
+          "demo-005",
+          "demo-006",
+          "demo-007"
+        ],
+        "date": "2026-10-11",
+        "deckId": "1"
+      },
+      "expected": [
+        "demo-005",
+        "demo-004",
+        "demo-007",
+        "demo-006",
+        "demo-001"
+      ]
+    },
+    {
+      "name": "dailySelection-exactly-five",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-001",
+          "demo-002",
+          "demo-003",
+          "demo-004",
+          "demo-005"
+        ],
+        "date": "2026-01-01",
+        "deckId": "d"
+      },
+      "expected": [
+        "demo-003",
+        "demo-001",
+        "demo-004",
+        "demo-002",
+        "demo-005"
+      ]
+    },
+    {
+      "name": "dailySelection-three-cards-returns-all",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "demo-001",
+          "demo-002",
+          "demo-003"
+        ],
+        "date": "2026-10-11",
+        "deckId": "demo-deck"
+      },
+      "expected": [
+        "demo-001",
+        "demo-002",
+        "demo-003"
+      ]
+    },
+    {
+      "name": "dailySelection-one-card",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "only"
+        ],
+        "date": "2026-10-11",
+        "deckId": "demo-deck"
+      },
+      "expected": [
+        "only"
+      ]
+    },
+    {
+      "name": "dailySelection-duplicates-removed",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "a",
+          "b",
+          "a",
+          "c",
+          "b",
+          "d",
+          "e",
+          "f"
+        ],
+        "date": "2026-10-11",
+        "deckId": "x"
+      },
+      "expected": [
+        "a",
+        "e",
+        "d",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "name": "dailySelection-code-point-order",
+      "fn": "dailySelection",
+      "args": {
+        "cardIds": [
+          "b",
+          "B",
+          "a",
+          "Z",
+          "🎵",
+          "～",
+          "c"
+        ],
+        "date": "2026-10-11",
+        "deckId": "x"
+      },
+      "expected": [
+        "B",
+        "a",
+        "b",
+        "c",
+        "🎵"
+      ]
+    },
+    {
+      "name": "isValidDate-\"2026-10-11\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-10-11"
+      },
+      "expected": true
+    },
+    {
+      "name": "isValidDate-\"2024-02-29\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2024-02-29"
+      },
+      "expected": true
+    },
+    {
+      "name": "isValidDate-\"2023-02-29\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2023-02-29"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"1900-02-29\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "1900-02-29"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"2000-02-29\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2000-02-29"
+      },
+      "expected": true
+    },
+    {
+      "name": "isValidDate-\"2026-13-01\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-13-01"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"2026-00-10\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-00-10"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"2026-04-31\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-04-31"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"2026-04-30\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-04-30"
+      },
+      "expected": true
+    },
+    {
+      "name": "isValidDate-\"2026-4-30\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-4-30"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"26-04-30\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "26-04-30"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"2026-04-00\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-04-00"
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"2026-10-11 \"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-10-11 "
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": ""
+      },
+      "expected": false
+    },
+    {
+      "name": "isValidDate-\"2026-02-28\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "2026-02-28"
+      },
+      "expected": true
+    },
+    {
+      "name": "isValidDate-\"0000-01-01\"",
+      "fn": "isValidDate",
+      "args": {
+        "date": "0000-01-01"
+      },
+      "expected": true
+    },
+    {
+      "name": "previousDay-2024-03-01",
+      "fn": "previousDay",
+      "args": {
+        "date": "2024-03-01"
+      },
+      "expected": "2024-02-29"
+    },
+    {
+      "name": "previousDay-2025-12-31",
+      "fn": "previousDay",
+      "args": {
+        "date": "2025-12-31"
+      },
+      "expected": "2025-12-30"
+    },
+    {
+      "name": "previousDay-2026-01-01",
+      "fn": "previousDay",
+      "args": {
+        "date": "2026-01-01"
+      },
+      "expected": "2025-12-31"
+    },
+    {
+      "name": "previousDay-2023-03-01",
+      "fn": "previousDay",
+      "args": {
+        "date": "2023-03-01"
+      },
+      "expected": "2023-02-28"
+    },
+    {
+      "name": "previousDay-1900-03-01",
+      "fn": "previousDay",
+      "args": {
+        "date": "1900-03-01"
+      },
+      "expected": "1900-02-28"
+    },
+    {
+      "name": "previousDay-2000-03-01",
+      "fn": "previousDay",
+      "args": {
+        "date": "2000-03-01"
+      },
+      "expected": "2000-02-29"
+    },
+    {
+      "name": "previousDay-2026-10-11",
+      "fn": "previousDay",
+      "args": {
+        "date": "2026-10-11"
+      },
+      "expected": "2026-10-10"
+    },
+    {
+      "name": "previousDay-2026-01-31",
+      "fn": "previousDay",
+      "args": {
+        "date": "2026-01-31"
+      },
+      "expected": "2026-01-30"
+    },
+    {
+      "name": "previousDay-2026-03-01",
+      "fn": "previousDay",
+      "args": {
+        "date": "2026-03-01"
+      },
+      "expected": "2026-02-28"
+    },
+    {
+      "name": "previousDay-0001-01-01",
+      "fn": "previousDay",
+      "args": {
+        "date": "0001-01-01"
+      },
+      "expected": "0000-12-31"
+    },
+    {
+      "name": "previousDay-invalid",
+      "fn": "previousDay",
+      "args": {
+        "date": "2026-02-30"
+      },
+      "error": true
+    },
+    {
+      "name": "previousDay-before-year-zero",
+      "fn": "previousDay",
+      "args": {
+        "date": "0000-01-01"
+      },
+      "error": true
+    },
+    {
+      "name": "dailyStreak-absent",
+      "fn": "dailyStreak",
+      "args": {
+        "date": "2026-10-11"
+      },
+      "expected": 1
+    },
+    {
+      "name": "dailyStreak-same-day",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-10-11",
+          "streak": 4
+        },
+        "date": "2026-10-11"
+      },
+      "expected": 4
+    },
+    {
+      "name": "dailyStreak-consecutive",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-10-10",
+          "streak": 4
+        },
+        "date": "2026-10-11"
+      },
+      "expected": 5
+    },
+    {
+      "name": "dailyStreak-consecutive-2026-01-31-to-2026-02-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-01-31",
+          "streak": 2
+        },
+        "date": "2026-02-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-consecutive-2026-02-28-to-2026-03-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-02-28",
+          "streak": 2
+        },
+        "date": "2026-03-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-consecutive-2024-02-28-to-2024-02-29",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2024-02-28",
+          "streak": 2
+        },
+        "date": "2024-02-29"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-consecutive-2024-02-29-to-2024-03-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2024-02-29",
+          "streak": 2
+        },
+        "date": "2024-03-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-consecutive-2025-12-31-to-2026-01-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2025-12-31",
+          "streak": 2
+        },
+        "date": "2026-01-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-consecutive-2026-04-30-to-2026-05-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-04-30",
+          "streak": 2
+        },
+        "date": "2026-05-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-consecutive-1900-02-28-to-1900-03-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "1900-02-28",
+          "streak": 2
+        },
+        "date": "1900-03-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-consecutive-2000-02-29-to-2000-03-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2000-02-29",
+          "streak": 2
+        },
+        "date": "2000-03-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyStreak-gap-two-days",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-10-09",
+          "streak": 7
+        },
+        "date": "2026-10-11"
+      },
+      "expected": 1
+    },
+    {
+      "name": "dailyStreak-skipped-leap-day",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2024-02-28",
+          "streak": 7
+        },
+        "date": "2024-03-01"
+      },
+      "expected": 1
+    },
+    {
+      "name": "dailyStreak-last-date-in-future",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-10-12",
+          "streak": 3
+        },
+        "date": "2026-10-11"
+      },
+      "expected": 1
+    },
+    {
+      "name": "dailyStreak-year-gap",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2025-10-11",
+          "streak": 30
+        },
+        "date": "2026-10-11"
+      },
+      "expected": 1
+    },
+    {
+      "name": "dailyStreak-invalid-date",
+      "fn": "dailyStreak",
+      "args": {
+        "date": "2026-02-30"
+      },
+      "error": true
+    },
+    {
+      "name": "dailyMaxScore-1",
+      "fn": "dailyMaxScore",
+      "args": {
+        "n": 1
+      },
+      "expected": 3
+    },
+    {
+      "name": "dailyMaxScore-2",
+      "fn": "dailyMaxScore",
+      "args": {
+        "n": 2
+      },
+      "expected": 6
+    },
+    {
+      "name": "dailyMaxScore-3",
+      "fn": "dailyMaxScore",
+      "args": {
+        "n": 3
+      },
+      "expected": 9
+    },
+    {
+      "name": "dailyMaxScore-4",
+      "fn": "dailyMaxScore",
+      "args": {
+        "n": 4
+      },
+      "expected": 19
+    },
+    {
+      "name": "dailyMaxScore-5",
+      "fn": "dailyMaxScore",
+      "args": {
+        "n": 5
+      },
+      "expected": 29
+    },
+    {
+      "name": "dailyShareText-five",
+      "fn": "dailyShareText",
+      "args": {
+        "date": "2026-10-11",
+        "score": 24,
+        "maxScore": 29,
+        "eraIds": [
+          "neon",
+          "zine",
+          "now",
+          "mod",
+          "shellac"
+        ]
+      },
+      "expected": "Eratic 2026-10-11 · 24/29 · Neon Zine Now Mod Shellac"
+    },
+    {
+      "name": "dailyShareText-three",
+      "fn": "dailyShareText",
+      "args": {
+        "date": "2026-01-02",
+        "score": 9,
+        "maxScore": 9,
+        "eraIds": [
+          "jukebox",
+          "disco",
+          "chrome"
+        ]
+      },
+      "expected": "Eratic 2026-01-02 · 9/9 · Jukebox Disco Chrome"
+    },
+    {
+      "name": "dailyShareText-one-zero-score",
+      "fn": "dailyShareText",
+      "args": {
+        "date": "2024-02-29",
+        "score": 0,
+        "maxScore": 3,
+        "eraIds": [
+          "pastel"
+        ]
+      },
+      "expected": "Eratic 2024-02-29 · 0/3 · Pastel"
+    },
+    {
+      "name": "dailyShareText-repeated-eras",
+      "fn": "dailyShareText",
+      "args": {
+        "date": "2026-10-11",
+        "score": 12,
+        "maxScore": 19,
+        "eraIds": [
+          "neon",
+          "neon",
+          "neon",
+          "neon"
+        ]
+      },
+      "expected": "Eratic 2026-10-11 · 12/19 · Neon Neon Neon Neon"
+    },
+    {
+      "name": "dailyShareText-unknown-era",
+      "fn": "dailyShareText",
+      "args": {
+        "date": "2026-10-11",
+        "score": 1,
+        "maxScore": 3,
+        "eraIds": [
+          "vinyl"
+        ]
+      },
+      "error": true
+    },
+    {
+      "name": "eraOf-1849",
+      "fn": "eraOf",
+      "args": {
+        "year": 1849
+      },
+      "expected": "shellac"
+    },
+    {
+      "name": "eraOf-1850",
+      "fn": "eraOf",
+      "args": {
+        "year": 1850
+      },
+      "expected": "shellac"
+    },
+    {
+      "name": "eraOf-1949",
+      "fn": "eraOf",
+      "args": {
+        "year": 1949
+      },
+      "expected": "shellac"
+    },
+    {
+      "name": "eraOf-1950",
+      "fn": "eraOf",
+      "args": {
+        "year": 1950
+      },
+      "expected": "jukebox"
+    },
+    {
+      "name": "eraOf-1959",
+      "fn": "eraOf",
+      "args": {
+        "year": 1959
+      },
+      "expected": "jukebox"
+    },
+    {
+      "name": "eraOf-1960",
+      "fn": "eraOf",
+      "args": {
+        "year": 1960
+      },
+      "expected": "mod"
+    },
+    {
+      "name": "eraOf-1969",
+      "fn": "eraOf",
+      "args": {
+        "year": 1969
+      },
+      "expected": "mod"
+    },
+    {
+      "name": "eraOf-1970",
+      "fn": "eraOf",
+      "args": {
+        "year": 1970
+      },
+      "expected": "disco"
+    },
+    {
+      "name": "eraOf-1979",
+      "fn": "eraOf",
+      "args": {
+        "year": 1979
+      },
+      "expected": "disco"
+    },
+    {
+      "name": "eraOf-1980",
+      "fn": "eraOf",
+      "args": {
+        "year": 1980
+      },
+      "expected": "neon"
+    },
+    {
+      "name": "eraOf-1989",
+      "fn": "eraOf",
+      "args": {
+        "year": 1989
+      },
+      "expected": "neon"
+    },
+    {
+      "name": "eraOf-1990",
+      "fn": "eraOf",
+      "args": {
+        "year": 1990
+      },
+      "expected": "zine"
+    },
+    {
+      "name": "eraOf-1999",
+      "fn": "eraOf",
+      "args": {
+        "year": 1999
+      },
+      "expected": "zine"
+    },
+    {
+      "name": "eraOf-2000",
+      "fn": "eraOf",
+      "args": {
+        "year": 2000
+      },
+      "expected": "chrome"
+    },
+    {
+      "name": "eraOf-2009",
+      "fn": "eraOf",
+      "args": {
+        "year": 2009
+      },
+      "expected": "chrome"
+    },
+    {
+      "name": "eraOf-2010",
+      "fn": "eraOf",
+      "args": {
+        "year": 2010
+      },
+      "expected": "pastel"
+    },
+    {
+      "name": "eraOf-2019",
+      "fn": "eraOf",
+      "args": {
+        "year": 2019
+      },
+      "expected": "pastel"
+    },
+    {
+      "name": "eraOf-2020",
+      "fn": "eraOf",
+      "args": {
+        "year": 2020
+      },
+      "expected": "now"
+    },
+    {
+      "name": "eraOf-2100",
+      "fn": "eraOf",
+      "args": {
+        "year": 2100
+      },
+      "expected": "now"
+    },
+    {
+      "name": "eraOf-2500",
+      "fn": "eraOf",
+      "args": {
+        "year": 2500
+      },
+      "expected": "now"
+    },
+    {
+      "name": "eraOf-1000",
+      "fn": "eraOf",
+      "args": {
+        "year": 1000
+      },
+      "expected": "shellac"
+    },
+    {
+      "name": "eraOf-0",
+      "fn": "eraOf",
+      "args": {
+        "year": 0
+      },
+      "expected": "shellac"
+    },
+    {
+      "name": "eraOf--50",
+      "fn": "eraOf",
+      "args": {
+        "year": -50
+      },
+      "expected": "shellac"
+    },
+    {
+      "name": "eraIndex-shellac",
+      "fn": "eraIndex",
+      "args": {
+        "id": "shellac"
+      },
+      "expected": 0
+    },
+    {
+      "name": "eraIndex-jukebox",
+      "fn": "eraIndex",
+      "args": {
+        "id": "jukebox"
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraIndex-mod",
+      "fn": "eraIndex",
+      "args": {
+        "id": "mod"
+      },
+      "expected": 2
+    },
+    {
+      "name": "eraIndex-disco",
+      "fn": "eraIndex",
+      "args": {
+        "id": "disco"
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraIndex-neon",
+      "fn": "eraIndex",
+      "args": {
+        "id": "neon"
+      },
+      "expected": 4
+    },
+    {
+      "name": "eraIndex-zine",
+      "fn": "eraIndex",
+      "args": {
+        "id": "zine"
+      },
+      "expected": 5
+    },
+    {
+      "name": "eraIndex-chrome",
+      "fn": "eraIndex",
+      "args": {
+        "id": "chrome"
+      },
+      "expected": 6
+    },
+    {
+      "name": "eraIndex-pastel",
+      "fn": "eraIndex",
+      "args": {
+        "id": "pastel"
+      },
+      "expected": 7
+    },
+    {
+      "name": "eraIndex-now",
+      "fn": "eraIndex",
+      "args": {
+        "id": "now"
+      },
+      "expected": 8
+    },
+    {
+      "name": "eraIndex-unknown",
+      "fn": "eraIndex",
+      "args": {
+        "id": "vinyl"
+      },
+      "error": true
+    },
+    {
+      "name": "isAdjacent-shellac-jukebox",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "shellac",
+        "b": "jukebox"
+      },
+      "expected": true
+    },
+    {
+      "name": "isAdjacent-jukebox-shellac",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "jukebox",
+        "b": "shellac"
+      },
+      "expected": true
+    },
+    {
+      "name": "isAdjacent-shellac-mod",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "shellac",
+        "b": "mod"
+      },
+      "expected": false
+    },
+    {
+      "name": "isAdjacent-neon-neon",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "neon",
+        "b": "neon"
+      },
+      "expected": false
+    },
+    {
+      "name": "isAdjacent-pastel-now",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "pastel",
+        "b": "now"
+      },
+      "expected": true
+    },
+    {
+      "name": "isAdjacent-now-pastel",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "now",
+        "b": "pastel"
+      },
+      "expected": true
+    },
+    {
+      "name": "isAdjacent-now-shellac",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "now",
+        "b": "shellac"
+      },
+      "expected": false
+    },
+    {
+      "name": "isAdjacent-zine-chrome",
+      "fn": "isAdjacent",
+      "args": {
+        "a": "zine",
+        "b": "chrome"
+      },
+      "expected": true
+    },
+    {
+      "name": "eraName-shellac",
+      "fn": "eraName",
+      "args": {
+        "id": "shellac"
+      },
+      "expected": "Shellac"
+    },
+    {
+      "name": "eraName-jukebox",
+      "fn": "eraName",
+      "args": {
+        "id": "jukebox"
+      },
+      "expected": "Jukebox"
+    },
+    {
+      "name": "eraName-mod",
+      "fn": "eraName",
+      "args": {
+        "id": "mod"
+      },
+      "expected": "Mod"
+    },
+    {
+      "name": "eraName-disco",
+      "fn": "eraName",
+      "args": {
+        "id": "disco"
+      },
+      "expected": "Disco"
+    },
+    {
+      "name": "eraName-neon",
+      "fn": "eraName",
+      "args": {
+        "id": "neon"
+      },
+      "expected": "Neon"
+    },
+    {
+      "name": "eraName-zine",
+      "fn": "eraName",
+      "args": {
+        "id": "zine"
+      },
+      "expected": "Zine"
+    },
+    {
+      "name": "eraName-chrome",
+      "fn": "eraName",
+      "args": {
+        "id": "chrome"
+      },
+      "expected": "Chrome"
+    },
+    {
+      "name": "eraName-pastel",
+      "fn": "eraName",
+      "args": {
+        "id": "pastel"
+      },
+      "expected": "Pastel"
+    },
+    {
+      "name": "eraName-now",
+      "fn": "eraName",
+      "args": {
+        "id": "now"
+      },
+      "expected": "Now"
+    },
+    {
+      "name": "eraSortPoints-neon-1984-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "neon",
+        "answerYear": 1984,
+        "kids": false
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-neon-1984-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "neon",
+        "answerYear": 1984,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-zine-1984-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "zine",
+        "answerYear": 1984,
+        "kids": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraSortPoints-zine-1984-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "zine",
+        "answerYear": 1984,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-mod-1984-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "mod",
+        "answerYear": 1984,
+        "kids": true
+      },
+      "expected": 0
+    },
+    {
+      "name": "eraSortPoints-mod-1984-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "mod",
+        "answerYear": 1984,
+        "kids": false
+      },
+      "expected": 0
+    },
+    {
+      "name": "eraSortPoints-shellac-1950-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "shellac",
+        "answerYear": 1950,
+        "kids": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraSortPoints-shellac-1950-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "shellac",
+        "answerYear": 1950,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-jukebox-1949-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "jukebox",
+        "answerYear": 1949,
+        "kids": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraSortPoints-jukebox-1949-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "jukebox",
+        "answerYear": 1949,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-shellac-1850-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "shellac",
+        "answerYear": 1850,
+        "kids": false
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-jukebox-1850-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "jukebox",
+        "answerYear": 1850,
+        "kids": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraSortPoints-jukebox-1850-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "jukebox",
+        "answerYear": 1850,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-now-2019-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "now",
+        "answerYear": 2019,
+        "kids": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraSortPoints-now-2019-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "now",
+        "answerYear": 2019,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-pastel-2020-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "pastel",
+        "answerYear": 2020,
+        "kids": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraSortPoints-pastel-2100-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "pastel",
+        "answerYear": 2100,
+        "kids": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "eraSortPoints-pastel-2100-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "pastel",
+        "answerYear": 2100,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-shellac-2100-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "shellac",
+        "answerYear": 2100,
+        "kids": true
+      },
+      "expected": 0
+    },
+    {
+      "name": "eraSortPoints-now-2100-standard",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "now",
+        "answerYear": 2100,
+        "kids": false
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-chrome-2019-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "chrome",
+        "answerYear": 2019,
+        "kids": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraSortPoints-now-1850-kids",
+      "fn": "eraSortPoints",
+      "args": {
+        "guessEra": "now",
+        "answerYear": 1850,
+        "kids": true
+      },
+      "expected": 0
+    },
+    {
+      "name": "placementCorrect-ties-slot-0-year-1970",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 0,
+        "year": 1970
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-ties-slot-0-year-1975",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 0,
+        "year": 1975
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-ties-slot-1-year-1970",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 1,
+        "year": 1970
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-ties-slot-1-year-1975",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 1,
+        "year": 1975
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-ties-slot-2-year-1970",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 2,
+        "year": 1970
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-ties-slot-2-year-1975",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 2,
+        "year": 1975
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-ties-slot-3-year-1970",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 3,
+        "year": 1970
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-ties-slot-3-year-1975",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 3,
+        "year": 1975
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-ties-slot-4-year-1970",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 4,
+        "year": 1970
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-ties-slot-4-year-1975",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 4,
+        "year": 1975
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-slot-0-year-1960",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 0,
+        "year": 1960
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-slot-1-year-1960",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 1,
+        "year": 1960
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-slot-0-year-1950",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 0,
+        "year": 1950
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-slot-4-year-1980",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 4,
+        "year": 1980
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-slot-3-year-1980",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 3,
+        "year": 1980
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-slot-4-year-1990",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 4,
+        "year": 1990
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-slot-0-year-1990",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 0,
+        "year": 1990
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-slot-2-year-1965",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 2,
+        "year": 1965
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-slot-1-year-1965",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "slot": 1,
+        "year": 1965
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-single-0-1950",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1980
+        ],
+        "slot": 0,
+        "year": 1950
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-single-0-2100",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1980
+        ],
+        "slot": 0,
+        "year": 2100
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-single-1-1950",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1980
+        ],
+        "slot": 1,
+        "year": 1950
+      },
+      "expected": false
+    },
+    {
+      "name": "placementCorrect-empty-timeline",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [],
+        "slot": 0,
+        "year": 1984
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-all-equal-slot-0",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1990,
+          1990,
+          1990
+        ],
+        "slot": 0,
+        "year": 1990
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-all-equal-slot-1",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1990,
+          1990,
+          1990
+        ],
+        "slot": 1,
+        "year": 1990
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-all-equal-slot-2",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1990,
+          1990,
+          1990
+        ],
+        "slot": 2,
+        "year": 1990
+      },
+      "expected": true
+    },
+    {
+      "name": "placementCorrect-all-equal-slot-3",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1990,
+          1990,
+          1990
+        ],
+        "slot": 3,
+        "year": 1990
+      },
+      "expected": true
+    },
+    {
+      "name": "insertionIndex-1950",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "year": 1950
+      },
+      "expected": 0
+    },
+    {
+      "name": "insertionIndex-1960",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "year": 1960
+      },
+      "expected": 1
+    },
+    {
+      "name": "insertionIndex-1965",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "year": 1965
+      },
+      "expected": 1
+    },
+    {
+      "name": "insertionIndex-1970",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "year": 1970
+      },
+      "expected": 3
+    },
+    {
+      "name": "insertionIndex-1975",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "year": 1975
+      },
+      "expected": 3
+    },
+    {
+      "name": "insertionIndex-1980",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "year": 1980
+      },
+      "expected": 4
+    },
+    {
+      "name": "insertionIndex-1999",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1960,
+          1970,
+          1970,
+          1980
+        ],
+        "year": 1999
+      },
+      "expected": 4
+    },
+    {
+      "name": "insertionIndex-empty",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [],
+        "year": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "insertionIndex-all-equal",
+      "fn": "insertionIndex",
+      "args": {
+        "years": [
+          1990,
+          1990,
+          1990
+        ],
+        "year": 1990
+      },
+      "expected": 3
+    },
+    {
+      "name": "distance-1984-1984",
+      "fn": "distance",
+      "args": {
+        "a": 1984,
+        "b": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "distance-1984-1990",
+      "fn": "distance",
+      "args": {
+        "a": 1984,
+        "b": 1990
+      },
+      "expected": 6
+    },
+    {
+      "name": "distance-1990-1984",
+      "fn": "distance",
+      "args": {
+        "a": 1990,
+        "b": 1984
+      },
+      "expected": 6
+    },
+    {
+      "name": "distance-2000-1850",
+      "fn": "distance",
+      "args": {
+        "a": 2000,
+        "b": 1850
+      },
+      "expected": 150
+    },
+    {
+      "name": "bullseyePoints-+0",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1984,
+        "answer": 1984
+      },
+      "expected": 10
+    },
+    {
+      "name": "bullseyePoints-+1",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1985,
+        "answer": 1984
+      },
+      "expected": 7
+    },
+    {
+      "name": "bullseyePoints--1",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1983,
+        "answer": 1984
+      },
+      "expected": 7
+    },
+    {
+      "name": "bullseyePoints-+2",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1986,
+        "answer": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "bullseyePoints--2",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1982,
+        "answer": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "bullseyePoints-+3",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1987,
+        "answer": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "bullseyePoints--3",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1981,
+        "answer": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "bullseyePoints-+4",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1988,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "bullseyePoints--4",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1980,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "bullseyePoints-+5",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1989,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "bullseyePoints--5",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1979,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "bullseyePoints-+6",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1990,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "bullseyePoints--6",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1978,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "bullseyePoints-+10",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1994,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "bullseyePoints--10",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1974,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "bullseyePoints-+11",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1995,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "bullseyePoints--11",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1973,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "bullseyePoints-+12",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1996,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "bullseyePoints--12",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1972,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "bullseyePoints-+100",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 2084,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "bullseyePoints--100",
+      "fn": "bullseyePoints",
+      "args": {
+        "guess": 1884,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderPoints-step-0-title-true-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 0,
+        "titleOK": true,
+        "artistOK": true
+      },
+      "expected": 10
+    },
+    {
+      "name": "ladderPoints-step-0-title-true-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 0,
+        "titleOK": true,
+        "artistOK": false
+      },
+      "expected": 5
+    },
+    {
+      "name": "ladderPoints-step-0-title-false-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 0,
+        "titleOK": false,
+        "artistOK": true
+      },
+      "expected": 5
+    },
+    {
+      "name": "ladderPoints-step-0-title-false-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 0,
+        "titleOK": false,
+        "artistOK": false
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderPoints-step-1-title-true-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 1,
+        "titleOK": true,
+        "artistOK": true
+      },
+      "expected": 8
+    },
+    {
+      "name": "ladderPoints-step-1-title-true-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 1,
+        "titleOK": true,
+        "artistOK": false
+      },
+      "expected": 4
+    },
+    {
+      "name": "ladderPoints-step-1-title-false-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 1,
+        "titleOK": false,
+        "artistOK": true
+      },
+      "expected": 4
+    },
+    {
+      "name": "ladderPoints-step-1-title-false-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 1,
+        "titleOK": false,
+        "artistOK": false
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderPoints-step-2-title-true-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 2,
+        "titleOK": true,
+        "artistOK": true
+      },
+      "expected": 6
+    },
+    {
+      "name": "ladderPoints-step-2-title-true-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 2,
+        "titleOK": true,
+        "artistOK": false
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderPoints-step-2-title-false-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 2,
+        "titleOK": false,
+        "artistOK": true
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderPoints-step-2-title-false-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 2,
+        "titleOK": false,
+        "artistOK": false
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderPoints-step-3-title-true-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 3,
+        "titleOK": true,
+        "artistOK": true
+      },
+      "expected": 4
+    },
+    {
+      "name": "ladderPoints-step-3-title-true-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 3,
+        "titleOK": true,
+        "artistOK": false
+      },
+      "expected": 2
+    },
+    {
+      "name": "ladderPoints-step-3-title-false-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 3,
+        "titleOK": false,
+        "artistOK": true
+      },
+      "expected": 2
+    },
+    {
+      "name": "ladderPoints-step-3-title-false-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 3,
+        "titleOK": false,
+        "artistOK": false
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderPoints-step-4-title-true-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 4,
+        "titleOK": true,
+        "artistOK": true
+      },
+      "expected": 2
+    },
+    {
+      "name": "ladderPoints-step-4-title-true-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 4,
+        "titleOK": true,
+        "artistOK": false
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderPoints-step-4-title-false-artist-true",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 4,
+        "titleOK": false,
+        "artistOK": true
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderPoints-step-4-title-false-artist-false",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 4,
+        "titleOK": false,
+        "artistOK": false
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderPoints-step-5",
+      "fn": "ladderPoints",
+      "args": {
+        "stepIndex": 5,
+        "titleOK": true,
+        "artistOK": true
+      },
+      "error": true
+    },
+    {
+      "name": "ladderYearPoints-1984-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1984,
+        "answer": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "ladderYearBonus-1984-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1984,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearPoints-1985-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1985,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1985-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1985,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1983-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1983,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1983-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1983,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1986-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1986,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1986-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1986,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1982-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1982,
+        "answer": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1982-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1982,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1987-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1987,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-1987-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1987,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1981-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1981,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-1981-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1981,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1980-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1980,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-1980-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1980,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1989-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1989,
+        "answer": 1984
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-1989-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1989,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1990-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1990,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearBonus-1990-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1990,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1979-vs-1984",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1979,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearBonus-1979-vs-1984",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1979,
+        "answer": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1948-vs-1950",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1948,
+        "answer": 1950
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1948-vs-1950",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1948,
+        "answer": 1950
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1949-vs-1950",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1949,
+        "answer": 1950
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1949-vs-1950",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1949,
+        "answer": 1950
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1951-vs-1949",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1951,
+        "answer": 1949
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1951-vs-1949",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1951,
+        "answer": 1949
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1952-vs-1950",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1952,
+        "answer": 1950
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-1952-vs-1950",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1952,
+        "answer": 1950
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-1953-vs-1950",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1953,
+        "answer": 1950
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-1953-vs-1950",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1953,
+        "answer": 1950
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-2019-vs-2020",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 2019,
+        "answer": 2020
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-2019-vs-2020",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 2019,
+        "answer": 2020
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-2020-vs-2022",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 2020,
+        "answer": 2022
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-2020-vs-2022",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 2020,
+        "answer": 2022
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-2023-vs-2020",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 2023,
+        "answer": 2020
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-2023-vs-2020",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 2023,
+        "answer": 2020
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-2100-vs-2100",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 2100,
+        "answer": 2100
+      },
+      "expected": 5
+    },
+    {
+      "name": "ladderYearBonus-2100-vs-2100",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 2100,
+        "answer": 2100
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearPoints-2100-vs-2098",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 2100,
+        "answer": 2098
+      },
+      "expected": 3
+    },
+    {
+      "name": "ladderYearBonus-2100-vs-2098",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 2100,
+        "answer": 2098
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearPoints-2100-vs-2095",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 2100,
+        "answer": 2095
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-2100-vs-2095",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 2100,
+        "answer": 2095
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1850-vs-1949",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1850,
+        "answer": 1949
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-1850-vs-1949",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1850,
+        "answer": 1949
+      },
+      "expected": 0
+    },
+    {
+      "name": "ladderYearPoints-1850-vs-1900",
+      "fn": "ladderYearPoints",
+      "args": {
+        "guess": 1850,
+        "answer": 1900
+      },
+      "expected": 1
+    },
+    {
+      "name": "ladderYearBonus-1850-vs-1900",
+      "fn": "ladderYearBonus",
+      "args": {
+        "guess": 1850,
+        "answer": 1900
+      },
+      "expected": 0
+    },
+    {
+      "name": "higherLowerCorrect-earlier-ref-1984-year-1984",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1984,
+        "call": "earlier"
+      },
+      "expected": true
+    },
+    {
+      "name": "higherLowerCorrect-later-ref-1984-year-1984",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1984,
+        "call": "later"
+      },
+      "expected": true
+    },
+    {
+      "name": "higherLowerCorrect-earlier-ref-1984-year-1983",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1983,
+        "call": "earlier"
+      },
+      "expected": true
+    },
+    {
+      "name": "higherLowerCorrect-later-ref-1984-year-1983",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1983,
+        "call": "later"
+      },
+      "expected": false
+    },
+    {
+      "name": "higherLowerCorrect-earlier-ref-1984-year-1985",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1985,
+        "call": "earlier"
+      },
+      "expected": false
+    },
+    {
+      "name": "higherLowerCorrect-later-ref-1984-year-1985",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1985,
+        "call": "later"
+      },
+      "expected": true
+    },
+    {
+      "name": "higherLowerCorrect-earlier-ref-1984-year-1850",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1850,
+        "call": "earlier"
+      },
+      "expected": true
+    },
+    {
+      "name": "higherLowerCorrect-later-ref-1984-year-1850",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 1850,
+        "call": "later"
+      },
+      "expected": false
+    },
+    {
+      "name": "higherLowerCorrect-earlier-ref-1984-year-2100",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 2100,
+        "call": "earlier"
+      },
+      "expected": false
+    },
+    {
+      "name": "higherLowerCorrect-later-ref-1984-year-2100",
+      "fn": "higherLowerCorrect",
+      "args": {
+        "refYear": 1984,
+        "year": 2100,
+        "call": "later"
+      },
+      "expected": true
+    },
+    {
+      "name": "lineupPoints-k4-perfect",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990
+        }
+      },
+      "expected": 8
+    },
+    {
+      "name": "lineupPoints-k5-perfect",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990,
+          "e": 2000
+        }
+      },
+      "expected": 12
+    },
+    {
+      "name": "lineupPoints-k4-reversed",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "d",
+          "c",
+          "b",
+          "a"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990
+        }
+      },
+      "expected": 0
+    },
+    {
+      "name": "lineupPoints-k5-reversed",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "e",
+          "d",
+          "c",
+          "b",
+          "a"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990,
+          "e": 2000
+        }
+      },
+      "expected": 0
+    },
+    {
+      "name": "lineupPoints-k4-one-swap",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "c",
+          "b",
+          "d"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990
+        }
+      },
+      "expected": 5
+    },
+    {
+      "name": "lineupPoints-k4-swap-ends",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "d",
+          "b",
+          "c",
+          "a"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990
+        }
+      },
+      "expected": 1
+    },
+    {
+      "name": "lineupPoints-k5-one-swap-adjacent",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "b",
+          "d",
+          "c",
+          "e"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990,
+          "e": 2000
+        }
+      },
+      "expected": 9
+    },
+    {
+      "name": "lineupPoints-k5-rotated",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "b",
+          "c",
+          "d",
+          "e",
+          "a"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980,
+          "d": 1990,
+          "e": 2000
+        }
+      },
+      "expected": 6
+    },
+    {
+      "name": "lineupPoints-k3-perfect",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "b",
+          "c"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970,
+          "c": 1980
+        }
+      },
+      "expected": 5
+    },
+    {
+      "name": "lineupPoints-tie-pair-order-ab",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "years": {
+          "a": 1970,
+          "b": 1970,
+          "c": 1985,
+          "d": 1999
+        }
+      },
+      "expected": 8
+    },
+    {
+      "name": "lineupPoints-tie-pair-order-ba",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "b",
+          "a",
+          "c",
+          "d"
+        ],
+        "years": {
+          "a": 1970,
+          "b": 1970,
+          "c": 1985,
+          "d": 1999
+        }
+      },
+      "expected": 8
+    },
+    {
+      "name": "lineupPoints-tie-pair-reversed-rest",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "d",
+          "c",
+          "a",
+          "b"
+        ],
+        "years": {
+          "a": 1970,
+          "b": 1970,
+          "c": 1985,
+          "d": 1999
+        }
+      },
+      "expected": 1
+    },
+    {
+      "name": "lineupPoints-all-equal-years",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "b",
+          "c",
+          "d"
+        ],
+        "years": {
+          "a": 1980,
+          "b": 1980,
+          "c": 1980,
+          "d": 1980
+        }
+      },
+      "expected": 8
+    },
+    {
+      "name": "lineupPoints-order-differs-from-id-order",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "z",
+          "y",
+          "x",
+          "w"
+        ],
+        "years": {
+          "z": 1950,
+          "y": 1960,
+          "x": 1970,
+          "w": 1980
+        }
+      },
+      "expected": 8
+    },
+    {
+      "name": "imposterPoints-picked-true-guess-none-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": true,
+        "originalYear": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "imposterPoints-picked-false-guess-none-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": false,
+        "originalYear": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "imposterPoints-picked-true-guess-1984-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": true,
+        "yearGuess": 1984,
+        "originalYear": 1984
+      },
+      "expected": 8
+    },
+    {
+      "name": "imposterPoints-picked-true-guess-1986-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": true,
+        "yearGuess": 1986,
+        "originalYear": 1984
+      },
+      "expected": 8
+    },
+    {
+      "name": "imposterPoints-picked-true-guess-1987-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": true,
+        "yearGuess": 1987,
+        "originalYear": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "imposterPoints-picked-false-guess-1982-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": false,
+        "yearGuess": 1982,
+        "originalYear": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "imposterPoints-picked-false-guess-1981-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": false,
+        "yearGuess": 1981,
+        "originalYear": 1984
+      },
+      "expected": 0
+    },
+    {
+      "name": "imposterPoints-picked-true-guess-1981-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": true,
+        "yearGuess": 1981,
+        "originalYear": 1984
+      },
+      "expected": 5
+    },
+    {
+      "name": "imposterPoints-picked-false-guess-1984-original-1984",
+      "fn": "imposterPoints",
+      "args": {
+        "pickedOriginal": false,
+        "yearGuess": 1984,
+        "originalYear": 1984
+      },
+      "expected": 3
+    },
+    {
+      "name": "nameItAward-true-true",
+      "fn": "nameItAward",
+      "args": {
+        "titleOK": true,
+        "artistOK": true
+      },
+      "expected": true
+    },
+    {
+      "name": "nameItAward-true-false",
+      "fn": "nameItAward",
+      "args": {
+        "titleOK": true,
+        "artistOK": false
+      },
+      "expected": false
+    },
+    {
+      "name": "nameItAward-false-true",
+      "fn": "nameItAward",
+      "args": {
+        "titleOK": false,
+        "artistOK": true
+      },
+      "expected": false
+    },
+    {
+      "name": "nameItAward-false-false",
+      "fn": "nameItAward",
+      "args": {
+        "titleOK": false,
+        "artistOK": false
+      },
+      "expected": false
+    },
+    {
+      "name": "imposterPairs-no-relations",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "a"
+          },
+          {
+            "id": "b"
+          }
+        ],
+        "seed": 1
+      },
+      "expected": []
+    },
+    {
+      "name": "imposterPairs-empty",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [],
+        "seed": 1
+      },
+      "expected": []
+    },
+    {
+      "name": "imposterPairs-cover-of",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "orig"
+          },
+          {
+            "id": "cov",
+            "relatedTo": {
+              "cardId": "orig",
+              "relation": "coverOf"
+            }
+          }
+        ],
+        "seed": 1
+      },
+      "expected": [
+        {
+          "a": "cov",
+          "b": "orig",
+          "original": "orig"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-remaster-of",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "orig"
+          },
+          {
+            "id": "rem",
+            "relatedTo": {
+              "cardId": "orig",
+              "relation": "remasterOf"
+            }
+          }
+        ],
+        "seed": 2
+      },
+      "expected": [
+        {
+          "a": "rem",
+          "b": "orig",
+          "original": "orig"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-original-of",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "x"
+          },
+          {
+            "id": "o",
+            "relatedTo": {
+              "cardId": "x",
+              "relation": "originalOf"
+            }
+          }
+        ],
+        "seed": 3
+      },
+      "expected": [
+        {
+          "a": "x",
+          "b": "o",
+          "original": "o"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-original-of-seed-4",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "x"
+          },
+          {
+            "id": "o",
+            "relatedTo": {
+              "cardId": "x",
+              "relation": "originalOf"
+            }
+          }
+        ],
+        "seed": 4
+      },
+      "expected": [
+        {
+          "a": "x",
+          "b": "o",
+          "original": "o"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-chain-yields-only-first",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "A"
+          },
+          {
+            "id": "B",
+            "relatedTo": {
+              "cardId": "A",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "C",
+            "relatedTo": {
+              "cardId": "B",
+              "relation": "coverOf"
+            }
+          }
+        ],
+        "seed": 5
+      },
+      "expected": [
+        {
+          "a": "B",
+          "b": "A",
+          "original": "A"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-duplicates-removed",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "t",
+            "relatedTo": {
+              "cardId": "x",
+              "relation": "originalOf"
+            }
+          },
+          {
+            "id": "x",
+            "relatedTo": {
+              "cardId": "t",
+              "relation": "coverOf"
+            }
+          }
+        ],
+        "seed": 6
+      },
+      "expected": [
+        {
+          "a": "t",
+          "b": "x",
+          "original": "t"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-original-of-derived-target",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "T"
+          },
+          {
+            "id": "X",
+            "relatedTo": {
+              "cardId": "T",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "O",
+            "relatedTo": {
+              "cardId": "X",
+              "relation": "originalOf"
+            }
+          }
+        ],
+        "seed": 7
+      },
+      "expected": [
+        {
+          "a": "O",
+          "b": "X",
+          "original": "O"
+        },
+        {
+          "a": "X",
+          "b": "T",
+          "original": "T"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-missing-targets-skipped",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "a",
+            "relatedTo": {
+              "cardId": "gone",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "b",
+            "relatedTo": {
+              "cardId": "gone2",
+              "relation": "originalOf"
+            }
+          },
+          {
+            "id": "c"
+          }
+        ],
+        "seed": 8
+      },
+      "expected": []
+    },
+    {
+      "name": "imposterPairs-six-pairs-seed-0",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "o1"
+          },
+          {
+            "id": "o2"
+          },
+          {
+            "id": "o3"
+          },
+          {
+            "id": "o4"
+          },
+          {
+            "id": "Z"
+          },
+          {
+            "id": "c1",
+            "relatedTo": {
+              "cardId": "o1",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c2",
+            "relatedTo": {
+              "cardId": "o2",
+              "relation": "remasterOf"
+            }
+          },
+          {
+            "id": "c3",
+            "relatedTo": {
+              "cardId": "o3",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c4",
+            "relatedTo": {
+              "cardId": "o4",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "m",
+            "relatedTo": {
+              "cardId": "Z",
+              "relation": "originalOf"
+            }
+          }
+        ],
+        "seed": 0
+      },
+      "expected": [
+        {
+          "a": "c1",
+          "b": "o1",
+          "original": "o1"
+        },
+        {
+          "a": "o2",
+          "b": "c2",
+          "original": "o2"
+        },
+        {
+          "a": "c4",
+          "b": "o4",
+          "original": "o4"
+        },
+        {
+          "a": "m",
+          "b": "Z",
+          "original": "m"
+        },
+        {
+          "a": "c3",
+          "b": "o3",
+          "original": "o3"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-six-pairs-seed-1",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "o1"
+          },
+          {
+            "id": "o2"
+          },
+          {
+            "id": "o3"
+          },
+          {
+            "id": "o4"
+          },
+          {
+            "id": "Z"
+          },
+          {
+            "id": "c1",
+            "relatedTo": {
+              "cardId": "o1",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c2",
+            "relatedTo": {
+              "cardId": "o2",
+              "relation": "remasterOf"
+            }
+          },
+          {
+            "id": "c3",
+            "relatedTo": {
+              "cardId": "o3",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c4",
+            "relatedTo": {
+              "cardId": "o4",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "m",
+            "relatedTo": {
+              "cardId": "Z",
+              "relation": "originalOf"
+            }
+          }
+        ],
+        "seed": 1
+      },
+      "expected": [
+        {
+          "a": "c1",
+          "b": "o1",
+          "original": "o1"
+        },
+        {
+          "a": "c4",
+          "b": "o4",
+          "original": "o4"
+        },
+        {
+          "a": "m",
+          "b": "Z",
+          "original": "m"
+        },
+        {
+          "a": "o3",
+          "b": "c3",
+          "original": "o3"
+        },
+        {
+          "a": "c2",
+          "b": "o2",
+          "original": "o2"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-six-pairs-seed-42",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "o1"
+          },
+          {
+            "id": "o2"
+          },
+          {
+            "id": "o3"
+          },
+          {
+            "id": "o4"
+          },
+          {
+            "id": "Z"
+          },
+          {
+            "id": "c1",
+            "relatedTo": {
+              "cardId": "o1",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c2",
+            "relatedTo": {
+              "cardId": "o2",
+              "relation": "remasterOf"
+            }
+          },
+          {
+            "id": "c3",
+            "relatedTo": {
+              "cardId": "o3",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c4",
+            "relatedTo": {
+              "cardId": "o4",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "m",
+            "relatedTo": {
+              "cardId": "Z",
+              "relation": "originalOf"
+            }
+          }
+        ],
+        "seed": 42
+      },
+      "expected": [
+        {
+          "a": "c4",
+          "b": "o4",
+          "original": "o4"
+        },
+        {
+          "a": "o3",
+          "b": "c3",
+          "original": "o3"
+        },
+        {
+          "a": "o1",
+          "b": "c1",
+          "original": "o1"
+        },
+        {
+          "a": "o2",
+          "b": "c2",
+          "original": "o2"
+        },
+        {
+          "a": "m",
+          "b": "Z",
+          "original": "m"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-six-pairs-seed-4294967295",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "o1"
+          },
+          {
+            "id": "o2"
+          },
+          {
+            "id": "o3"
+          },
+          {
+            "id": "o4"
+          },
+          {
+            "id": "Z"
+          },
+          {
+            "id": "c1",
+            "relatedTo": {
+              "cardId": "o1",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c2",
+            "relatedTo": {
+              "cardId": "o2",
+              "relation": "remasterOf"
+            }
+          },
+          {
+            "id": "c3",
+            "relatedTo": {
+              "cardId": "o3",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c4",
+            "relatedTo": {
+              "cardId": "o4",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "m",
+            "relatedTo": {
+              "cardId": "Z",
+              "relation": "originalOf"
+            }
+          }
+        ],
+        "seed": 4294967295
+      },
+      "expected": [
+        {
+          "a": "Z",
+          "b": "m",
+          "original": "m"
+        },
+        {
+          "a": "o1",
+          "b": "c1",
+          "original": "o1"
+        },
+        {
+          "a": "c2",
+          "b": "o2",
+          "original": "o2"
+        },
+        {
+          "a": "c4",
+          "b": "o4",
+          "original": "o4"
+        },
+        {
+          "a": "o3",
+          "b": "c3",
+          "original": "o3"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-card-order-irrelevant",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "m",
+            "relatedTo": {
+              "cardId": "Z",
+              "relation": "originalOf"
+            }
+          },
+          {
+            "id": "c4",
+            "relatedTo": {
+              "cardId": "o4",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c3",
+            "relatedTo": {
+              "cardId": "o3",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c2",
+            "relatedTo": {
+              "cardId": "o2",
+              "relation": "remasterOf"
+            }
+          },
+          {
+            "id": "c1",
+            "relatedTo": {
+              "cardId": "o1",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "Z"
+          },
+          {
+            "id": "o4"
+          },
+          {
+            "id": "o3"
+          },
+          {
+            "id": "o2"
+          },
+          {
+            "id": "o1"
+          }
+        ],
+        "seed": 42
+      },
+      "expected": [
+        {
+          "a": "c4",
+          "b": "o4",
+          "original": "o4"
+        },
+        {
+          "a": "o3",
+          "b": "c3",
+          "original": "o3"
+        },
+        {
+          "a": "o1",
+          "b": "c1",
+          "original": "o1"
+        },
+        {
+          "a": "o2",
+          "b": "c2",
+          "original": "o2"
+        },
+        {
+          "a": "m",
+          "b": "Z",
+          "original": "m"
+        }
+      ]
+    },
+    {
+      "name": "imposterPairs-code-point-order",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "b"
+          },
+          {
+            "id": "B"
+          },
+          {
+            "id": "x1",
+            "relatedTo": {
+              "cardId": "b",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "x2",
+            "relatedTo": {
+              "cardId": "B",
+              "relation": "coverOf"
+            }
+          }
+        ],
+        "seed": 9
+      },
+      "expected": [
+        {
+          "a": "x2",
+          "b": "B",
+          "original": "B"
+        },
+        {
+          "a": "b",
+          "b": "x1",
+          "original": "b"
+        }
+      ]
+    },
+    {
+      "name": "placementCorrect-slot-negative",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970
+        ],
+        "slot": -1,
+        "year": 1965
+      },
+      "error": true
+    },
+    {
+      "name": "placementCorrect-slot-beyond-length",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [
+          1960,
+          1970
+        ],
+        "slot": 3,
+        "year": 1965
+      },
+      "error": true
+    },
+    {
+      "name": "placementCorrect-empty-slot-1",
+      "fn": "placementCorrect",
+      "args": {
+        "years": [],
+        "slot": 1,
+        "year": 1965
+      },
+      "error": true
+    },
+    {
+      "name": "lineupPoints-id-missing-from-years",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "a",
+          "b",
+          "x"
+        ],
+        "years": {
+          "a": 1960,
+          "b": 1970
+        }
+      },
+      "error": true
+    },
+    {
+      "name": "lineupPoints-prototype-named-id-missing-from-years",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "toString",
+          "a"
+        ],
+        "years": {
+          "a": 1960
+        }
+      },
+      "error": true
+    },
+    {
+      "name": "lineupPoints-prototype-named-ids",
+      "fn": "lineupPoints",
+      "args": {
+        "order": [
+          "constructor",
+          "toString",
+          "valueOf"
+        ],
+        "years": {
+          "constructor": 1960,
+          "toString": 1970,
+          "valueOf": 1965
+        }
+      },
+      "expected": 2
+    },
+    {
+      "name": "pickAnchors-negative-count",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          }
+        ],
+        "kind": "random",
+        "seed": 1,
+        "count": -1
+      },
+      "error": true
+    },
+    {
+      "name": "pickAnchors-count-0",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [
+          {
+            "id": "c01",
+            "year": 1962
+          }
+        ],
+        "kind": "random",
+        "seed": 1,
+        "count": 0
+      },
+      "expected": []
+    },
+    {
+      "name": "pickAnchors-count-0-no-cards",
+      "fn": "pickAnchors",
+      "args": {
+        "cards": [],
+        "kind": "beginning",
+        "seed": 1,
+        "count": 0
+      },
+      "expected": []
+    },
+    {
+      "name": "imposterPairs-duplicate-card-ids",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "orig"
+          },
+          {
+            "id": "orig"
+          },
+          {
+            "id": "cov",
+            "relatedTo": {
+              "cardId": "orig",
+              "relation": "coverOf"
+            }
+          }
+        ],
+        "seed": 1
+      },
+      "error": true
+    },
+    {
+      "name": "imposterPairs-duplicate-card-ids-without-relations",
+      "fn": "imposterPairs",
+      "args": {
+        "cards": [
+          {
+            "id": "a"
+          },
+          {
+            "id": "a"
+          }
+        ],
+        "seed": 1
+      },
+      "error": true
+    },
+    {
+      "name": "dailyStreak-invalid-last-date",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-02-30",
+          "streak": 3
+        },
+        "date": "2026-10-11"
+      },
+      "error": true
+    },
+    {
+      "name": "dailyStreak-malformed-last-date",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-10-1",
+          "streak": 3
+        },
+        "date": "2026-10-11"
+      },
+      "error": true
+    },
+    {
+      "name": "dailyStreak-invalid-date-with-previous",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "2026-10-10",
+          "streak": 3
+        },
+        "date": "2026-13-01"
+      },
+      "error": true
+    },
+    {
+      "name": "dailyStreak-0000-01-01-absent",
+      "fn": "dailyStreak",
+      "args": {
+        "date": "0000-01-01"
+      },
+      "expected": 1
+    },
+    {
+      "name": "dailyStreak-0000-01-01-not-consecutive",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "9999-12-31",
+          "streak": 6
+        },
+        "date": "0000-01-01"
+      },
+      "expected": 1
+    },
+    {
+      "name": "dailyStreak-0000-01-01-same-day",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "0000-01-01",
+          "streak": 6
+        },
+        "date": "0000-01-01"
+      },
+      "expected": 6
+    },
+    {
+      "name": "dailyStreak-consecutive-0000-12-31-to-0001-01-01",
+      "fn": "dailyStreak",
+      "args": {
+        "previous": {
+          "lastDate": "0000-12-31",
+          "streak": 2
+        },
+        "date": "0001-01-01"
+      },
+      "expected": 3
+    },
+    {
+      "name": "eraticCardURL-valid",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com",
+        "deckId": "demo-deck",
+        "cardId": "c1"
+      },
+      "expected": "https://cards.example.com/c/demo-deck/c1"
+    },
+    {
+      "name": "eraticCardURL-invalid-card-id",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com",
+        "deckId": "demo-deck",
+        "cardId": "bad id"
+      },
+      "expected": null
+    },
+    {
+      "name": "eraticCardURL-card-id-with-slash",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com",
+        "deckId": "demo-deck",
+        "cardId": "c1/x"
+      },
+      "expected": null
+    },
+    {
+      "name": "eraticCardURL-card-id-with-kelvin-sign",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com",
+        "deckId": "demo-deck",
+        "cardId": "K1"
+      },
+      "expected": null
+    },
+    {
+      "name": "eraticCardURL-invalid-deck-id",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com",
+        "deckId": "-deck",
+        "cardId": "c1"
+      },
+      "expected": null
+    },
+    {
+      "name": "eraticCardURL-empty-deck-id",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com",
+        "deckId": "",
+        "cardId": "c1"
+      },
+      "expected": null
+    },
+    {
+      "name": "eraticCardURL-card-id-65-characters",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com",
+        "deckId": "demo-deck",
+        "cardId": "ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "expected": null
+    },
+    {
+      "name": "eraticCardURL-invalid-host",
+      "fn": "eraticCardURL",
+      "args": {
+        "host": "cards.example.com:8443",
+        "deckId": "demo-deck",
+        "cardId": "c1"
+      },
+      "expected": null
+    }
+  ]
+}

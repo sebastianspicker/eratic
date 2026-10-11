@@ -1,0 +1,340 @@
+{
+  "description": "URL policy vectors shared by Apple and web. Each harness places `url` in a copy of the demo deck (role providerLink: cards[0].links[0].url; role officialCard: cards[0].officialCard.url) and expects deck validation to succeed exactly when `valid` is true. Accepting an official-card shape never certifies a mapping.",
+  "cases": [
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com/song"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com:443/song"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com:0443/song"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com:/song"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://music.apple.com/us/song/1"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com/a%20b?x=1#y"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com/caf\u00e9"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://b\u00fccher.example/x"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://256.1.1.1/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://999.999.999.999/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://1.2.3/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://[::1]/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://exa_mple.com/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com/a|b"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com/%zz"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://example.com/a#b#c"
+    },
+    {
+      "role": "providerLink",
+      "valid": true,
+      "url": "https://\u0301example.com/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "http://example.com/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "HTTPS://example.com/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "javascript:alert(1)"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https:///path"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://user@example.com/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://user:pass@example.com/music"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com:8443/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com:444/music"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com:abc/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://exa<mple.com/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://exa%41mple.com/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a b"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/ music"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com\\evil"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/\n"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\tb"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\u00a0b"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\u0080b"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\u0085b"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\u200bb"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\ufeffb"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\u2028b"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://example.com/a\u3000b"
+    },
+    {
+      "role": "officialCard",
+      "valid": true,
+      "url": "https://www.hitstergame.com/se/aaaa0034/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": true,
+      "url": "https://hitstergame.com/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": true,
+      "url": "https://WWW.HitsterGame.com/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": true,
+      "url": "https://uqr.to/Ab12"
+    },
+    {
+      "role": "officialCard",
+      "valid": true,
+      "url": "https://uqr.to/aB12"
+    },
+    {
+      "role": "officialCard",
+      "valid": true,
+      "url": "https://app.hitsternordics.com/resources/songs/1"
+    },
+    {
+      "role": "officialCard",
+      "valid": true,
+      "url": "https://app.hitsternordics.com/resources/songs/42"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "http://hitstergame.com/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com/en/00001?x=1"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com/en/00001?x"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com/en/00001#x"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com:443/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com:/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://user@hitstergame.com/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://evil.example/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com.evil.test/en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://uqr.to/toolong"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com/en/%30%30%30%30%31"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com/en/../en/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com/eng/00001"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://app.hitsternordics.com/resources/songs/123456"
+    },
+    {
+      "role": "officialCard",
+      "valid": false,
+      "url": "https://hitstergame.com/en/00001\u200b"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://[::1]:443/a"
+    },
+    {
+      "role": "providerLink",
+      "valid": false,
+      "url": "https://[2001:db8::1]/a"
+    }
+  ]
+}

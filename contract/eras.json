@@ -1,0 +1,59 @@
+{
+  "description": "Eratic's nine eras in order, with inclusive curated-year bounds (null = open). This is the only source of era boundaries, because game scores depend on them (game-rules.md section 2). Colours and type moves live in design/eras.json, which lists the same IDs in the same order.",
+  "eras": [
+    {
+      "id": "shellac",
+      "name": "Shellac",
+      "from": null,
+      "to": 1949
+    },
+    {
+      "id": "jukebox",
+      "name": "Jukebox",
+      "from": 1950,
+      "to": 1959
+    },
+    {
+      "id": "mod",
+      "name": "Mod",
+      "from": 1960,
+      "to": 1969
+    },
+    {
+      "id": "disco",
+      "name": "Disco",
+      "from": 1970,
+      "to": 1979
+    },
+    {
+      "id": "neon",
+      "name": "Neon",
+      "from": 1980,
+      "to": 1989
+    },
+    {
+      "id": "zine",
+      "name": "Zine",
+      "from": 1990,
+      "to": 1999
+    },
+    {
+      "id": "chrome",
+      "name": "Chrome",
+      "from": 2000,
+      "to": 2009
+    },
+    {
+      "id": "pastel",
+      "name": "Pastel",
+      "from": 2010,
+      "to": 2019
+    },
+    {
+      "id": "now",
+      "name": "Now",
+      "from": 2020,
+      "to": null
+    }
+  ]
+}

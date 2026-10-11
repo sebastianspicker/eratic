@@ -1,0 +1,67 @@
+name: Eratic
+options:
+  minimumXcodeGenVersion: 2.44.0
+  deploymentTarget:
+    macOS: "14.0"
+    iOS: "17.0"
+packages:
+  EraticCore:
+    path: EraticCore
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: YES
+    PRODUCT_NAME: Eratic
+    INFOPLIST_KEY_CFBundleDisplayName: Eratic
+targets:
+  Eratic-macOS:
+    type: application
+    platform: macOS
+    sources:
+      - Sources
+      - path: ../../contract/demo-deck.json
+        buildPhase: resources
+      - path: ../../design/eras.json
+        buildPhase: resources
+    dependencies:
+      - package: EraticCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.eratic.macos
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_USER_SELECTED_FILES: readwrite
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
+        INFOPLIST_KEY_NSCameraUsageDescription: "Eratic reads the QR codes on your printed cards."
+        INFOPLIST_KEY_NSAppleMusicUsageDescription: "Eratic plays songs from your Apple Music library during games."
+        ENABLE_RESOURCE_ACCESS_CAMERA: YES
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: YES
+  Eratic-iOS:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - path: ../../contract/demo-deck.json
+        buildPhase: resources
+      - path: ../../design/eras.json
+        buildPhase: resources
+    dependencies:
+      - package: EraticCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.eratic.ios
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_NSCameraUsageDescription: "Eratic reads the QR codes on your printed cards."
+        INFOPLIST_KEY_NSAppleMusicUsageDescription: "Eratic plays songs from your Apple Music library during games."
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+schemes:
+  Eratic-macOS:
+    build:
+      targets:
+        Eratic-macOS: all
+  Eratic-iOS:
+    build:
+      targets:
+        Eratic-iOS: all

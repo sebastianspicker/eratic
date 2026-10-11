@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="theme-color" content="#17131C" />
+    <!--
+      Content Security Policy for the static build. The provider host lists (Spotify Web
+      Playback SDK and accounts/API, Apple MusicKit) still need confirming in a real browser
+      with each provider connected. frame-ancestors is ignored in a meta tag, so it is not set
+      here. The Vite dev server strips this tag (vite.config.ts), because its React refresh
+      preamble is an inline script.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://sdk.scdn.co https://js-cdn.music.apple.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.spotify.com https://*.scdn.co https://*.apple.com https://*.music.apple.com; frame-src https://sdk.scdn.co https://*.spotify.com https://*.apple.com; object-src 'none'; base-uri 'none'; form-action 'self'"
+    />
+    <meta name="referrer" content="strict-origin" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Eratic</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

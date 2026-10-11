@@ -1,0 +1,629 @@
+{
+  "description": "QR route selection shared by Apple and web. mode is 'official', 'directLink' or 'eraticCard'; expected is the exact QR payload or null. Official mode never substitutes a provider link; direct mode never substitutes the official mapping. The eraticCard mode (game-rules.md section 8.2) carries `eratic` {host, deckId}, ignores the card's links and official mapping, and yields https://<host>/c/<deckId>/<card id>, or null when the host is invalid or the deck ID does not match the deck ID pattern.",
+  "cases": [
+    {
+      "name": "official-without-mapping",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "spotify",
+            "url": "https://open.spotify.com/track/example"
+          },
+          {
+            "provider": "appleMusic",
+            "url": "https://music.apple.com/us/song/1"
+          }
+        ]
+      },
+      "mode": "official",
+      "linkIndex": 0,
+      "expected": null
+    },
+    {
+      "name": "official-preserves-supplied-spelling",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "spotify",
+            "url": "https://open.spotify.com/track/example"
+          },
+          {
+            "provider": "appleMusic",
+            "url": "https://music.apple.com/us/song/1"
+          }
+        ],
+        "officialCard": {
+          "url": "https://WWW.HitsterGame.com/se/aaaa0034/00001",
+          "notes": "Supplied, unverified"
+        }
+      },
+      "mode": "official",
+      "linkIndex": 0,
+      "expected": "https://WWW.HitsterGame.com/se/aaaa0034/00001"
+    },
+    {
+      "name": "direct-first-link",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "spotify",
+            "url": "https://open.spotify.com/track/example"
+          },
+          {
+            "provider": "appleMusic",
+            "url": "https://music.apple.com/us/song/1"
+          }
+        ],
+        "officialCard": {
+          "url": "https://WWW.HitsterGame.com/se/aaaa0034/00001",
+          "notes": "Supplied, unverified"
+        }
+      },
+      "mode": "directLink",
+      "linkIndex": 0,
+      "expected": "https://open.spotify.com/track/example"
+    },
+    {
+      "name": "direct-second-link",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "spotify",
+            "url": "https://open.spotify.com/track/example"
+          },
+          {
+            "provider": "appleMusic",
+            "url": "https://music.apple.com/us/song/1"
+          }
+        ],
+        "officialCard": {
+          "url": "https://WWW.HitsterGame.com/se/aaaa0034/00001",
+          "notes": "Supplied, unverified"
+        }
+      },
+      "mode": "directLink",
+      "linkIndex": 1,
+      "expected": "https://music.apple.com/us/song/1"
+    },
+    {
+      "name": "direct-negative-index",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "spotify",
+            "url": "https://open.spotify.com/track/example"
+          },
+          {
+            "provider": "appleMusic",
+            "url": "https://music.apple.com/us/song/1"
+          }
+        ],
+        "officialCard": {
+          "url": "https://WWW.HitsterGame.com/se/aaaa0034/00001",
+          "notes": "Supplied, unverified"
+        }
+      },
+      "mode": "directLink",
+      "linkIndex": -1,
+      "expected": null
+    },
+    {
+      "name": "direct-index-out-of-range",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "spotify",
+            "url": "https://open.spotify.com/track/example"
+          },
+          {
+            "provider": "appleMusic",
+            "url": "https://music.apple.com/us/song/1"
+          }
+        ],
+        "officialCard": {
+          "url": "https://WWW.HitsterGame.com/se/aaaa0034/00001",
+          "notes": "Supplied, unverified"
+        }
+      },
+      "mode": "directLink",
+      "linkIndex": 2,
+      "expected": null
+    },
+    {
+      "name": "direct-without-links-ignores-mapping",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [],
+        "officialCard": {
+          "url": "https://WWW.HitsterGame.com/se/aaaa0034/00001",
+          "notes": "Supplied, unverified"
+        }
+      },
+      "mode": "directLink",
+      "linkIndex": 0,
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "cards.example.com",
+        "deckId": "demo-deck"
+      },
+      "expected": "https://cards.example.com/c/demo-deck/demo-001"
+    },
+    {
+      "name": "eratic-card-route-preserves-host-spelling",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "Cards.Example.COM",
+        "deckId": "demo-deck"
+      },
+      "expected": "https://Cards.Example.COM/c/demo-deck/demo-001"
+    },
+    {
+      "name": "eratic-card-route-host-with-subdomains",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "a.b.example.org",
+        "deckId": "demo-deck"
+      },
+      "expected": "https://a.b.example.org/c/demo-deck/demo-001"
+    },
+    {
+      "name": "eratic-card-route-host-with-port-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "cards.example.com:443",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-colon-only",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "cards.example.com:",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-credentials-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "user@cards.example.com",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-empty-host-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-space-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "cards example.com",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-percent-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "cards%2eexample.com",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-bracket-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "[::1]",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-slash-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "a/b",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-query-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "a?x",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-host-with-fragment-is-invalid",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "a#x",
+        "deckId": "demo-deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-invalid-deck-id-is-null",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "cards.example.com",
+        "deckId": "bad deck"
+      },
+      "expected": null
+    },
+    {
+      "name": "eratic-card-route-deck-id-with-slash-is-null",
+      "card": {
+        "id": "demo-001",
+        "title": "Paper Satellites",
+        "artist": "The Quiet Hours",
+        "gameYear": {
+          "value": 1984,
+          "source": "Fictional sample for software testing",
+          "note": "Replace with a sourced original release year."
+        },
+        "recordingVersion": "Demo recording",
+        "links": [
+          {
+            "provider": "other",
+            "url": "https://example.com/music/demo-001",
+            "id": "demo-001"
+          }
+        ]
+      },
+      "mode": "eraticCard",
+      "linkIndex": 0,
+      "eratic": {
+        "host": "cards.example.com",
+        "deckId": "a/b"
+      },
+      "expected": null
+    }
+  ]
+}
