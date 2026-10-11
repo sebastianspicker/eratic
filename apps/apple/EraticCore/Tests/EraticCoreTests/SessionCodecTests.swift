@@ -33,6 +33,40 @@ final class SessionCodecTests: XCTestCase {
         XCTAssertEqual(try SessionCodec.decode(data(minimal)).options, .bullseye(BullseyeOptions()))
     }
 
+    private func ladderSession(version: Int, options: [String: Any]) throws -> Data {
+        var root = try object(sample())
+        root["sessionVersion"] = version
+        root["mode"] = "ladder"
+        root["options"] = options
+        root["actions"] = [[String: Any]]()
+        return try data(root)
+    }
+
+    func testLadderStepsFollowSessionVersion() throws {
+        // Version 2 caps steps at 30 s.
+        XCTAssertNoThrow(try SessionCodec.decode(ladderSession(version: 2, options: ["steps": [500, 30000]])))
+        XCTAssertThrowsError(try SessionCodec.decode(ladderSession(version: 2, options: ["steps": [1000, 30001]])))
+        XCTAssertThrowsError(try SessionCodec.decode(ladderSession(version: 2, options: ["steps": [1000, 60000]])))
+        // Version 1 keeps 600000 and its old default.
+        XCTAssertNoThrow(try SessionCodec.decode(ladderSession(version: 1, options: ["steps": [1000, 60000]])))
+        XCTAssertThrowsError(try SessionCodec.decode(ladderSession(version: 1, options: ["steps": [1000, 600_001]])))
+        let v1 = try SessionCodec.decode(ladderSession(version: 1, options: [String: Any]()))
+        XCTAssertEqual(v1.options, .ladder({ var o = LadderOptions(); o.steps = [1000, 5000, 10000, 30000, 60000]; return o }()))
+        let v2 = try SessionCodec.decode(ladderSession(version: 2, options: [String: Any]()))
+        guard case let .ladder(options) = v2.options else { return XCTFail("expected ladder options") }
+        XCTAssertEqual(options.steps, [1000, 5000, 10000, 20000, 30000])
+    }
+
+    func testVersionIsKeptOnRoundTrip() throws {
+        XCTAssertEqual(GameSession.version, 2)
+        XCTAssertEqual(sample().sessionVersion, 2)
+        let v1 = try SessionCodec.decode(ladderSession(version: 1, options: [String: Any]()))
+        XCTAssertEqual(v1.sessionVersion, 1)
+        XCTAssertEqual(try object(v1)["sessionVersion"] as? Int, 1)
+        XCTAssertEqual(try SessionCodec.decode(SessionCodec.encode(v1)), v1)
+        XCTAssertEqual(try object(sample())["sessionVersion"] as? Int, 2)
+    }
+
     func testEveryActionShapeRoundTrips() throws {
         var timeline = TimelineOptions()
         timeline.anchor = .custom
@@ -65,7 +99,8 @@ final class SessionCodecTests: XCTestCase {
         try rejects { $0["deckTitle"] = NSNull() }
         try rejects { $0.removeValue(forKey: "createdAt") }
         try rejects { $0["format"] = "eratic-deck" }
-        try rejects { $0["sessionVersion"] = 2 }
+        try rejects { $0["sessionVersion"] = 3 }
+        try rejects { $0["sessionVersion"] = 0 }
         try rejects { $0["mode"] = "bingo" }
         try rejects { $0["createdAt"] = "2026-10-11 19:30:00" }
         try rejects { $0["id"] = "-bad" }

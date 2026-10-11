@@ -198,6 +198,7 @@ export function Host({
   const [dismissedAt, setDismissedAt] = useState(-1);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<Extract<ScanOutcome, { kind: "message" }>>();
+  const [answerAt, setAnswerAt] = useState("");
   const reveal = useMemo(() => lastReveal(session, summary), [session, summary]);
   const showReveal = reveal !== undefined && dismissedAt !== session.actions.length;
   const finished = state.phase === "finished";
@@ -298,7 +299,12 @@ export function Host({
   }
 
   const card = cards[0] && deck.cards.find((item) => item.id === cards[0].cardId);
-  const inputProps: ModeInputProps = { controller, session, state, summary, deck, playback, reveal: revealCard };
+  const answerKey = `${session.id}:${summary.round}:${cards.map((item) => item.cardId).join(",")}`;
+  const inputProps: ModeInputProps = {
+    controller, session, state, summary, deck, playback, reveal: revealCard,
+    answerShown: answerAt === answerKey,
+    showAnswer: () => { stopClip(); setAnswerAt(answerKey); },
+  };
   const suddenDeath = state.phase === "suddenDeathOpen";
   const Stage = suddenDeath ? SuddenDeathStage : ui.Stage;
   const cardsKey = `${state.phase}:${cards.map((item) => item.cardId).join(",")}`;

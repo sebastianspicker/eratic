@@ -27,6 +27,19 @@ final class ApplePreviewPlayer: ObservableObject {
     private var generation = UUID()
     private var startRequest = UUID()
     private var deadline = UUID()
+    /// A running snippet: plays from `from` and pauses itself `lengthMs` after the audible start.
+    private struct Snippet {
+        let token = UUID()
+        let from: Double
+        let lengthMs: Int
+        var onAudible: (() -> Void)?
+        /// The seek to `from` has completed, so a playing player is audible at the snippet's start.
+        var seeked = false
+        var audible = false
+    }
+    private var snippetState: Snippet?
+    private var boundaryObserver: Any?
+    private var snippetTimer: Task<Void, Never>?
 
     private let timeout: Duration
     private let lookup: (String, String) async -> Result<URL?, Error>
@@ -49,6 +62,8 @@ final class ApplePreviewPlayer: ObservableObject {
     deinit {
         loadTask?.cancel()
         timeoutTask?.cancel()
+        snippetTimer?.cancel()
+        if let boundaryObserver { player?.removeTimeObserver(boundaryObserver) }
         if let timeObserver { player?.removeTimeObserver(timeObserver) }
         itemObservation?.invalidate()
         controlObservation?.invalidate()
@@ -96,6 +111,7 @@ final class ApplePreviewPlayer: ObservableObject {
 
     func play() {
         guard !disposed, ready, let player else { return }
+        cancelSnippet()
         if duration > 0, position >= duration - 0.5 {
             player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
             position = 0
@@ -108,6 +124,7 @@ final class ApplePreviewPlayer: ObservableObject {
 
     func pause() {
         guard !disposed, ready, let player else { return }
+        cancelSnippet()
         startRequest = UUID()
         cancelDeadline()
         status = "paused"
@@ -116,6 +133,7 @@ final class ApplePreviewPlayer: ObservableObject {
 
     func restart() {
         guard !disposed, ready, let player else { return }
+        cancelSnippet()
         position = 0
         startRequest = UUID()
         let request = startRequest
@@ -134,6 +152,7 @@ final class ApplePreviewPlayer: ObservableObject {
 
     func seek(to seconds: Double) {
         guard !disposed, ready, let player, seconds.isFinite else { return }
+        cancelSnippet()
         let upper = duration > 0 ? duration : seconds
         let target = min(max(seconds, 0), max(upper, 0))
         startRequest = UUID()
@@ -150,7 +169,34 @@ final class ApplePreviewPlayer: ObservableObject {
         }
     }
 
+    /// Plays the loaded preview from `seconds` and pauses by itself after `lengthMs` of audible playback.
+    /// `onAudible` runs once, when sound starts. It reuses the loaded player: no new lookup, so a replay is instant.
+    /// Pause, play, restart, seek, a newer snippet, disposal and a terminal error cancel it.
+    func snippet(from seconds: Double, lengthMs: Int, onAudible: @escaping () -> Void) {
+        guard !disposed, ready, let player, seconds.isFinite, seconds >= 0, lengthMs > 0 else { return }
+        cancelSnippet()
+        let snippet = Snippet(from: seconds, lengthMs: lengthMs, onAudible: onAudible)
+        snippetState = snippet
+        startRequest = UUID()
+        let generation = self.generation
+        position = seconds
+        status = "starting"
+        armDeadline()
+        // Pausing first makes the next `.playing` change the audible onset, even on a replay.
+        player.pause()
+        player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self, weak player] finished in
+            Task { @MainActor in
+                guard finished, let self, let player, self.isCurrent(generation), self.player === player,
+                      self.snippetState?.token == snippet.token else { return }
+                self.snippetState?.seeked = true
+                player.play()
+                self.checkSnippetOnset()
+            }
+        }
+    }
+
     func dispose() {
+        cancelSnippet()
         disposed = true
         generation = UUID()
         startRequest = UUID()
@@ -252,6 +298,7 @@ final class ApplePreviewPlayer: ObservableObject {
             guard status == "playing" || status == "starting" else { return }
             cancelDeadline()
             status = "playing"
+            checkSnippetOnset()
         case .waitingToPlayAtSpecifiedRate:
             if status == "playing" || status == "starting" {
                 status = "starting"
@@ -259,7 +306,7 @@ final class ApplePreviewPlayer: ObservableObject {
             }
         case .paused:
             // Ignore the brief paused state while a requested start or restart is in flight.
-            if status == "playing" { cancelDeadline(); status = "paused" }
+            if status == "playing" { cancelSnippet(); cancelDeadline(); status = "paused" }
         @unknown default:
             break
         }
@@ -273,6 +320,7 @@ final class ApplePreviewPlayer: ObservableObject {
         if status == "starting", player?.timeControlStatus == .playing {
             cancelDeadline()
             status = "playing"
+            checkSnippetOnset()
         }
     }
 
@@ -283,9 +331,59 @@ final class ApplePreviewPlayer: ObservableObject {
 
     private func finished() {
         guard !disposed, player != nil else { return }
+        cancelSnippet()
         cancelDeadline()
         if duration > 0 { position = duration }
         status = "paused"
+    }
+
+    // MARK: Snippets
+
+    /// Sound starts when the player plays after the snippet's seek: report it once, then time the stop from there.
+    private func checkSnippetOnset() {
+        guard !disposed, let player, var snippet = snippetState, snippet.seeked, !snippet.audible,
+              player.timeControlStatus == .playing else { return }
+        snippet.audible = true
+        let callback = snippet.onAudible
+        snippet.onAudible = nil
+        snippetState = snippet
+        cancelDeadline()
+        status = "playing"
+        let token = snippet.token
+        let generation = self.generation
+        let end = CMTime(seconds: snippet.from + Double(snippet.lengthMs) / 1000, preferredTimescale: 600)
+        boundaryObserver = player.addBoundaryTimeObserver(forTimes: [NSValue(time: end)], queue: .main) { [weak self] in
+            Task { @MainActor in
+                guard let self, self.isCurrent(generation) else { return }
+                self.stopSnippet(token)
+            }
+        }
+        // The boundary is media time and never fires if the item ends first; the timer is only a safety net,
+        // with room for a short buffering stall so it doesn't cut a stalled snippet short.
+        let sleep = self.sleep
+        let grace = Duration.milliseconds(snippet.lengthMs + 1500)
+        snippetTimer = Task { [weak self] in
+            do { try await sleep(grace) } catch { return }
+            guard !Task.isCancelled, let self, self.isCurrent(generation) else { return }
+            self.stopSnippet(token)
+        }
+        callback?()
+    }
+
+    private func stopSnippet(_ token: UUID) {
+        guard snippetState?.token == token else { return }
+        cancelSnippet()
+        cancelDeadline()
+        status = "paused"
+        player?.pause()
+    }
+
+    private func cancelSnippet() {
+        snippetState = nil
+        if let boundaryObserver { player?.removeTimeObserver(boundaryObserver) }
+        boundaryObserver = nil
+        snippetTimer?.cancel()
+        snippetTimer = nil
     }
 
     private func isCurrent(_ generation: UUID) -> Bool { !disposed && self.generation == generation }

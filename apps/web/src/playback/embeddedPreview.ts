@@ -69,8 +69,19 @@ export interface PreviewSession {
   pause(): void;
   seek(seconds: number): void;
   restart(): void;
+  // Plays lengthMs from fromSeconds in the loaded player, then stops by itself.
+  // onAudible runs once, when audio is first heard; a pause, another request or
+  // dispose cancels it for good.
+  snippet(fromSeconds: number, lengthMs: number, onAudible: () => void): void;
   dispose(): void;
 }
+// A running snippet: onset is the first audible progress; the stop follows from there.
+// `before` (Spotify, ms): where the player was when the snippet was asked for. Reports at or past it are
+// stale snapshots from before the rewind, until a paused report, a lower position or `staleTimer` (1.5 s).
+type Snippet = {
+  from: number; length: number; onAudible: () => void; onset: boolean;
+  before?: number; staleTimer?: ReturnType<typeof setTimeout>; timer?: ReturnType<typeof setTimeout>;
+};
 export type PreviewOptions = { autoplay?: boolean; progress?: (progress: PreviewProgress) => void };
 
 // Inspired by HITSTER's distinct embed fallback; independently implemented with
@@ -79,11 +90,13 @@ export class SpotifyPreviewSession implements PreviewSession {
   private controller?: SpotifyEmbedController;
   private disposed = false;
   private timer?: ReturnType<typeof setTimeout>;
+  private autoTimer?: ReturnType<typeof setTimeout>;
   private started = false;
   private pendingStart = false;
   private pauseRequested = false;
   private position = 0;
   private duration = 0;
+  private clip?: Snippet;
 
   constructor(private host: HTMLElement, id: string,
     private notify: (state: PreviewState) => void,
@@ -100,7 +113,7 @@ export class SpotifyPreviewSession implements PreviewSession {
         this.controller = controller;
         controller.addListener("ready", () => {
           this.update("ready");
-          if (options.autoplay) this.play();
+          if (options.autoplay) this.autoplay();
         });
         controller.addListener("playback_update", ({ data }) => {
           if (!data || this.disposed) return;
@@ -114,18 +127,52 @@ export class SpotifyPreviewSession implements PreviewSession {
             if (data.isPaused) this.pauseRequested = false;
             return;
           }
+          this.followSnippet(data);
+          // Spotify accepted the play request: no retry; the original 12 s deadline still applies.
+          if (!data.isPaused) clearTimeout(this.autoTimer);
           // A successful play request isn't evidence that audio has started.
           if (!data.isPaused && !data.isBuffering && (data.position ?? 0) > 0) {
             this.started = true;
             this.pendingStart = false;
             this.update("playing");
-          } else if (data.isPaused && this.started && !this.pendingStart) this.update("paused");
+          } else if (data.isPaused && this.started && !this.pendingStart) {
+            // The preview ended before the snippet's length.
+            if (this.clip?.onset) this.cancelSnippet();
+            this.update("paused");
+          }
         });
         controller.addListener("error", () => this.update("error"));
       });
     }).catch(() => this.update("error"));
   }
 
+  private cancelSnippet() {
+    clearTimeout(this.clip?.timer);
+    clearTimeout(this.clip?.staleTimer);
+    this.clip = undefined;
+  }
+  // Onset is the first unpaused, unbuffered report past the snippet's start.
+  private followSnippet(data: { isPaused?: boolean; isBuffering?: boolean; position?: number }) {
+    const clip = this.clip;
+    if (!clip) return;
+    const at = data.position ?? 0;
+    const from = clip.from * 1000;
+    if (!clip.onset) {
+      if (clip.before !== undefined) {
+        if (!data.isPaused && at >= clip.before) return;
+        clip.before = undefined;
+      }
+      if (data.isPaused || data.isBuffering || at <= from) return;
+      clip.onset = true;
+      clip.onAudible();
+      if (this.clip !== clip) return;
+      clip.timer = setTimeout(() => this.stopSnippet(clip), Math.max(0, clip.length - (at - from)));
+    }
+    if (at >= from + clip.length) this.stopSnippet(clip);
+  }
+  private stopSnippet(clip: Snippet) {
+    if (this.clip === clip) this.pause();
+  }
   private update(state: PreviewState) {
     if (this.disposed) return;
     clearTimeout(this.timer);
@@ -139,8 +186,24 @@ export class SpotifyPreviewSession implements PreviewSession {
       this.update("error");
     }, 12_000);
   }
+  // Spotify can drop a play() sent right at "ready", and a browser may refuse audio
+  // once the host's click is too old. Retry once; if still silent, offer Play (a
+  // fresh host gesture) instead of a "starting" state that never starts.
+  private autoplay() {
+    this.play();
+    this.autoTimer = setTimeout(() => {
+      if (this.disposed || this.started || !this.pendingStart) return;
+      try { this.controller?.play(); } catch { this.update("error"); return; }
+      this.autoTimer = setTimeout(() => {
+        if (this.disposed || this.started || !this.pendingStart) return;
+        this.pendingStart = false;
+        this.update("ready");
+      }, 4_000);
+    }, 2_000);
+  }
   private begin(start: (controller: SpotifyEmbedController) => void) {
     if (this.disposed || !this.controller) return;
+    clearTimeout(this.autoTimer);
     this.pendingStart = true;
     this.pauseRequested = false;
     this.notify("starting");
@@ -148,13 +211,34 @@ export class SpotifyPreviewSession implements PreviewSession {
     try { start(this.controller); } catch { this.update("error"); }
   }
   play() {
+    this.cancelSnippet();
     this.begin((controller) => {
       if (!this.started) controller.play();
       else if (this.duration > 0 && this.position >= this.duration - 0.5) controller.restart();
       else controller.resume();
     });
   }
-  restart() { this.begin((controller) => controller.restart()); }
+  restart() {
+    this.cancelSnippet();
+    this.begin((controller) => controller.restart());
+  }
+  snippet(fromSeconds: number, lengthMs: number, onAudible: () => void) {
+    if (this.disposed || !this.controller || !Number.isFinite(fromSeconds) || !(lengthMs > 0)) return;
+    this.cancelSnippet();
+    this.clip = { from: Math.max(0, fromSeconds), length: lengthMs, onAudible, onset: false,
+      // Only a position well past the start can be told apart from the rewound snippet.
+      ...(this.started && this.position * 1000 - fromSeconds * 1000 >= 500 && { before: this.position * 1000 }) };
+    const clip = this.clip;
+    if (clip.before !== undefined) clip.staleTimer = setTimeout(() => { clip.before = undefined; }, 1500);
+    const from = this.clip.from;
+    this.begin((controller) => {
+      if (from > 0) {
+        controller.seek(from);
+        if (this.started) controller.resume(); else controller.play();
+      } else if (this.started) controller.restart();
+      else controller.play();
+    });
+  }
   seek(seconds: number) {
     if (this.disposed || !this.controller || !Number.isFinite(seconds)) return;
     const target = Math.max(0, this.duration > 0 ? Math.min(seconds, this.duration) : seconds);
@@ -163,6 +247,8 @@ export class SpotifyPreviewSession implements PreviewSession {
     this.options.progress?.({ position: target, duration: this.duration });
   }
   pause() {
+    this.cancelSnippet();
+    clearTimeout(this.autoTimer);
     this.pendingStart = false;
     this.pauseRequested = true;
     try { this.controller?.pause(); this.update("paused"); } catch { this.update("error"); }
@@ -170,7 +256,9 @@ export class SpotifyPreviewSession implements PreviewSession {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.cancelSnippet();
     clearTimeout(this.timer);
+    clearTimeout(this.autoTimer);
     try { this.controller?.pause(); } catch { /* Teardown must continue. */ }
     try { this.controller?.destroy(); } catch { /* Remove the frame anyway. */ }
     this.host.replaceChildren();
@@ -191,6 +279,7 @@ export class ApplePreviewSession implements PreviewSession {
   private canPlay = false;
   private playRequest = 0;
   private listeners: [string, () => void][] = [];
+  private clip?: Snippet;
 
   constructor(id: string, storefront: string, private notify: (state: PreviewState) => void,
     private options: PreviewOptions & { fetch?: typeof fetch; createAudio?: () => HTMLAudioElement } = {}) {
@@ -226,16 +315,22 @@ export class ApplePreviewSession implements PreviewSession {
       audio.addEventListener(name, handler);
       this.listeners.push([name, handler]);
     };
-    const progress = () => this.options.progress?.({
-      position: audio.currentTime || 0, duration: Number.isFinite(audio.duration) ? audio.duration : 0,
-    });
+    const progress = () => {
+      this.options.progress?.({
+        position: audio.currentTime || 0, duration: Number.isFinite(audio.duration) ? audio.duration : 0,
+      });
+      this.followSnippet(audio);
+    };
     on("canplay", () => {
       if (this.canPlay) return;
       this.canPlay = true;
       this.update("ready");
       if (this.options.autoplay) this.play();
     });
-    on("playing", () => this.update("playing"));
+    on("playing", () => {
+      this.update("playing");
+      this.followSnippet(audio);
+    });
     on("waiting", () => {
       // A repeated waiting event must not extend an already running deadline.
       if (this.state !== "playing") return;
@@ -244,11 +339,38 @@ export class ApplePreviewSession implements PreviewSession {
     });
     // A queued pause from the previous command must not cancel a newer play's deadline.
     on("pause", () => { if (audio.paused) this.update("paused"); });
-    on("ended", () => this.update("paused"));
+    on("ended", () => {
+      this.cancelSnippet();
+      this.update("paused");
+    });
     on("error", () => this.finish("error"));
     for (const name of ["timeupdate", "durationchange", "loadedmetadata"]) on(name, progress);
     audio.preload = "auto";
     audio.src = src;
+  }
+  private cancelSnippet() {
+    clearTimeout(this.clip?.timer);
+    this.clip = undefined;
+  }
+  // Onset is the first `playing` event, or a timeupdate past the snippet's start while unpaused.
+  private followSnippet(audio: HTMLAudioElement) {
+    const clip = this.clip;
+    if (!clip || audio.paused) return;
+    const at = (audio.currentTime || 0) * 1000;
+    const from = clip.from * 1000;
+    if (!clip.onset) {
+      if (this.state !== "playing" && at <= from) return;
+      clip.onset = true;
+      // A replay while already playing may fire no `playing` event: end "starting" and its deadline here.
+      if (this.state === "starting") this.update("playing");
+      clip.onAudible();
+      if (this.clip !== clip) return;
+      clip.timer = setTimeout(() => this.stopSnippet(clip), Math.max(0, clip.length - Math.max(0, at - from)));
+    }
+    if (at >= from + clip.length) this.stopSnippet(clip);
+  }
+  private stopSnippet(clip: Snippet) {
+    if (this.clip === clip) this.pause();
   }
   private update(state: PreviewState) {
     if (this.disposed) return;
@@ -268,6 +390,10 @@ export class ApplePreviewSession implements PreviewSession {
     this.notify(state);
   }
   play() {
+    this.cancelSnippet();
+    this.start();
+  }
+  private start() {
     const audio = this.audio;
     if (this.disposed || !audio) return;
     const request = ++this.playRequest;
@@ -288,8 +414,16 @@ export class ApplePreviewSession implements PreviewSession {
   }
   restart() {
     if (this.disposed || !this.audio) return;
+    this.cancelSnippet();
     this.audio.currentTime = 0;
-    this.play();
+    this.start();
+  }
+  snippet(fromSeconds: number, lengthMs: number, onAudible: () => void) {
+    if (this.disposed || !this.audio || !Number.isFinite(fromSeconds) || !(lengthMs > 0)) return;
+    this.cancelSnippet();
+    this.clip = { from: Math.max(0, fromSeconds), length: lengthMs, onAudible, onset: false };
+    this.audio.currentTime = this.clip.from;
+    this.start();
   }
   seek(seconds: number) {
     const audio = this.audio;
@@ -301,6 +435,7 @@ export class ApplePreviewSession implements PreviewSession {
   }
   pause() {
     if (this.disposed) return;
+    this.cancelSnippet();
     this.playRequest++;
     this.audio?.pause();
     this.update("paused");
@@ -308,6 +443,7 @@ export class ApplePreviewSession implements PreviewSession {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.cancelSnippet();
     clearTimeout(this.timer);
     this.abort.abort();
     const audio = this.audio;

@@ -4,7 +4,7 @@ import { currentCards, pendingInputs } from "../../../core/game/engine";
 import type { CardRef, GameAction, Session } from "../../../core/session";
 import { cardTitle, deltas, signed, type RevealInfo } from "../history";
 import { clipLengthFor, clipPlaying, clipStartFor, useCardPlayer } from "../playback";
-import { ClipStatus } from "../Stage";
+import { BackupPicker, ClipStatus } from "../Stage";
 import { EntryForm, LockedEntry, send } from "./LockedEntry";
 import type { ModeInputProps, ModeUI } from "./types";
 import { parseYear, YearField } from "./YearField";
@@ -24,8 +24,9 @@ function lastPair(session: Session): Extract<GameAction, { type: "drawPair" }> |
 // Play A and Play B, each with its playing state.
 function ImposterStage({ state, deck, session, playback, controller }: ModeInputProps) {
   const cards = currentCards(state);
-  const { player, play, stop, playingKey, status, error } = useCardPlayer(playback, controller);
+  const { player, exact, play, stop, playingKey, status, error } = useCardPlayer(playback, controller);
   const playing = clipPlaying(playback.clipState);
+  const [revision, setRevision] = useState(0);
   return (
     <div className="lineup-stage">
       <ul className="lineup-tiles" aria-label="The two versions">
@@ -36,18 +37,20 @@ function ImposterStage({ state, deck, session, playback, controller }: ModeInput
           return (
             <li key={ref.cardId} className={now ? "lineup-tile playing" : "lineup-tile"}>
               <span className="tile-letter">{letter}</span>
-              {card && player ? (
+              {card && exact ? (
                 <button
                   className={now ? "" : "primary"}
-                  onClick={() =>
-                    now ? stop() : void play(card, clipStartFor(card, deck, 0), clipLengthFor(session))
-                  }
+                  onClick={() => {
+                    if (now) return stop();
+                    setRevision((value) => value + 1);
+                    void play(card, clipStartFor(card, deck, 0), clipLengthFor(session));
+                  }}
                 >
                   {now ? `Stop ${letter}` : `Play ${letter}`}
                 </button>
               ) : (
                 <span className="muted">
-                  {card ? "Choose how to play songs on Play home." : "Not in the open deck"}
+                  {card ? "Play it by hand with the preview or QR below." : "Not in the open deck"}
                 </span>
               )}
               {now ? <span className="tile-state">Playing</span> : null}
@@ -55,6 +58,13 @@ function ImposterStage({ state, deck, session, playback, controller }: ModeInput
           );
         })}
       </ul>
+      <BackupPicker
+        cards={cards}
+        deck={deck}
+        provider={player?.provider}
+        collapsed={exact}
+        previewKey={revision}
+      />
       <ClipStatus playback={playback} status={status} error={error} />
     </div>
   );

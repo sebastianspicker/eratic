@@ -68,7 +68,8 @@ struct LineupInput: View {
     }
 }
 
-/// The set's tiles, A–E: a *Play* button and playing state each, or title and artist when playing by name.
+/// The set's tiles, A–E: a *Play* button and playing state each, or title and artist when playing by name; below them
+/// the backup QR and hidden preview of one selected song.
 struct LineupTiles: View {
     let cards: [CardRef]
     let deck: Deck
@@ -80,6 +81,8 @@ struct LineupTiles: View {
     @State private var playing: Int?
     @State private var playError: String?
     @State private var prepareTask: Task<Void, Never>?
+    /// Starting an exact tile clip remounts the backup's preview, which stops it.
+    @State private var previewRevision = UUID()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -88,6 +91,7 @@ struct LineupTiles: View {
                     tile(index, card)
                 }
             }
+            SetBackup(cards: cards, deck: deck, collapsed: !byName, previewID: previewRevision)
             if let playError { Text(playError).foregroundStyle(.red).font(.callout) }
         }
         .onChange(of: clip.state) { if clip.state == .idle, prepareTask == nil { playing = nil } }
@@ -131,6 +135,7 @@ struct LineupTiles: View {
         guard let song, prepareTask == nil else { return }
         playError = nil
         playing = index
+        previewRevision = UUID()
         let from = ExactClip.startMs(song, deck: deck)
         prepareTask = Task {
             let error = await ExactClip.play(song, fromMs: from, lengthMs: clipMs, playback: playback, clip: clip, game: game)

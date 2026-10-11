@@ -19,6 +19,7 @@ ADRs retain the reasons for consequential choices so a later session can continu
 | [0013](0013-public-card-support-positioning.md) | Do not advertise original HITSTER-card support or official-app compatibility | Accepted by the user; documentation updated |
 | [0014](0014-app-first-playback.md) | Reuse authorization, prefer installed music apps and keep credential-free QR/link fallback | Implemented; live provider/device verification remains open |
 | [0015](0015-mit-licence.md) | License the project's own code under MIT | Accepted |
+| [0016](0016-session-v2-ladder-step-cap.md) | Session version 2 caps Snippet Ladder steps at 30 s | Accepted |
 
 ## Add or change a decision
 

@@ -1,7 +1,7 @@
 import SwiftUI
 import EraticCore
 
-/// Original or Imposter: *Play A* and *Play B*, then each player picks A or B and may add a year, hidden until the reveal.
+/// Original or Imposter: *Play A* and *Play B* (with the backup QR and preview of one of them), then each player picks A or B and may add a year, hidden until the reveal.
 struct ImposterInput: View {
     let session: GameSession
     let state: GameState
@@ -17,14 +17,20 @@ struct ImposterInput: View {
     @State private var playing: PairSide?
     @State private var playError: String?
     @State private var prepareTask: Task<Void, Never>?
+    /// Starting an exact clip remounts the backup's preview, which stops it.
+    @State private var previewRevision = UUID()
     static let clipMs = 30_000
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Two versions of one song. Which is the original?").font(.headline)
-            HStack(spacing: 12) {
-                playButton(.a, pair.a)
-                playButton(.b, pair.b)
+            if playback.tier.exactClips {
+                HStack(spacing: 12) {
+                    playButton(.a, pair.a)
+                    playButton(.b, pair.b)
+                }
+            } else {
+                Text("Play A and B by hand with the preview or QR below.").font(.callout).foregroundStyle(.secondary)
             }
             if let playing, prepareTask != nil, !ExactClip.isPlaying(clip) {
                 Text("\(playing.rawValue.uppercased()): Preparing…").font(.callout)
@@ -32,6 +38,7 @@ struct ImposterInput: View {
                 Text("\(playing.rawValue.uppercased()): \(status)").font(.callout.monospacedDigit())
             }
             if let playError { Text(playError).foregroundStyle(.red).font(.callout) }
+            SetBackup(cards: [pair.a, pair.b], deck: deck, collapsed: playback.tier.exactClips, previewID: previewRevision)
             LockedEntryList(players: session.players, isLocked: { state.choices[$0] != nil }, current: $current) { player in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
@@ -67,6 +74,7 @@ struct ImposterInput: View {
             } else if let song = deck.card(card.cardId), prepareTask == nil {
                 playError = nil
                 playing = side
+                previewRevision = UUID()
                 let from = ExactClip.startMs(song, deck: deck)
                 prepareTask = Task {
                     let error = await ExactClip.play(song, fromMs: from, lengthMs: Self.clipMs, playback: playback, clip: clip, game: game)

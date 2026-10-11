@@ -60,7 +60,7 @@ struct ModeAvailability {
 
     init(mode: GameMode, deck: Deck?, tier: PlaybackTier) {
         var reasons: [String] = []
-        if (mode == .ladder || mode == .imposter), !tier.exactClips { reasons.append("Needs exact clips") }
+        // Without exact clips, Snippet Ladder and Original or Imposter play by hand from the song backup.
         if let deck {
             if mode == .imposter, (try? GameRandom.imposterPairs(deck.cards.map { (id: $0.id, relatedTo: $0.relatedTo) }, seed: 0))?.isEmpty ?? true {
                 reasons.append("Needs linked recordings")

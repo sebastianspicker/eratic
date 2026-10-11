@@ -110,7 +110,7 @@ export function Setup({
   deck: Deck;
   hasCamera: boolean;
   error: string;
-  // A preview-only account's clip length; Snippet Ladder leaves out longer steps.
+  // How long previews play (a preview-only account, or no exact clips); Snippet Ladder leaves out longer steps.
   previewMs?: number;
   // Shown, never blocking (Snippet Ladder's missing or failed calibration).
   warning?: string;
@@ -139,7 +139,7 @@ export function Setup({
     if (dropped.length > 0) {
       const kept = chosenSteps.filter((step) => !dropped.includes(step));
       if (kept.length === 0) {
-        setProblem(`Your preview account plays up to ${previewMs! / 1000} s. Choose a shorter step.`);
+        setProblem(`Previews play up to ${previewMs! / 1000} s. Choose a shorter step.`);
         return;
       }
       chosen = { ...chosen, steps: kept };
@@ -249,7 +249,7 @@ export function Setup({
           ) : null}
           {dropped.length > 0 ? (
             <p className="muted" role="status">
-              Your preview account plays up to {previewMs! / 1000} s, so the{" "}
+              Previews play up to {previewMs! / 1000} s, so the{" "}
               {listNames(dropped.map((step) => `${step / 1000} s`))} step{dropped.length === 1 ? " is" : "s are"} left
               out.
             </p>

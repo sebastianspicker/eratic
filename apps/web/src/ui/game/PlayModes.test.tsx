@@ -43,6 +43,36 @@ const fake = vi.hoisted(() => ({
     };
   },
 }));
+// A hidden preview that records snippet requests; the test plays them by calling onAudible.
+const preview = vi.hoisted(() => ({
+  state: "ready",
+  snippets: [] as [number, number][],
+  audible: [] as (() => void)[],
+  pauses: 0,
+  disposals: 0,
+}));
+vi.mock("../../playback/embeddedPreview", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("../../playback/embeddedPreview")>();
+  class FakeSession {
+    notify: (state: string) => void;
+    constructor(...args: unknown[]) {
+      const notify = args.find((arg) => typeof arg === "function") as (state: string) => void;
+      this.notify = notify;
+      notify(preview.state);
+    }
+    play() {}
+    pause() { preview.pauses++; this.notify("paused"); }
+    seek() {}
+    restart() {}
+    dispose() { preview.disposals++; }
+    snippet(from: number, length: number, onAudible: () => void) {
+      preview.snippets.push([from, length]);
+      this.notify("starting");
+      preview.audible.push(() => { this.notify("playing"); onAudible(); });
+    }
+  }
+  return { ...mod, SpotifyPreviewSession: FakeSession, ApplePreviewSession: FakeSession };
+});
 vi.mock("../../playback/hub", async (importOriginal) => {
   const mod = await importOriginal<typeof import("../../playback/hub")>();
   class TestHub extends mod.PlaybackHub {
@@ -144,6 +174,11 @@ beforeEach(() => {
   fake.tier = { kind: "fullTrack" };
   fake.connectError = "";
   fake.playError = "";
+  preview.state = "ready";
+  preview.snippets = [];
+  preview.audible = [];
+  preview.pauses = 0;
+  preview.disposals = 0;
   vi.spyOn(crypto, "getRandomValues").mockImplementation((array) => {
     (array as unknown as Uint32Array)[0] = SEED;
     return array;
@@ -169,7 +204,7 @@ describe("Snippet Ladder", () => {
     await setUp("Snippet Ladder", ["Ada", "Lin"], { "#option-ladder-rounds": "1" });
     await click(button("Draw card"));
     expect($(".stage .warning")?.textContent).toContain("isn't calibrated");
-    expect($$(".step-bar li").map((item) => item.textContent)).toEqual(["1 s", "5 s", "10 s", "30 s", "60 s"]);
+    expect($$(".step-bar li").map((item) => item.textContent)).toEqual(["1 s", "5 s", "10 s", "20 s", "30 s"]);
     expect(button("Lock in Ada").disabled).toBe(true);
     expect(button("Show answer").disabled).toBe(true);
 
@@ -186,7 +221,7 @@ describe("Snippet Ladder", () => {
     });
     expect($(".step-bar li.current")?.textContent).toContain("5 s");
     expect($$(".step-bar li.played")).toHaveLength(2);
-    await click(button("Replay step"));
+    await click(button("Replay 5 s"));
     await click(button("Lock in Lin"));
     expect(actions()).toEqual([
       { type: "draw", card: { cardId: card, year: year(card), era: expect.any(String) } },
@@ -233,7 +268,7 @@ describe("Snippet Ladder", () => {
     await click(button("Score card"));
     expect($(".sudden-death-banner")?.textContent).toBe("Sudden death: Ada and Lin");
     await click(button("Next card"));
-    await click($(".stage button.primary")!); // the stage's Play, not the navigation
+    await click($(".stage .clip-controls button.primary")!); // the stage's Play, not the navigation or the preview
     expect(actions().at(-1)).toEqual({ type: "clip", fromMs: 0, lengthMs: 5000 });
     await click(button("Nobody named it"));
     await click(button("Reveal"));
@@ -331,7 +366,7 @@ describe("Playback without exact clips", () => {
     expect(actions().at(-1)).toEqual({ type: "clip", fromMs: 0 });
   });
 
-  it("shows the song's link as a QR to scan, and no QR with exact clips", async () => {
+  it("shows the song's link as a QR to scan", async () => {
     fake.tier = { kind: "noExactPlayback" };
     const stored = deck({}, Object.fromEntries(YEARS.map((_, i) => [i, { links: links(i) }])));
     const card = drawOrder(stored.cards.map((item) => item.id), SEED)[0];
@@ -352,13 +387,26 @@ describe("Playback without exact clips", () => {
     expect(fake.plays).toEqual([]);
   });
 
-  it("shows no QR when clips are exact", async () => {
+  it("opens the backup when exact clips can't play the card (no link for the provider)", async () => {
+    const [first] = drawOrder(deck().cards.map((item) => item.id), SEED).map((id) => Number(id.split("-")[1]));
+    const apple = `https://music.apple.com/us/album/x/1?i=${first + 100}`;
+    await openPlay(deck({}, { [first]: { links: [{ provider: "appleMusic", url: apple }] } }), "Spotify Premium: exact clips");
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    expect(text()).toContain("This card has no Spotify link.");
+    expect($("details.song-backup")).toBeNull();
+    expect($("div.song-backup")?.textContent).toContain("Play preview");
+  });
+  it("keeps the QR and preview collapsed behind a closed disclosure when clips are exact", async () => {
     await openPlay(deck(), "Spotify Premium: exact clips");
     await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
     await click(button("Draw card"));
-    expect($(".stage button.primary")?.textContent).toBe("Play");
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
-    expect($(".song-qr")).toBeNull();
+    expect($(".stage .clip-controls button.primary")?.textContent).toBe("Play");
+    await waitFor(() => !!$(".song-qr .qr-image svg"));
+    const backup = $("details.song-backup") as HTMLDetailsElement;
+    expect(backup.open).toBe(false);
+    expect(backup.querySelector(".song-qr")).not.toBeNull();
+    expect(backup.textContent).toContain("Play preview");
   });
 
   it("falls back to the first link, or says the card has none", async () => {
@@ -403,15 +451,16 @@ describe("Playback without exact clips", () => {
 
 describe("Preview-only accounts", () => {
   it("leave out Snippet Ladder steps longer than the preview", async () => {
-    fake.tier = { kind: "previewOnly", maxMs: 30000 };
-    await openPlay(deck(), "Spotify preview: 30-second clips");
+    fake.tier = { kind: "previewOnly", maxMs: 10000 };
+    await openPlay(deck(), "Spotify preview: 10-second clips");
     await click(button("Play Snippet Ladder"));
-    expect(text()).toContain("Your preview account plays up to 30 s, so the 60 s step is left out.");
+    expect(text()).toContain("Previews play up to 10 s, so the 20 s and 30 s steps are left out.");
     await type("#option-ladder-rounds", "1");
     await click(button("Start"));
-    expect(session().options.steps).toEqual([1000, 5000, 10000, 30000]);
+    expect(session().sessionVersion).toBe(2);
+    expect(session().options.steps).toEqual([1000, 5000, 10000]);
     await click(button("Draw card"));
-    expect($$(".step-bar li").map((item) => item.textContent)).toEqual(["1 s", "5 s", "10 s", "30 s"]);
+    expect($$(".step-bar li").map((item) => item.textContent)).toEqual(["1 s", "5 s", "10 s"]);
   });
 });
 
@@ -463,10 +512,12 @@ describe("Original or Imposter", () => {
     await click(button("Play B"));
     expect(fake.prepared).toEqual([pair.a, pair.b].map((id) => trackId(Number(id.split("-")[1]))));
     expect(actions().filter((action: { type: string }) => action.type === "clip")).toHaveLength(2);
-    await click(button(originalSide));
+    const pick = (side: string) =>
+      click($$('[aria-label="Which is the original?"] button').find((item) => item.textContent === side)!);
+    await pick(originalSide);
     await type("#imposter-year-p1", "1979");
     await click(button("Lock in"));
-    await click(button(otherSide));
+    await pick(otherSide);
     await click(button("Lock in"));
     await click(button("Reveal"));
     expect($(".reveal .era-year")?.textContent).toBe("1979");
@@ -480,3 +531,235 @@ describe("Original or Imposter", () => {
     expect($$(".standings li")[0].textContent).toContain("1 year bonuses");
   });
 });
+
+// Every card in play offers the song's QR and the hidden preview, with or without a provider.
+describe("Song backup in every mode", () => {
+  const modules = (svg: string) => svg.match(/stroke="#000000" d="([^"]+)"/)?.[1];
+  const url = (id: string) => `https://open.spotify.com/track/${trackId(Number(id.split("-")[1]))}`;
+  const backupDeck = () => deck({}, { 4: { relatedTo: { cardId: "clip-1", relation: "coverOf" } } });
+  async function toPlayHome(stored: object) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    await render();
+    await act(async () => {
+      await import("./Play");
+    });
+    await click(button("Play"));
+  }
+  async function reload() {
+    await act(async () => root.unmount());
+    container.remove();
+    await render();
+    await click(button("Play"));
+    await click(button("Resume"));
+  }
+  async function expectBackup(expectedUrl?: string) {
+    await waitFor(() => !!$(".song-backup .qr-image svg"));
+    expect($(".song-backup .qr-image")?.getAttribute("aria-label")).toBe("QR code for this song");
+    expect(button("Play preview")).toBeTruthy();
+    if (expectedUrl) expect(modules($(".song-backup .qr-image")!.innerHTML)).toBe(modules(await renderQR(expectedUrl)));
+  }
+
+  it.each([
+    ["Bullseye", "Draw card", { "#option-bullseye-rounds": "1" }],
+    ["Era Sort", "Draw card", { "#option-eraSort-rounds": "1" }],
+    ["Higher or Lower", "Draw card", {}],
+    ["Timeline", "Draw card", { "#option-timeline-target": "3" }],
+    ["Relay", "Draw card", { "#option-relay-target": "2", "#option-relay-lives": "1" }],
+    ["Lineup by name", "Draw lineup", { "#option-lineup-k": "3", "#option-lineup-rounds": "1" }],
+  ])("%s shows the QR and preview without a connected provider", async (mode, draw, options) => {
+    await toPlayHome(backupDeck());
+    await setUp(mode, ["Ada", "Lin"], options);
+    await click(button(draw));
+    await expectBackup();
+    expect($("details.song-backup")).toBeNull();
+  });
+
+  it("Daily shows the QR and preview without a connected provider", async () => {
+    await toPlayHome(backupDeck());
+    await click(button("Play today's round"));
+    await click(button("Start"));
+    await click(button("Draw card"));
+    await expectBackup();
+  });
+
+  it("Snippet Ladder: starts, marks steps by hand and scores when the preview is unavailable", async () => {
+    preview.state = "unavailable";
+    await toPlayHome(backupDeck());
+    await setUp("Snippet Ladder", ["Ada"], { "#option-ladder-rounds": "1" });
+    await click(button("Draw card"));
+    await expectBackup();
+    expect($("details.song-backup")).toBeNull();
+    expect(text()).toContain("No hidden preview is available for this song.");
+    expect(text()).toContain("Without exact clips, play each step by hand with the preview or QR, then mark it played.");
+    expect(hasButtonNamed("Replay 1 s")).toBe(false);
+    // Space never marks a step by hand.
+    await act(async () => {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    });
+    expect(actions().at(-1)).toMatchObject({ type: "draw" });
+    await click(button("Mark 1 s played"));
+    expect(actions().at(-1)).toEqual({ type: "step", index: 0 });
+    expect($(".step-bar li.current")?.textContent).toContain("1 s");
+    expect(fake.plays).toEqual([]);
+    await click(button("Lock in Ada"));
+    expect(button("Next: mark 5 s played")).toBeTruthy();
+    await click(button("Show answer"));
+    expect(hasButtonNamed("Score card")).toBe(true);
+  });
+
+  it("Snippet Ladder without exact clips plays each step from the hidden preview and records it once audible", async () => {
+    await toPlayHome(backupDeck());
+    await click($('[data-mode="ladder"] button')!);
+    expect(text()).not.toContain("Previews play up to");
+    await click(button("Back"));
+    await setUp("Snippet Ladder", ["Ada"], { "#option-ladder-rounds": "1" });
+    expect(session().options.steps).toEqual([1000, 5000, 10000, 20000, 30000]);
+    await click(button("Draw card"));
+    const backup = $("details.song-backup") as HTMLDetailsElement;
+    expect(backup.open).toBe(false);
+    expect(text()).toContain("Snippets play from the song's preview and stop by themselves.");
+    expect(text()).toContain("Preview ready");
+    expect($('.embed-frame.concealed[aria-hidden="true"]')).not.toBeNull();
+    expect(hasButtonNamed("Mark 1 s played")).toBe(false);
+    const audible = () => act(async () => preview.audible.at(-1)!());
+    // The step is recorded only once the snippet is audible.
+    await click(button("Play 1 s"));
+    expect(preview.snippets).toEqual([[0, 1000]]);
+    expect(actions().at(-1)).toMatchObject({ type: "draw" });
+    expect(button("Play 1 s").disabled).toBe(true);
+    expect(text()).toContain("Starting preview…");
+    await click(button("Play 1 s"));
+    await act(async () => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true })));
+    expect(preview.snippets).toHaveLength(1);
+    await audible();
+    expect(actions().at(-1)).toEqual({ type: "step", index: 0 });
+    expect(fake.plays).toEqual([]);
+    await click(button("Replay 1 s"));
+    expect(preview.snippets.at(-1)).toEqual([0, 1000]);
+    await audible();
+    await click(button("More time: 5 s"));
+    expect(preview.snippets.at(-1)).toEqual([0, 5000]);
+    await audible();
+    expect($(".step-bar li.current")?.textContent).toContain("5 s");
+    // Space plays the next step.
+    await act(async () => {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    });
+    expect(preview.snippets.at(-1)).toEqual([0, 10000]);
+    await audible();
+    expect(actions().at(-1)).toEqual({ type: "step", index: 2 });
+    await click(button("Lock in Ada"));
+    await click(button("More time: 20 s"));
+    await audible();
+    await click(button("More time: 30 s"));
+    await audible();
+    expect(hasButtonNamed("More time: 60 s")).toBe(false);
+    expect(hasButtonNamed("Show answer")).toBe(true);
+    const disposals = preview.disposals;
+    await click(button("Show answer"));
+    expect(preview.disposals).toBeGreaterThan(disposals);
+    expect(text()).toContain("Playback stopped. Score the card to continue.");
+    expect(hasButtonNamed("Replay 30 s")).toBe(false);
+  });
+
+  it("Snippet Ladder cancels a starting snippet without recording a step, then can replay", async () => {
+    await toPlayHome(backupDeck());
+    await setUp("Snippet Ladder", ["Ada"], { "#option-ladder-rounds": "1" });
+    await click(button("Draw card"));
+    await click(button("Play 1 s"));
+    const cancelled = preview.audible.at(-1)!;
+    await click(button("Stop snippet"));
+    expect(preview.pauses).toBe(1);
+    expect(text()).toContain("Snippet stopped");
+    expect(button("Play 1 s").disabled).toBe(false);
+    await act(async () => cancelled());
+    expect(actions().at(-1)).toMatchObject({ type: "draw" });
+    await click(button("Play 1 s"));
+    await act(async () => preview.audible.at(-1)!());
+    expect(actions().at(-1)).toEqual({ type: "step", index: 0 });
+    await click(button("Stop snippet"));
+    expect(actions().filter((action: { type: string }) => action.type === "step")).toHaveLength(1);
+    expect(button("Replay 1 s").disabled).toBe(false);
+  });
+
+  it("Snippet Ladder explains a failed preview alongside manual fallback", async () => {
+    preview.state = "error";
+    await toPlayHome(backupDeck());
+    await setUp("Snippet Ladder", ["Ada"], { "#option-ladder-rounds": "1" });
+    await click(button("Draw card"));
+    expect(text()).toContain("The preview could not play.");
+    expect(button("Mark 1 s played").disabled).toBe(false);
+    await expectBackup();
+  });
+
+  it("Original or Imposter starts and shows the QR and preview without exact clips", async () => {
+    await toPlayHome(backupDeck());
+    await setUp("Original or Imposter", ["Ada", "Lin"], { "#option-imposter-rounds": "1" });
+    await click(button("Draw pair"));
+    await expectBackup();
+    // Played by hand, as on native: no Play A/B that would open the song page.
+    expect(hasButtonNamed("Play A")).toBe(false);
+    expect(text()).toContain("Play it by hand with the preview or QR below.");
+  });
+
+  it("keeps the backup in a closed disclosure when clips are exact (Ladder, Lineup, Imposter)", async () => {
+    const stored = backupDeck();
+    await openPlay(stored);
+    for (const [mode, draw, options] of [
+      ["Snippet Ladder", "Draw card", { "#option-ladder-rounds": "1" }],
+      ["Lineup", "Draw lineup", { "#option-lineup-k": "3", "#option-lineup-rounds": "1" }],
+      ["Original or Imposter", "Draw pair", { "#option-imposter-rounds": "1" }],
+    ] as const) {
+      await setUp(mode, ["Ada", "Lin"], options);
+      await click(button(draw));
+      const backup = $("details.song-backup") as HTMLDetailsElement;
+      expect(backup.open).toBe(false);
+      expect(backup.querySelector(".song-qr")).not.toBeNull();
+      await click(button("End game"));
+      await click(button("New game"));
+    }
+  });
+
+  it("Lineup's selector switches the QR to the selected card", async () => {
+    const stored = backupDeck();
+    const set = drawOrder(stored.cards.map((item) => item.id), SEED).slice(0, 3);
+    await toPlayHome(stored);
+    await setUp("Lineup by name", ["Ada"], { "#option-lineup-k": "3", "#option-lineup-rounds": "1" });
+    await click(button("Draw lineup"));
+    const picker = () => $$('[role=group][aria-label="Backup for song"] button');
+    expect(picker().map((item) => item.textContent)).toEqual(["A", "B", "C"]);
+    expect(picker()[0].getAttribute("aria-pressed")).toBe("true");
+    await expectBackup(url(set[0]));
+    await click(picker()[2]);
+    expect(picker()[2].getAttribute("aria-pressed")).toBe("true");
+    await expectBackup(url(set[2]));
+  });
+
+  it("Imposter's selector switches the QR between the two versions", async () => {
+    const stored = backupDeck();
+    const [pair] = imposterPairs(stored.cards, SEED);
+    await openPlay(stored);
+    await setUp("Original or Imposter", ["Ada", "Lin"], { "#option-imposter-rounds": "1" });
+    await click(button("Draw pair"));
+    fake.tier = { kind: "noExactPlayback" };
+    await reload();
+    const picker = () => $$('[role=group][aria-label="Backup for song"] button');
+    expect(picker().map((item) => item.textContent)).toEqual(["A", "B"]);
+    await expectBackup(url(pair.a));
+    await click(picker()[1]);
+    await expectBackup(url(pair.b));
+  });
+
+  it("connects Play it yourself for a game started without Use playback", async () => {
+    await toPlayHome(backupDeck());
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    expect(hasButtonNamed("Open song link") || hasButtonNamed("Play on Spotify")).toBe(true);
+    await click(button("End game"));
+    await click(button("New game"));
+    expect($(".tier")?.textContent).toBe("Play it yourself: you start each song yourself");
+  });
+});
+function hasButtonNamed(name: string): boolean {
+  return $$("button").some((item) => item.textContent === name);
+}

@@ -158,7 +158,7 @@ private struct MysteryCard: View {
     }
 }
 
-/// *Play* / *Replay* with a text countdown when clips are exact; otherwise the song's QR to scan, and *Play on Spotify* opens the song.
+/// *Play* / *Replay* with a text countdown when clips are exact, else *Play on Spotify* opens the song; either way the song's backup QR and hidden preview.
 private struct ClipPanel: View {
     let card: SongCard
     let deck: Deck
@@ -222,16 +222,9 @@ private struct ClipPanel: View {
                         .disabled(effective(nudge: nudgeMs + 5_000).fromMs == start)
                 }
                 .buttonStyle(.bordered)
+                SongBackup(card: card, collapsed: true, previewID: previewRevision)
             } else if let track = manualTrack {
-                // The song's link as a QR: a player scans it and starts the song on their own
-                // phone, so the title never shows on the shared screen.
-                if let url = track.url {
-                    VStack(spacing: 6) {
-                        QRPreview(payload: url.absoluteString, size: 160, label: "QR code for this song")
-                        Text("Scan with a phone to play the song there.").font(.callout).foregroundStyle(.secondary)
-                    }
-                }
-                if let url = track.url { EmbeddedPreview(url: url).id(previewRevision) }
+                SongBackup(card: card, collapsed: false, previewID: previewRevision)
                 Button("Play on \(providerName(track))") { openManually(track) }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
@@ -286,6 +279,7 @@ private struct ClipPanel: View {
     private func play(_ track: PlayableTrack) {
         guard prepareTask == nil else { return }
         playError = nil
+        previewRevision = UUID()
         // A preview keeps the clip's length where it can and moves the start earlier, as ExactClip does.
         let (from, length) = effective(nudge: nudgeMs)
         let player = playback.player

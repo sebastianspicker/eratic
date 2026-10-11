@@ -31,7 +31,8 @@ public enum SessionCodec {
         let root = try object(raw, required: ["format", "sessionVersion", "id", "createdAt", "deckId", "deckTitle", "mode", "options", "seed", "players", "actions"],
                               optional: [], path: "session")
         guard try string(root, "format", "session").utf8.elementsEqual(GameSession.format.utf8) else { throw DeckError("format must be \(GameSession.format).") }
-        guard try integer(root, "sessionVersion", "session") == GameSession.version else { throw DeckError("Unsupported sessionVersion; expected 1.") }
+        let version = try integer(root, "sessionVersion", "session")
+        guard GameSession.supportedVersions.contains(version) else { throw DeckError("Unsupported sessionVersion; expected 1 or 2.") }
         let modeName = try string(root, "mode", "session")
         guard let mode = GameMode(rawValue: modeName), mode.rawValue.utf8.elementsEqual(modeName.utf8) else { throw DeckError("Unknown mode: \(modeName).") }
         let seed = try integer(root, "seed", "session")
@@ -42,7 +43,7 @@ public enum SessionCodec {
         guard rawActions.count <= 10_000 else { throw DeckError("actions exceeds 10000 actions.") }
         let options: GameOptions
         do {
-            options = try parseOptions(mode, root["options"]!)
+            options = try parseOptions(mode, root["options"]!, version: version)
         } catch let error as DeckError {
             throw GameError(actionIndex: -1, message: error.message)
         }
@@ -55,13 +56,14 @@ public enum SessionCodec {
         }
         let session = GameSession(id: try string(root, "id", "session"), createdAt: try string(root, "createdAt", "session"),
                                   deckId: try string(root, "deckId", "session"), deckTitle: try string(root, "deckTitle", "session"),
-                                  options: options, seed: UInt32(seed), players: players, actions: actions)
+                                  options: options, seed: UInt32(seed), players: players, actions: actions, sessionVersion: version)
         try validateHeader(session)
         return session
     }
 
     /// The schema rules for everything but options and actions.
     static func validateHeader(_ session: GameSession) throws {
+        guard GameSession.supportedVersions.contains(session.sessionVersion) else { throw DeckError("Unsupported sessionVersion; expected 1 or 2.") }
         guard DeckCodec.isIdentifier(session.id) else { throw DeckError("session.id must be a stable 1–64 character ID.") }
         guard DeckCodec.isIdentifier(session.deckId) else { throw DeckError("session.deckId must be a stable 1–64 character ID.") }
         guard isTimestamp(session.createdAt) else { throw DeckError("createdAt must be YYYY-MM-DDTHH:MM:SSZ.") }
@@ -105,7 +107,7 @@ public enum SessionCodec {
 
     // MARK: Options
 
-    private static func parseOptions(_ mode: GameMode, _ raw: Any) throws -> GameOptions {
+    private static func parseOptions(_ mode: GameMode, _ raw: Any, version: Int) throws -> GameOptions {
         let path = "options"
         switch mode {
         case .bullseye:
@@ -136,6 +138,7 @@ public enum SessionCodec {
         case .ladder:
             let values = try object(raw, required: [], optional: ["rounds", "steps", "guess", "clipStart", "stakes"], path: path)
             var options = LadderOptions()
+            options.steps = LadderOptions.defaultSteps(version: version)
             if values["rounds"] != nil { options.rounds = try integer(values, "rounds", path) }
             if let steps = values["steps"] {
                 guard let list = steps as? [Any] else { throw DeckError("options.steps must be an array.") }
@@ -278,7 +281,7 @@ public enum SessionCodec {
     static func jsonObject(_ session: GameSession) -> [String: Any] {
         [
             "format": GameSession.format,
-            "sessionVersion": GameSession.version,
+            "sessionVersion": session.sessionVersion,
             "id": session.id,
             "createdAt": session.createdAt,
             "deckId": session.deckId,

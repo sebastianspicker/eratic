@@ -216,6 +216,120 @@ struct NativePreviewTests {
             player.report(.playing)
             await drain()
         }
-        print("Native Apple preview: 9 recovery scenarios passed")
+        // A snippet reports sound once, stops itself at its length, and a replay reuses the loaded player.
+        do {
+            let f = Fixture()
+            let p = await f.attach(0)
+            var audible = 0
+            f.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
+            await eventually { p.seeks.count == 1 }
+            precondition(f.subject.status == "starting" && audible == 0 && p.playCalls == 0, "Snippet played before its seek finished")
+            p.seeks[0](true)
+            await eventually { p.playCalls == 1 }
+            precondition(audible == 0, "Snippet was audible before the player played")
+            p.report(.playing)
+            await eventually { audible == 1 }
+            p.report(.waitingToPlayAtSpecifiedRate)
+            p.report(.playing)
+            await eventually { f.deadlines.count == 3 }
+            precondition(audible == 1 && f.subject.status == "playing", "Snippet onset was reported twice")
+            let pauses = p.pauseCalls
+            f.expire(2)
+            await eventually { f.subject.status == "paused" }
+            precondition(p.pauseCalls == pauses + 1 && audible == 1, "Snippet did not stop at its length")
+            f.expire(1)
+            await drain()
+            precondition(f.subject.status == "paused", "Cancelled start deadline fired")
+            // Replay: same player, no second lookup.
+            p.report(.paused)
+            var replayed = 0
+            f.subject.snippet(from: 0, lengthMs: 5000) { replayed += 1 }
+            await eventually { p.seeks.count == 2 }
+            p.seeks[1](true)
+            await eventually { p.playCalls == 2 }
+            p.report(.playing)
+            await eventually { replayed == 1 }
+            precondition(f.lookups.count == 1 && f.players.count == 1 && audible == 1, "Replay looked the song up again")
+            f.subject.dispose()
+        }
+        // Pause, play and restart cancel a snippet, before or after sound starts.
+        do {
+            let f = Fixture()
+            let p = await f.attach(0)
+            var audible = 0
+            f.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
+            await eventually { p.seeks.count == 1 }
+            f.subject.pause()
+            p.seeks[0](true)
+            p.report(.playing)
+            await drain()
+            precondition(p.playCalls == 0 && audible == 0 && f.subject.status == "paused", "Paused snippet started")
+            f.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
+            await eventually { p.seeks.count == 2 }
+            p.report(.paused)
+            p.seeks[1](true)
+            await eventually { p.playCalls == 1 }
+            p.report(.playing)
+            await eventually { audible == 1 && f.deadlines.count == 4 }
+            f.subject.pause()
+            f.subject.play()
+            let pauses = p.pauseCalls
+            f.expire(3)
+            await drain()
+            precondition(p.pauseCalls == pauses && f.subject.status == "starting", "Cancelled snippet timer paused the host's play")
+            f.subject.restart()
+            f.subject.dispose()
+        }
+        // A newer snippet supersedes the older one's seek, sound report and timer.
+        do {
+            let f = Fixture()
+            let p = await f.attach(0)
+            var first = 0, second = 0
+            f.subject.snippet(from: 0, lengthMs: 1000) { first += 1 }
+            f.subject.snippet(from: 0, lengthMs: 5000) { second += 1 }
+            await eventually { p.seeks.count == 2 }
+            p.seeks[0](true)
+            await drain()
+            precondition(p.playCalls == 0, "Superseded snippet seek played")
+            p.report(.paused)
+            p.seeks[1](true)
+            await eventually { p.playCalls == 1 }
+            p.report(.playing)
+            await eventually { second == 1 && f.deadlines.count == 3 }
+            precondition(first == 0, "Superseded snippet reported sound")
+            f.subject.snippet(from: 0, lengthMs: 1000) { first += 1 }
+            let pauses = p.pauseCalls
+            f.expire(2)
+            await drain()
+            precondition(p.pauseCalls == pauses && f.subject.status == "starting", "Superseded snippet timer fired")
+            f.subject.dispose()
+        }
+        // Disposal cancels a snippet's timer and late seek and playback callbacks.
+        do {
+            let f = Fixture()
+            let p = await f.attach(0)
+            var audible = 0
+            f.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
+            await eventually { p.seeks.count == 1 }
+            f.subject.dispose()
+            p.seeks[0](true)
+            p.report(.playing)
+            await drain()
+            precondition(p.playCalls == 0 && audible == 0, "Disposed snippet played")
+            let g = Fixture()
+            let q = await g.attach(0)
+            g.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
+            await eventually { q.seeks.count == 1 }
+            q.seeks[0](true)
+            await eventually { q.playCalls == 1 }
+            q.report(.playing)
+            await eventually { audible == 1 && g.deadlines.count == 3 }
+            g.subject.dispose()
+            let pauses = q.pauseCalls
+            g.expire(2)
+            await drain()
+            precondition(q.pauseCalls == pauses, "Disposed snippet timer fired")
+        }
+        print("Native Apple preview: 13 recovery scenarios passed")
     }
 }

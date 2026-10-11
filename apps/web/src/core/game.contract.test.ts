@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import replayCases from "../../../../contract/cases/game-replay.json";
 import fileCases from "../../../../contract/cases/session-files.json";
 import schema from "../../../../contract/session-v1.schema.json";
+import schemaV2 from "../../../../contract/session-v2.schema.json";
 import { GameError, replay, summarize } from "./game/engine";
 import {
   decodeSessionBytes,
@@ -12,7 +13,12 @@ import {
   type Session,
 } from "./session";
 
-const matchesSchema = new Ajv2020({ allErrors: true }).compile(schema);
+const matchesV1 = new Ajv2020({ allErrors: true }).compile(schema);
+const matchesV2 = new Ajv2020({ allErrors: true }).compile(schemaV2);
+const matchesSchema = (session: Session) =>
+  (session.sessionVersion === 1 ? matchesV1 : matchesV2)(session);
+const schemaErrors = (session: Session) =>
+  (session.sessionVersion === 1 ? matchesV1 : matchesV2).errors;
 
 type ReplayCase = {
   name: string;
@@ -25,7 +31,7 @@ describe("contract: game-replay", () => {
   for (const item of list)
     it(item.name, () => {
       // Schema rejections belong in session-files.json.
-      expect(matchesSchema(item.session), JSON.stringify(matchesSchema.errors)).toBe(true);
+      expect(matchesSchema(item.session), JSON.stringify(schemaErrors(item.session))).toBe(true);
       const session = structuredClone(item.session);
       if (item.expect.error) {
         let thrown: unknown;
@@ -44,9 +50,9 @@ describe("contract: game-replay", () => {
       const summary = summarize(replay(session));
       for (const [member, value] of Object.entries(item.expect))
         expect(summary[member], member).toEqual(value);
-      expect(parseSession(exportSession(validateSession(session))).actions).toEqual(
-        item.session.actions,
-      );
+      const exported = parseSession(exportSession(validateSession(session)));
+      expect(exported.actions).toEqual(item.session.actions);
+      expect(exported.sessionVersion).toBe(item.session.sessionVersion);
     });
 });
 
@@ -80,6 +86,8 @@ describe("contract: session-files", () => {
       };
       if (!item.valid) return expect(run).toThrow();
       const session = run();
-      expect(parseSession(exportSession(session)).actions).toEqual(session.actions);
+      const exported = parseSession(exportSession(session));
+      expect(exported.actions).toEqual(session.actions);
+      expect(exported.sessionVersion).toBe(session.sessionVersion);
     });
 });

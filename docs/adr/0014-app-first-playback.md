@@ -27,6 +27,8 @@ Frames load only on request and are removed on card change, reveal, leaving the 
 
 Snippet Ladder and Original or Imposter still need exact clips; Lineup uses titles in manual playback. No game rules, storage keys or contract formats change.
 
+Update (2026-10-11): every mode now shows each card's song backup (QR and hidden preview), so Snippet Ladder and Original or Imposter also start without exact clips. Snippet Ladder then plays each step as a snippet of the hidden preview that pauses itself after the step's length (timed from audible onset, step recorded at onset), reusing one loaded player per card with no app-side caching; without a preview the host marks steps by hand. Original or Imposter is played by hand from the backup. Game rules are unchanged: the engine already accepted `step` without a clip.
+
 ## Alternatives and revisit
 
 HITSTER-style Spotify App Remote could reuse installed-app authorization on iOS, but would require a registered client, callback setup and an additional SDK and would not cover macOS/web. Revisit it when the application has provider registration and device acceptance coverage. Embeds deliberately remain separate from the game playback adapter. Apple provides no documented equivalent to Spotify's iframe control API, hence the separate preview file; do not depend on private shadow-DOM selectors, conceal provider upsells inside its page, or retry autoplay indefinitely. The static HITSTER comparison informed these boundaries, not a copied implementation.

@@ -6,7 +6,7 @@ Eratic: a native SwiftUI app (Mac, iPad, iPhone) and an independent static web a
 
 | Path | What lives there |
 | --- | --- |
-| `contract/` | Canonical contract: `deck-v1`/`deck-v2`/`session-v1`/`candidate-v1` schemas, rules in `README.md`, game rules in `game-rules.md`, playlist review candidates in `playlist-candidates.md`, era bounds in `eras.json`, `demo-deck.json`, and `cases/*.json`, which both apps' tests run |
+| `contract/` | Canonical contract: `deck-v1`/`deck-v2`/`session-v1`/`session-v2`/`candidate-v1` schemas, rules in `README.md`, game rules in `game-rules.md`, playlist review candidates in `playlist-candidates.md`, era bounds in `eras.json`, `demo-deck.json`, and `cases/*.json`, which both apps' tests run |
 | `apps/apple/EraticCore/` | Foundation-only Swift core: `Deck.swift` (models, curation, v2 fields), `StrictJSON.swift`, `DeckCodec.swift`, `CardURLs.swift` (URL policy, QR route), `EraTokens.swift`/`EraBoundaries.swift` (eras), `Random.swift`, `Scoring.swift`, `Scan.swift`, `Session.swift`/`SessionCodec.swift`, `GameEngine.swift`/`GameModes.swift`/`GameQueries.swift` (rules engine), `Playlist.swift` (playlist candidates) |
 | `apps/apple/Sources/` | SwiftUI app shared by the macOS and iOS targets: deck workspace, `Game/` (Play surface), `Playback/` (Spotify, Apple Music, manual, calibration), `Scanner/`; `project.yml` generates the Xcode project |
 | `apps/web/src/core/` | TypeScript mirror of the Swift core (`deck.ts`, `cardUrls.ts`, `random.ts`, `eras.ts`, `scoring.ts`, `scan.ts`, `session.ts`, `playlist.ts`, `game/`); no React, DOM or storage |

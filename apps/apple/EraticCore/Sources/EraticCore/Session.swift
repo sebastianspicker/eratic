@@ -161,7 +161,13 @@ public enum LadderClipStart: String, CaseIterable, Sendable {
 }
 
 public struct LadderOptions: Equatable, Sendable {
-    public static let defaultSteps = [1000, 5000, 10000, 30000, 60000]
+    /// The default steps of a version 2 session (steps are capped at 30 s).
+    public static let defaultSteps = [1000, 5000, 10000, 20000, 30000]
+    /// The default steps of a version 1 session, kept so an omitted `steps` still replays as it did.
+    public static let legacyDefaultSteps = [1000, 5000, 10000, 30000, 60000]
+    /// The longest step a session version allows, in milliseconds.
+    public static func maximumStep(version: Int) -> Int { version == 1 ? 600_000 : 30_000 }
+    public static func defaultSteps(version: Int) -> [Int] { version == 1 ? legacyDefaultSteps : defaultSteps }
     public var rounds = 10
     public var steps = LadderOptions.defaultSteps
     public var guess: LadderGuess = .name
@@ -250,8 +256,11 @@ public enum GameOptions: Equatable, Sendable {
 /// A `session-v1` file (game-rules.md section 4). Scores are never stored: replay derives them.
 public struct GameSession: Equatable, Sendable {
     public static let format = "eratic-session"
-    public static let version = 1
+    /// The version new sessions are created as; version 1 files stay readable and are kept as version 1.
+    public static let version = 2
+    public static let supportedVersions = [1, 2]
 
+    public var sessionVersion: Int
     public var id: String
     public var createdAt: String
     public var deckId: String
@@ -263,7 +272,8 @@ public struct GameSession: Equatable, Sendable {
 
     public var mode: GameMode { options.mode }
 
-    public init(id: String, createdAt: String, deckId: String, deckTitle: String, options: GameOptions, seed: UInt32, players: [SessionPlayer], actions: [SessionAction] = []) {
+    public init(id: String, createdAt: String, deckId: String, deckTitle: String, options: GameOptions, seed: UInt32, players: [SessionPlayer], actions: [SessionAction] = [], sessionVersion: Int = GameSession.version) {
+        self.sessionVersion = sessionVersion
         self.id = id
         self.createdAt = createdAt
         self.deckId = deckId

@@ -1453,3 +1453,32 @@ button.quiet {
   font-weight: 700;
   margin-bottom: 6px;
 }
+
+/* Backup for every card in play: the song's QR and the hidden preview */
+.song-backup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  min-width: 0;
+}
+details.song-backup > summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--haze);
+}
+details.song-backup[open] > summary {
+  margin-bottom: 8px;
+}
+.backup-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+}
+.backup-picker .segmented {
+  flex-wrap: wrap;
+  justify-content: center;
+}

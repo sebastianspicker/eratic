@@ -99,14 +99,14 @@ The result is the list of picked IDs in order. Personal Timeline gives the i-th 
 | `imposterPoints(pickedOriginal, yearGuess?, originalYear)` | 5 if the original was picked, plus 3 if a year was guessed and `distance ≤ 2` |
 | `nameItAward(titleOK, artistOK)` | True only when both are right |
 
-## 4. Session file (`session-v1`)
+## 4. Session file (`session-v2`, `session-v1`)
 
-[`session-v1.schema.json`](session-v1.schema.json) is the structure. A session file is strict JSON exactly like a deck file: RFC 8259 text in UTF-8 (a leading BOM is ignored), no duplicate member names, no `null` anywhere, no unknown members, every string well-formed Unicode, at most 2 MiB. A session is valid only when it matches the schema **and** the engine replays every action without error (section 5). Sessions are never written into deck files.
+[`session-v2.schema.json`](session-v2.schema.json) is the structure of `sessionVersion` 2, which apps create and write. [`session-v1.schema.json`](session-v1.schema.json) is the unchanged structure of `sessionVersion` 1: such files are still read, replayed under the version 1 rules and exported unchanged as version 1, never rewritten. The two differ only in the Snippet Ladder `steps` limit and default (section 6.4). Any other `sessionVersion` is rejected. A session file is strict JSON exactly like a deck file: RFC 8259 text in UTF-8 (a leading BOM is ignored), no duplicate member names, no `null` anywhere, no unknown members, every string well-formed Unicode, at most 2 MiB. A session is valid only when it matches the schema **and** the engine replays every action without error (section 5). Sessions are never written into deck files.
 
 ```json
 {
   "format": "eratic-session",
-  "sessionVersion": 1,
+  "sessionVersion": 2,
   "id": "s-20261011-1",
   "createdAt": "2026-10-11T19:30:00Z",
   "deckId": "demo-deck",
@@ -237,7 +237,7 @@ Each mode lists its options (name, allowed values, default), player-count range,
 
 ### 6.4 Snippet Ladder (`ladder`)
 
-- **Options:** `rounds` 1–100 (10); `steps`, 1–5 strictly increasing integers from 500 to 600000 (`[1000, 5000, 10000, 30000, 60000]`), where step *i* scores with `ladderPoints(i, …)`; `guess` `name` | `year` | `both` (`name`); `clipStart` `card` | `skipIntro` | `zero` (`card`, informational); `stakes` boolean (false). A preview-only account drops the steps longer than its preview before the session starts.
+- **Options:** `rounds` 1–100 (10); `steps`, 1–5 strictly increasing integers from 500 to 30000 (`[1000, 5000, 10000, 20000, 30000]`), where step *i* scores with `ladderPoints(i, …)`; `guess` `name` | `year` | `both` (`name`); `clipStart` `card` | `skipIntro` | `zero` (`card`, informational); `stakes` boolean (false). A preview-only account drops the steps longer than its preview before the session starts. Version 1 sessions keep steps up to 600000 and the default `[1000, 5000, 10000, 30000, 60000]`, also when `steps` is omitted.
 - **Players:** 1–8.
 - **Card:**
   1. `draw {card}`; the current step is −1, nothing played yet.

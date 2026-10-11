@@ -11,7 +11,6 @@ export interface ModeInfo {
   players: [number, number];
   // Rounds of play are counted with this option, if any.
   roundsOption?: "rounds" | "cards";
-  exactClips?: boolean;
 }
 export const MODE_ORDER: GameMode[] = [
   "ladder",
@@ -30,7 +29,6 @@ export const MODE_INFO: Record<GameMode, ModeInfo> = {
     pitch: "Name the song from as little as one second. The fewer seconds you need, the more points you score.",
     players: [1, 8],
     roundsOption: "rounds",
-    exactClips: true,
   },
   timeline: {
     name: "Timeline",
@@ -75,7 +73,6 @@ export const MODE_INFO: Record<GameMode, ModeInfo> = {
     pitch: "Two versions of one song; spot the original.",
     players: [2, 8],
     roundsOption: "rounds",
-    exactClips: true,
   },
 };
 
@@ -111,11 +108,8 @@ export function modeAvailability(
 ): { reason?: string; label?: string } {
   const smallest = cardsNeeded(mode, mode === "lineup" ? { k: 3 } : {}, MODE_INFO[mode].players[0]);
   if (deck.cards.length < smallest) return { reason: "Deck too small" };
-  if (mode === "imposter") {
-    if (!exact) return { reason: "Needs exact clips" };
-    if (imposterPairs(deck.cards, 0).length === 0) return { reason: "Needs linked recordings" };
-  }
-  if (mode === "ladder" && !exact) return { reason: "Needs exact clips" };
+  // Without exact clips, Snippet Ladder and Original or Imposter play by hand from the song backup.
+  if (mode === "imposter" && imposterPairs(deck.cards, 0).length === 0) return { reason: "Needs linked recordings" };
   if (mode === "lineup" && !exact) return { label: "Lineup by name" };
   return {};
 }
@@ -181,8 +175,8 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
       name: "steps",
       label: "Clip steps",
       kind: "steps",
-      fallback: [1000, 5000, 10000, 30000, 60000],
-      choices: [1000, 5000, 10000, 30000, 60000],
+      fallback: [1000, 5000, 10000, 20000, 30000],
+      choices: [1000, 5000, 10000, 20000, 30000],
     },
     {
       name: "guess",

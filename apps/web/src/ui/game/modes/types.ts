@@ -18,6 +18,9 @@ export interface ModeInputProps {
   playback: PlaybackProps;
   // Stops the clip and reveals; for modes that reveal from their own inputs.
   reveal: () => void;
+  // Host-only answer inspection before scoring (Snippet Ladder).
+  answerShown: boolean;
+  showAnswer: () => void;
 }
 export interface ResultLine {
   playerId: string;

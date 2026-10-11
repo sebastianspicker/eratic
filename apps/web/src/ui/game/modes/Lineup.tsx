@@ -5,7 +5,7 @@ import type { CardRef, Session } from "../../../core/session";
 import { exactClips } from "../../../playback/player";
 import { cardTitle, deltas, signed, type RevealInfo } from "../history";
 import { clipPlaying, clipStartFor, useCardPlayer, type PlaybackProps } from "../playback";
-import { ClipStatus } from "../Stage";
+import { BackupPicker, ClipStatus } from "../Stage";
 import type { GameController } from "../useGame";
 import { EntryForm, LockedEntry, send } from "./LockedEntry";
 import { YearChip } from "./TimelineStrip";
@@ -43,6 +43,7 @@ export function LineupTiles({
   const length =
     session.mode === "lineup" ? (session.options.clipMs as number | undefined) ?? 10_000 : SUDDEN_DEATH_CLIP_MS;
   const playing = clipPlaying(playback.clipState);
+  const [revision, setRevision] = useState(0);
   return (
     <div className="lineup-stage">
       <ul className="lineup-tiles" aria-label="Lineup">
@@ -61,7 +62,11 @@ export function LineupTiles({
               ) : card ? (
                 <button
                   className={now ? "" : "primary"}
-                  onClick={() => (now ? stop() : void play(card, clipStartFor(card, deck, 0), length))}
+                  onClick={() => {
+                    if (now) return stop();
+                    setRevision((value) => value + 1);
+                    void play(card, clipStartFor(card, deck, 0), length);
+                  }}
                 >
                   {now ? `Stop ${letter}` : `Play ${letter}`}
                 </button>
@@ -74,6 +79,13 @@ export function LineupTiles({
         })}
       </ul>
       {byName ? <p className="muted">Lineup by name: read the titles out, then order them by year.</p> : null}
+      <BackupPicker
+        cards={cards}
+        deck={deck}
+        provider={playback.hub.player?.provider}
+        collapsed={!byName}
+        previewKey={revision}
+      />
       <ClipStatus playback={playback} status={status} error={error} />
     </div>
   );

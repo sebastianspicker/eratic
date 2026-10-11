@@ -14,7 +14,7 @@ export function EmbeddedPreview({ url }: { url: string }) {
 
 const messages = (name: string): Record<PreviewState, string> => ({
   loading: `Loading ${name} preview…`,
-  ready: "Preview ready. Song details stay hidden.",
+  ready: "Preview ready. Press Play; song details stay hidden.",
   starting: "Starting preview…",
   playing: "Preview playing",
   paused: "Preview stopped",

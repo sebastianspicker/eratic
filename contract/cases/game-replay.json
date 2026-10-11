@@ -1,5 +1,5 @@
 {
-  "description": "Whole sessions replayed by the rules engine (game-rules.md sections 4-7), shared by Apple and web. Each `session` is a complete, schema-valid session-v1 object. `expect` lists summary members (section 7) to compare exactly after the last action; members it does not list are not compared. `expect.error.at` is the index of the first rejected action, or -1 for a setup error (options, player count, player IDs). Expected values were worked out by hand from the rules text.",
+  "description": "Whole sessions replayed by the rules engine (game-rules.md sections 4-7), shared by Apple and web. Each `session` is a complete, schema-valid session-v1 or session-v2 object (by its sessionVersion). `expect` lists summary members (section 7) to compare exactly after the last action; members it does not list are not compared. `expect.error.at` is the index of the first rejected action, or -1 for a setup error (options, player count, player IDs). Expected values were worked out by hand from the rules text.",
   "cases": [
     {
       "name": "bullseye-complete-tie-on-score-broken-by-exact-hits",
@@ -22882,6 +22882,148 @@
         "maxScore": 6,
         "eras": [],
         "shareText": "Eratic 2026-10-11 · 0/6 · "
+      }
+    },
+    {
+      "name": "ladder-v2-omitted-steps-default-ends-at-30s",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "step",
+            "at": 2000,
+            "index": 1
+          },
+          {
+            "type": "step",
+            "at": 3000,
+            "index": 2
+          },
+          {
+            "type": "step",
+            "at": 4000,
+            "index": 3
+          },
+          {
+            "type": "step",
+            "at": 5000,
+            "index": 4
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 0
+        },
+        "usedMs": {
+          "p1": 30000
+        }
+      }
+    },
+    {
+      "name": "ladder-v1-omitted-steps-default-still-ends-at-60s",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "step",
+            "at": 2000,
+            "index": 1
+          },
+          {
+            "type": "step",
+            "at": 3000,
+            "index": 2
+          },
+          {
+            "type": "step",
+            "at": 4000,
+            "index": 3
+          },
+          {
+            "type": "step",
+            "at": 5000,
+            "index": 4
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 0
+        },
+        "usedMs": {
+          "p1": 60000
+        }
       }
     }
   ]

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { canReveal, currentCards, pendingInputs } from "../../../core/game/engine";
-import type { GameAction, LadderOptions, Session } from "../../../core/session";
+import { normalizeOptions, type GameAction, type LadderOptions, type Session } from "../../../core/session";
 import { loadCalibration } from "../../../playback/calibration";
 import { exactClips, type PlaybackProvider } from "../../../playback/player";
 import { cardTitle, chipsText, deltas, inputsSinceDraw, listNames, playerName, signed } from "../history";
-import { clipPlaying, PROVIDER_NAMES, useCardPlayer } from "../playback";
-import { ClipStatus, MysteryCard, Nudge, useClipStart } from "../Stage";
+import { backupTrack, cardsKey, clipPlaying, PROVIDER_NAMES, useCardPlayer } from "../playback";
+import { useSnippetPreview } from "../SnippetPreview";
+import { ClipStatus, MysteryCard, Nudge, SongBackup, useClipStart } from "../Stage";
 import { send } from "./LockedEntry";
 import type { ModeInputProps, ModeUI } from "./types";
 import { Wager } from "./Wager";
@@ -38,19 +39,41 @@ const isTextField = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName));
 
-// The step bar and the clip buttons; each step plays exactly its length from the clip start.
-function LadderStage({ controller, session, state, summary, deck, playback }: ModeInputProps) {
+// The step bar and the clip buttons. An exact step plays its length from the clip
+// start; without exact clips the hidden preview plays it from 0 and stops by itself,
+// else the host marks each step played by hand.
+function LadderStage({ controller, session, state, summary, deck, playback, answerShown }: ModeInputProps) {
   const options = state.options as LadderOptions;
   const step = summary.step ?? -1;
   const last = options.steps.length - 1;
   const card = deck.cards.find((item) => item.id === currentCards(state)[0]?.cardId);
   const { start, earlier, later } = useClipStart(card, deck, session);
-  const { player, exact, play, stop, status, error } = useCardPlayer(playback, controller);
+  const { player, exact, route, play, stop, status, error } = useCardPlayer(playback, controller);
   const next = step < last ? step + 1 : undefined;
+  // An exact or snippet step stops the backup's own preview; a step marked by hand keeps it playing.
+  const [revision, setRevision] = useState(0);
+  const preview = useSnippetPreview(exact || answerShown ? undefined : card && backupTrack(card, player?.provider)?.url, card?.id);
+  const snippets = !exact && preview.usable;
+  const playable = !answerShown && (exact || (snippets && preview.ready));
   // The step is recorded once its clip is audible; a clip that fails to start
   // shows why and leaves the ladder where it was.
+  // Without exact clips the host plays the song by hand and marks the step played.
   function playStep(index: number) {
-    if (!card || !exact || !controller.project([{ type: "step", index }])) return;
+    if (answerShown || !card || (snippets && !preview.ready) || !controller.project([{ type: "step", index }])) return;
+    if (snippets) {
+      // Recorded once the snippet is audible, and only while the same card is in play.
+      const expected = cardsKey(controller.getSnapshot().state);
+      setRevision((value) => value + 1);
+      preview.snippet(options.steps[index], () => {
+        if (cardsKey(controller.getSnapshot().state) === expected) controller.dispatch({ type: "step", index });
+      });
+      return;
+    }
+    if (!exact) {
+      controller.dispatch({ type: "step", index });
+      return;
+    }
+    setRevision((value) => value + 1);
     void play(card, start, options.steps[index], `step-${index}`, () =>
       controller.dispatch({ type: "step", index }),
     );
@@ -60,17 +83,28 @@ function LadderStage({ controller, session, state, summary, deck, playback }: Mo
   // Space plays the next step, unless focus is in a field or on a button (which Space presses).
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key !== " " || event.repeat || isTextField(event.target) || next === undefined) return;
+      // Only audible steps: a stray Space must not mark a step played by hand.
+      if (event.key !== " " || event.repeat || isTextField(event.target) || next === undefined || !playable) return;
       event.preventDefault();
       latest.current(next);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next]);
+  }, [next, playable]);
   const warning = calibrationWarning(playback.hubState.provider, Boolean(playback.hubState.tier && exactClips(playback.hubState.tier)));
+  if (answerShown) return <p className="muted">Playback stopped. Score the card to continue.</p>;
   return (
     <div className="card-stage">
       <MysteryCard />
+      {card ? (
+        <SongBackup
+          card={card}
+          provider={player?.provider}
+          collapsed={route(card)?.kind === "exact" || snippets}
+          previewKey={`${revision}/${answerShown}`}
+        />
+      ) : null}
+      {!exact ? preview.frame : null}
       <div className="clip-controls">
         <ol className="step-bar" aria-label="Clip steps">
           {options.steps.map((length, index) => (
@@ -87,22 +121,37 @@ function LadderStage({ controller, session, state, summary, deck, playback }: Mo
           ))}
         </ol>
         {!card ? <p className="muted">This card isn't in the open deck, so it can't be played here.</p> : null}
-        {card && !player ? <p className="muted">Choose how to play songs on Play home to hear this card.</p> : null}
-        {card && player && !exact ? <p className="muted">Snippet Ladder needs exact clips to play each step.</p> : null}
+        {card && snippets ? (
+          <p className="muted">Snippets play from the song's preview and stop by themselves.</p>
+        ) : card && !exact ? (
+          <p className="muted">Without exact clips, play each step by hand with the preview or QR, then mark it played.</p>
+        ) : null}
         <div className="action-row">
           {next !== undefined ? (
-            <button className="primary" disabled={!card || !exact} onClick={() => playStep(next)}>
-              {step < 0 ? `Play ${seconds(options.steps[0])}` : `Next: ${seconds(options.steps[next])}`}
+            <button className="primary" disabled={answerShown || !card || (snippets && !playable)} onClick={() => playStep(next)}>
+              {exact || snippets
+                ? step < 0
+                  ? `Play ${seconds(options.steps[0])}`
+                  : `More time: ${seconds(options.steps[next])}`
+                : step < 0
+                  ? `Mark ${seconds(options.steps[0])} played`
+                  : `Next: mark ${seconds(options.steps[next])} played`}
             </button>
           ) : null}
           {step >= 0 ? (
-            <button disabled={!card || !exact} onClick={() => playStep(step)}>
-              Replay step
+            <button disabled={!card || !playable} onClick={() => playStep(step)}>
+              Replay {seconds(options.steps[step])}
             </button>
           ) : null}
           {clipPlaying(playback.clipState) ? <button onClick={stop}>Stop</button> : null}
+          {preview.active ? <button onClick={preview.stop}>Stop snippet</button> : null}
         </div>
         {exact ? <Nudge start={start} onEarlier={earlier} onLater={later} /> : null}
+        {!exact && preview.status ? (
+          <p className="muted" role="status">
+            {preview.status}
+          </p>
+        ) : null}
         <ClipStatus playback={playback} status={status} error={error} />
         {warning ? <p className="warning">{warning}</p> : null}
       </div>
@@ -130,7 +179,7 @@ function WagerRow({ held, onWager }: { held: number; onWager: (chips: number) =>
   );
 }
 
-function LadderInput({ controller, session, state, summary, deck, reveal }: ModeInputProps) {
+function LadderInput({ controller, session, state, summary, deck, reveal, answerShown: shown, showAnswer }: ModeInputProps) {
   const options = state.options as LadderOptions;
   const step = summary.step ?? -1;
   const withYear = options.guess !== "name";
@@ -138,7 +187,6 @@ function LadderInput({ controller, session, state, summary, deck, reveal }: Mode
   const inputs = inputsSinceDraw(session.actions);
   const locks = lockSteps(inputs);
   const [years, setYears] = useState<Record<string, string>>({});
-  const [shown, setShown] = useState(false);
   const [marks, setMarks] = useState<Record<string, { title: boolean; artist: boolean }>>({});
   const [error, setError] = useState("");
   const players = session.players;
@@ -302,7 +350,7 @@ function LadderInput({ controller, session, state, summary, deck, reveal }: Mode
         </p>
       ) : null}
       <div className="action-row">
-        <button className="primary" disabled={!ready} onClick={() => setShown(true)}>
+        <button className="primary" disabled={!ready} onClick={showAnswer}>
           Show answer
         </button>
       </div>
@@ -322,7 +370,8 @@ export const ladderUI: ModeUI = {
   Stage: LadderStage,
   ownReveal: true,
   resultLines: (info, session: Session) => {
-    const steps = (session.options.steps as number[] | undefined) ?? [1000, 5000, 10000, 30000, 60000];
+    const steps = (session.options.steps as number[] | undefined) ??
+      normalizeOptions("ladder", {}, session.sessionVersion).steps;
     const locks = lockSteps(info.inputs);
     return session.players.map((player) => {
       const { points, chips } = deltas(info, player.id);

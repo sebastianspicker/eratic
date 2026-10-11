@@ -5,7 +5,9 @@ import UIKit
 #endif
 
 /// Snippet Ladder: play the steps one by one, players lock in at the current step, then the host shows the answer,
-/// marks title and artist per locked player and scores the card. Space plays the next step.
+/// marks title and artist per locked player and scores the card. Space plays the next step. Without exact clips the
+/// steps play from the song's hidden provider preview and stop by themselves; with no usable preview the host plays
+/// each step by hand (QR) and marks it played.
 struct LadderInput: View {
     let session: GameSession
     let state: GameState
@@ -15,6 +17,8 @@ struct LadderInput: View {
     @ObservedObject var clip: ClipController
     @EnvironmentObject private var game: GameController
     @EnvironmentObject private var playback: PlaybackHub
+    /// The hidden preview that plays the steps when there are no exact clips.
+    @StateObject private var snippets = SnippetController()
     @State private var current: String?
     @State private var year = 1990
     @State private var wagers: [String: Int] = [:]
@@ -24,18 +28,31 @@ struct LadderInput: View {
     @State private var playError: String?
     /// Preparing a step's track; the step is recorded only once its clip is audible.
     @State private var prepareTask: Task<Void, Never>?
+    /// Starting an exact step remounts the backup's preview, which stops it.
+    @State private var previewRevision = UUID()
 
     private var step: Int { state.ladderStep }
     /// A step is preparing or starting: Space and the step buttons wait, so one press plays one step.
-    private var busy: Bool { prepareTask != nil || clip.state == .starting }
+    private var busy: Bool { prepareTask != nil || clip.state == .starting || (snippetMode && !snippets.canPlay) }
     private var last: Int { options.steps.count - 1 }
     private var song: SongCard? { deck.card(card.cardId) }
+    /// The card's Spotify or Apple Music link, the only source of a snippet without exact clips.
+    private var snippetURL: URL? {
+        guard !playback.tier.exactClips, let song,
+              let url = SongBackup.backupURL(for: song, provider: playback.provider),
+              ScanRules.providerTrack(url.absoluteString) != nil else { return nil }
+        return url
+    }
+    /// Steps play from the hidden preview; otherwise (no link, or the preview is unavailable) the host marks them by hand.
+    private var snippetMode: Bool { snippetURL != nil && !snippets.failed }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             warnings
             StepBar(steps: options.steps, current: step)
             stepControls
+            if let snippetURL { SnippetPreview(controller: snippets, url: snippetURL) }
+            if let song { SongBackup(card: song, collapsed: snippetMode || (playback.tier.exactClips && playback.track(for: song) != nil), previewID: previewRevision) }
             if let message = playError ?? clip.error?.localizedDescription { Text(message).foregroundStyle(.red).font(.callout) }
             if step >= 0, !showAnswer {
                 locks
@@ -46,7 +63,14 @@ struct LadderInput: View {
             } else if step >= 0 {
                 let ready = session.players.allSatisfy { state.locks[$0.id] != nil } || step == last
                 let owed = session.players.filter { state.owesWager($0.id) }
-                Button("Show answer") { showAnswer = true }
+                Button("Show answer") {
+                    prepareTask?.cancel()
+                    prepareTask = nil
+                    clip.cancel()
+                    snippets.stop()
+                    previewRevision = UUID()
+                    showAnswer = true
+                }
                     .buttonStyle(.borderedProminent)
                     .disabled(!ready || !owed.isEmpty)
                 if !ready {
@@ -66,8 +90,15 @@ struct LadderInput: View {
 
     @ViewBuilder
     private var warnings: some View {
-        if !playback.tier.exactClips {
-            Label("Snippet Ladder needs exact clips. Connect Spotify Premium or Apple Music in Play home.", systemImage: "exclamationmark.triangle")
+        if snippetMode {
+            Label("Snippets play from the song's preview and stop by themselves.", systemImage: "info.circle")
+                .font(.callout)
+        } else if !playback.tier.exactClips {
+            if snippets.failed {
+                Text(snippets.status == "unavailable" ? "No hidden preview is available for this song." : "The preview could not play.")
+                    .font(.callout)
+            }
+            Label("Without exact clips, play each step by hand with the preview or QR, then mark it played.", systemImage: "exclamationmark.triangle")
                 .font(.callout)
         } else if CalibrationRun.latest(for: playback.provider)?.passed != true {
             Label("Timing isn't calibrated, or the last calibration failed: steps may run a little long or short. Calibrate in Play home.", systemImage: "exclamationmark.triangle")
@@ -78,19 +109,26 @@ struct LadderInput: View {
     private var stepControls: some View {
         HStack(spacing: 12) {
             if step < last {
-                Button(step < 0 ? "Play \(secondsText(options.steps[0]))" : "Next: \(secondsText(options.steps[step + 1]))") { play(step + 1) }
+                Button(nextLabel) { play(step + 1) }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .keyboardShortcut(.space, modifiers: [])
+                    // Only timed steps: a stray Space must not mark a step played by hand.
+                    .keyboardShortcut(playback.tier.exactClips || snippetMode ? KeyboardShortcut(.space, modifiers: []) : nil)
                     .disabled(showAnswer || busy)
             }
-            if step >= 0 {
-                Button("Replay step") { play(step) }
+            if step >= 0, playback.tier.exactClips || snippetMode {
+                Button("Replay \(secondsText(options.steps[step]))") { play(step) }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
-                    .disabled(busy)
+                    .disabled(showAnswer || busy)
             }
-            if prepareTask != nil, !ExactClip.isPlaying(clip) {
+            if snippetMode, snippets.status == "starting" || snippets.status == "playing" {
+                Button("Stop snippet") { snippets.stop() }
+                    .buttonStyle(.bordered)
+            }
+            if snippetMode, !snippets.canPlay {
+                Text(snippets.status == "loading" ? "Loading preview…" : "Starting…").font(.callout)
+            } else if prepareTask != nil, !ExactClip.isPlaying(clip) {
                 Text("Preparing…").font(.callout)
             } else if let status = ExactClip.statusText(clip) {
                 HStack(spacing: 6) {
@@ -102,14 +140,37 @@ struct LadderInput: View {
         }
     }
 
+    private var nextLabel: String {
+        let seconds = secondsText(options.steps[step + 1])
+        if playback.tier.exactClips || snippetMode { return step < 0 ? "Play \(seconds)" : "More time: \(seconds)" }
+        return step < 0 ? "Mark \(seconds) played" : "Next: mark \(seconds) played"
+    }
+
     /// The card's start, else the deck default, else the session's choice.
     private func startMs(_ song: SongCard) -> Int {
         deck.clipStartMs(for: song) ?? (options.clipStart == .skipIntro ? 15_000 : 0)
     }
 
-    /// The `step` action is dispatched by the host screen once the clip is audible; a clip that fails leaves the step unplayed.
+    /// With exact clips the `step` action is dispatched by the host screen once the clip is audible; a clip that fails leaves the step unplayed.
     private func play(_ index: Int) {
-        guard let song, !busy else { return }
+        guard !showAnswer, !busy else { return }
+        // Nothing to time or hear: the host played the step by hand.
+        guard playback.tier.exactClips else {
+            if snippetMode {
+                // The step is recorded once its sound starts, and only if the same card is still in play.
+                previewRevision = UUID()
+                let key = game.playKey
+                snippets.snippet(from: 0, lengthMs: options.steps[index]) {
+                    guard game.playKey == key else { return }
+                    game.dispatch(.step(index: index))
+                }
+            } else {
+                game.dispatch(.step(index: index))
+            }
+            return
+        }
+        guard let song else { return }
+        previewRevision = UUID()
         #if os(iOS)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         #endif
@@ -224,11 +285,12 @@ struct LadderInput: View {
             }
         }
         clip.cancel()
+        snippets.stop()
         game.dispatch(.reveal)
     }
 }
 
-/// The steps as a bar ("1 s · 5 s · 10 s · 30 s · 60 s"): played steps filled, the current one lit.
+/// The steps as a bar ("1 s · 5 s · 10 s · 20 s · 30 s"): played steps filled, the current one lit.
 struct StepBar: View {
     let steps: [Int]
     /// The step played last, −1 before the first.

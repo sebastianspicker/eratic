@@ -225,7 +225,7 @@ export class GameController {
         : setup.options;
     let session: Session = {
       format: "eratic-session",
-      sessionVersion: 1,
+      sessionVersion: 2,
       id: `s-${now.toString(36)}`,
       createdAt,
       deckId: deck.id,

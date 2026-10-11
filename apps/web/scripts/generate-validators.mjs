@@ -13,6 +13,7 @@ for (const [name, file] of Object.entries({
   deckV1: "deck-v1.schema.json",
   deckV2: "deck-v2.schema.json",
   sessionV1: "session-v1.schema.json",
+  sessionV2: "session-v2.schema.json",
   candidateV1: "candidate-v1.schema.json",
 })) {
   const schema = JSON.parse(await readFile(new URL(`../../../contract/${file}`, import.meta.url), "utf8"));
@@ -24,7 +25,7 @@ await mkdir(new URL(".", output), { recursive: true });
 await writeFile(output, standaloneCode(ajv, exports));
 const entry = new URL("./validators.mjs", output);
 await writeFile(entry, `import validators from "./validators.cjs";
-export const { deckV1, deckV2, sessionV1, candidateV1 } = validators;
+export const { deckV1, deckV2, sessionV1, sessionV2, candidateV1 } = validators;
 `);
 
 // Bundle AJV's small runtime helpers into ESM so dev, tests and production all

@@ -5,6 +5,7 @@ import {
   type GameAction,
   type GameMode,
   type Session,
+  type SessionVersion,
   type SessionOptions,
   type SessionPlayer,
 } from "../session";
@@ -54,6 +55,7 @@ const rulesOf = (state: GameState): ModeRules => MODES[state.mode];
 const stakes = (state: GameState): boolean => state.chips !== undefined;
 
 export interface GameSetup {
+  sessionVersion?: SessionVersion;
   mode: GameMode;
   options: SessionOptions;
   players: SessionPlayer[];
@@ -88,7 +90,7 @@ export function startGame(setup: GameSetup): GameState {
   checkPlayers(setup.players);
   let options;
   try {
-    options = normalizeOptions(setup.mode, setup.options);
+    options = normalizeOptions(setup.mode, setup.options, setup.sessionVersion);
   } catch (error) {
     throw new GameError((error as Error).message, -1);
   }

@@ -18,5 +18,5 @@ it("loads deck and session validation when CSP forbids dynamic code evaluation",
   expect(() => validateDeck({ ...demo, schemaVersion: 3 })).toThrow();
   const session = sessions.cases.find((item) => item.name === "valid-minimal-session")!.session;
   expect(validateSession(session)).toEqual(session);
-  expect(() => validateSession({ ...session, sessionVersion: 2 })).toThrow();
+  expect(() => validateSession({ ...session, sessionVersion: 3 })).toThrow();
 });

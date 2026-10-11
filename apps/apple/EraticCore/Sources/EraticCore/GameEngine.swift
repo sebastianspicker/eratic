@@ -198,9 +198,9 @@ public struct GameState: Equatable, Sendable {
 
 public enum GameEngine {
     /// Checks the options and player count (errors at index −1) and returns the initial state.
-    public static func start(options: GameOptions, players: [SessionPlayer], seed: UInt32 = 0) throws -> GameState {
+    public static func start(options: GameOptions, players: [SessionPlayer], seed: UInt32 = 0, sessionVersion: Int = GameSession.version) throws -> GameState {
         do {
-            try validateSetup(options, players)
+            try validateSetup(options, players, sessionVersion: sessionVersion)
         } catch let rejection as Rejection {
             throw GameError(actionIndex: -1, message: rejection.message)
         }
@@ -225,7 +225,7 @@ public enum GameEngine {
     }
 
     public static func replay(_ session: GameSession) throws -> GameState {
-        var state = try start(options: session.options, players: session.players, seed: session.seed)
+        var state = try start(options: session.options, players: session.players, seed: session.seed, sessionVersion: session.sessionVersion)
         for action in session.actions { state = try apply(action, to: state) }
         return state
     }
@@ -315,7 +315,7 @@ public enum GameEngine {
         }
     }
 
-    static func validateSetup(_ options: GameOptions, _ players: [SessionPlayer]) throws {
+    static func validateSetup(_ options: GameOptions, _ players: [SessionPlayer], sessionVersion: Int = GameSession.version) throws {
         let range = playerRange(options.mode)
         try require(range.contains(players.count), "\(options.mode.rawValue) needs \(range.lowerBound)–\(range.upperBound) players.")
         // The session file's player rules, checked here too so in-memory callers get the same answers.
@@ -342,8 +342,9 @@ public enum GameEngine {
             try require((0...5).contains(o.tokens), "tokens must be 0–5.")
         case let .ladder(o):
             try require((1...100).contains(o.rounds), "rounds must be 1–100.")
-            try require((1...5).contains(o.steps.count) && o.steps.allSatisfy { (500...600_000).contains($0) }
-                        && zip(o.steps, o.steps.dropFirst()).allSatisfy { $0 < $1 }, "steps must be 1–5 strictly increasing values 500–600000.")
+            let maximumStep = LadderOptions.maximumStep(version: sessionVersion)
+            try require((1...5).contains(o.steps.count) && o.steps.allSatisfy { (500...maximumStep).contains($0) }
+                        && zip(o.steps, o.steps.dropFirst()).allSatisfy { $0 < $1 }, "steps must be 1–5 strictly increasing values 500–\(maximumStep).")
         case let .higherLower(o): try require((2...100).contains(o.cards), "cards must be 2–100.")
         case let .relay(o):
             try anchorYear(o.anchor, o.anchorYear)

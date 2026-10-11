@@ -5,6 +5,7 @@ import { currentCards, type GameState } from "../../core/game/engine";
 import type { Session, TimelineOptions } from "../../core/session";
 import { ClipController, type ClipState } from "../../playback/clip";
 import type { HubState, PlaybackHub } from "../../playback/hub";
+import { previewTarget } from "../../playback/embeddedPreview";
 import { ManualPlayer } from "../../playback/manualPlayer";
 import {
   exactClips,
@@ -75,6 +76,15 @@ export function cardRoute(card: Card, provider: PlaybackProvider, tier: Playback
     track: first,
     label: provider === "manual" ? openLabel(first.link) : "Open song link",
   };
+}
+// The song for the backup QR and hidden preview, whatever the tier: the chosen
+// provider's link, else the first link the preview can embed, else the first link.
+export function backupTrack(card: Card, provider: PlaybackProvider | undefined): PlayableTrack | undefined {
+  const own = provider && provider !== "manual" ? trackFor(card, provider) : undefined;
+  if (own) return { ...own, provider: "manual" };
+  const embeddable = card.links.find((link) => previewTarget(link.url));
+  if (embeddable) return { provider: "manual", id: linkTrack(embeddable)?.id ?? embeddable.id ?? card.id, url: embeddable.url };
+  return trackFor(card, "manual");
 }
 // Opens a link in a new tab, the way Play it yourself does.
 export async function openLink(track: PlayableTrack, fromMs = 0): Promise<void> {
@@ -150,7 +160,7 @@ export interface PlaybackProps {
   clip: ClipController;
   clipState: ClipState;
 }
-const cardsKey = (state: GameState | undefined): string =>
+export const cardsKey = (state: GameState | undefined): string =>
   state ? `${state.phase}:${currentCards(state).map((card) => card.cardId).join(",")}` : "";
 
 // Plays one card: an exact clip through the clip controller, or the song opened

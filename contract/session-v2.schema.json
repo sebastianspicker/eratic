@@ -1,0 +1,873 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qr-song-quiz.example/schema/session-v2.json",
+  "title": "Eratic session version 2",
+  "description": "Structure of an Eratic session file (game-rules.md section 4). Which option members a mode accepts, their per-mode ranges and every replay rule are checked by the rules engine (sections 5 and 6).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "eratic-session"
+    },
+    "sessionVersion": {
+      "const": 2
+    },
+    "id": {
+      "$ref": "#/$defs/deckId"
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z(?![\\s\\S])"
+    },
+    "deckId": {
+      "$ref": "#/$defs/deckId"
+    },
+    "deckTitle": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "\\S"
+    },
+    "mode": {
+      "enum": [
+        "ladder",
+        "timeline",
+        "bullseye",
+        "eraSort",
+        "higherLower",
+        "relay",
+        "lineup",
+        "daily",
+        "imposter"
+      ]
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rounds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "stakes": {
+          "type": "boolean"
+        },
+        "kids": {
+          "type": "boolean"
+        },
+        "ownership": {
+          "enum": [
+            "personal",
+            "shared"
+          ]
+        },
+        "anchor": {
+          "enum": [
+            "beginning",
+            "middle",
+            "random",
+            "custom"
+          ]
+        },
+        "anchorYear": {
+          "type": "integer",
+          "minimum": 1850,
+          "maximum": 2100
+        },
+        "target": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 30
+        },
+        "challenges": {
+          "type": "boolean"
+        },
+        "tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "nameIt": {
+          "type": "boolean"
+        },
+        "clip": {
+          "enum": [
+            "full",
+            "30s",
+            "10s"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 30000
+          }
+        },
+        "guess": {
+          "enum": [
+            "name",
+            "year",
+            "both"
+          ]
+        },
+        "clipStart": {
+          "enum": [
+            "card",
+            "skipIntro",
+            "zero"
+          ]
+        },
+        "cards": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/$defs/deckId"
+              }
+            }
+          ]
+        },
+        "lives": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "k": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 5
+        },
+        "clipMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 60000
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])"
+        }
+      }
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "players": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/playerId"
+          },
+          "name": {
+            "$ref": "#/$defs/name"
+          },
+          "members": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/$defs/name"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      }
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "clip"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "fromMs": {
+                "$ref": "#/$defs/ms"
+              },
+              "lengthMs": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "fromMs"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "skip"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              }
+            },
+            "required": [
+              "type",
+              "at"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "end"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              }
+            },
+            "required": [
+              "type",
+              "at"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "draw"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "card": {
+                "$ref": "#/$defs/card"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "card"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "reveal"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              }
+            },
+            "required": [
+              "type",
+              "at"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "wager"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "chips": {
+                "$ref": "#/$defs/integer"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "chips"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "sdDraw"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "cards": {
+                "$ref": "#/$defs/cards"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "cards"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "sdGuess"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "year": {
+                "$ref": "#/$defs/integer"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "year"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "sdOrder"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "order": {
+                "$ref": "#/$defs/order"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "order"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "sdName"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              }
+            },
+            "required": [
+              "type",
+              "at"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "guess"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "year": {
+                "$ref": "#/$defs/integer"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "year"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "pickEra"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "era": {
+                "$ref": "#/$defs/era"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "era"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "anchor"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "card": {
+                "$ref": "#/$defs/card"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "card"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "place"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "slot"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "challenge"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "slot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "slot"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "nameIt"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "titleOK": {
+                "type": "boolean"
+              },
+              "artistOK": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "titleOK",
+              "artistOK"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "step"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "index"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "lock"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "year": {
+                "$ref": "#/$defs/integer"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "mark"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "titleOK": {
+                "type": "boolean"
+              },
+              "artistOK": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "titleOK",
+              "artistOK"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "reference"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "card": {
+                "$ref": "#/$defs/card"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "card"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "call"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "call": {
+                "enum": [
+                  "earlier",
+                  "later"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "call"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "drawSet"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "cards": {
+                "$ref": "#/$defs/cards"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "cards"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "order"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "order": {
+                "$ref": "#/$defs/order"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "order"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "drawPair"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "a": {
+                "$ref": "#/$defs/card"
+              },
+              "b": {
+                "$ref": "#/$defs/card"
+              },
+              "original": {
+                "enum": [
+                  "a",
+                  "b"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "a",
+              "b",
+              "original"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "choose"
+              },
+              "at": {
+                "$ref": "#/$defs/ms"
+              },
+              "playerId": {
+                "$ref": "#/$defs/playerId"
+              },
+              "pick": {
+                "enum": [
+                  "a",
+                  "b"
+                ]
+              },
+              "year": {
+                "$ref": "#/$defs/integer"
+              }
+            },
+            "required": [
+              "type",
+              "at",
+              "playerId",
+              "pick"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "format",
+    "sessionVersion",
+    "id",
+    "createdAt",
+    "deckId",
+    "deckTitle",
+    "mode",
+    "options",
+    "seed",
+    "players",
+    "actions"
+  ],
+  "$defs": {
+    "deckId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}(?![\\s\\S])"
+    },
+    "playerId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}(?![\\s\\S])"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "pattern": "\\S"
+    },
+    "ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "integer": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "era": {
+      "enum": [
+        "shellac",
+        "jukebox",
+        "mod",
+        "disco",
+        "neon",
+        "zine",
+        "chrome",
+        "pastel",
+        "now"
+      ]
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cardId": {
+          "$ref": "#/$defs/deckId"
+        },
+        "year": {
+          "type": "integer",
+          "minimum": 1850,
+          "maximum": 2100
+        },
+        "era": {
+          "$ref": "#/$defs/era"
+        }
+      },
+      "required": [
+        "cardId",
+        "year",
+        "era"
+      ]
+    },
+    "cards": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/card"
+      }
+    },
+    "order": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/deckId"
+      }
+    }
+  }
+}

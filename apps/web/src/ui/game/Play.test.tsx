@@ -183,8 +183,8 @@ describe("Play home", () => {
       "Daily Eratic",
       "Original or Imposter",
     ]);
-    expect(tiles[0].textContent).toContain("Needs exact clips");
-    expect(tiles[8].textContent).toContain("Needs exact clips");
+    // Without exact clips every mode can start: Ladder and Imposter play by hand from the song backup.
+    expect(tiles.filter((tile) => tile.textContent?.includes("Needs exact clips"))).toHaveLength(0);
     expect(tiles.filter((tile) => tile.textContent?.includes("Coming in this build"))).toHaveLength(0);
     const spotify = $('input[value="spotify"]') as HTMLInputElement;
     expect(spotify.disabled).toBe(false);

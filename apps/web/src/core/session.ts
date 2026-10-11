@@ -1,10 +1,10 @@
-import { sessionV1 as validateSchema } from "./generated/validators.js";
+import { sessionV1 as validateSchemaV1, sessionV2 as validateSchemaV2 } from "./generated/validators.js";
 import { assertNoDuplicateNames, assertWellFormed } from "./deck";
 import type { AnchorKind } from "./random";
 import { isValidDate } from "./scoring";
 import { replay, type GameState } from "./game/engine";
 
-// Session file format version 1 (contract/game-rules.md section 4).
+// Session file format versions 1 and 2 (contract/game-rules.md section 4).
 export type GameMode =
   | "ladder"
   | "timeline"
@@ -138,9 +138,11 @@ export interface SessionOptions {
   clipMs?: number;
   date?: string;
 }
+// Version 2 caps Snippet Ladder steps at 30 s; version 1 stays readable unchanged.
+export type SessionVersion = 1 | 2;
 export interface Session {
   format: "eratic-session";
-  sessionVersion: 1;
+  sessionVersion: SessionVersion;
   id: string;
   createdAt: string;
   deckId: string;
@@ -168,7 +170,7 @@ const choice = (values: readonly string[], fallback: string): Spec => ({
 });
 const ANCHOR = choice(["beginning", "middle", "random", "custom"], "random");
 const ANCHOR_YEAR = int(1850, 2100);
-const STEPS: Spec = {
+const steps = (max: number, fallback: number[]): Spec => ({
   valid: (value) =>
     Array.isArray(value) &&
     value.length >= 1 &&
@@ -177,10 +179,16 @@ const STEPS: Spec = {
       (step, i) =>
         Number.isInteger(step) &&
         step >= 500 &&
-        step <= 600000 &&
+        step <= max &&
         (i === 0 || step > value[i - 1]),
     ),
-  fallback: [1000, 5000, 10000, 30000, 60000],
+  fallback,
+});
+const STEPS_V1 = steps(600000, [1000, 5000, 10000, 30000, 60000]);
+const STEPS_V2 = steps(30000, [1000, 5000, 10000, 20000, 30000]);
+export const LADDER_STEPS_DEFAULT: Record<SessionVersion, number[]> = {
+  1: STEPS_V1.fallback as number[],
+  2: STEPS_V2.fallback as number[],
 };
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 const DAILY_CARDS: Spec = {
@@ -210,7 +218,7 @@ const OPTION_SPECS: Record<GameMode, Record<string, Spec>> = {
   },
   ladder: {
     rounds: int(1, 100, 10),
-    steps: STEPS,
+    steps: STEPS_V2,
     guess: choice(["name", "year", "both"], "name"),
     clipStart: choice(["card", "skipIntro", "zero"], "card"),
     stakes: bool(false),
@@ -233,9 +241,13 @@ const OPTION_SPECS: Record<GameMode, Record<string, Spec>> = {
 export function normalizeOptions<M extends GameMode>(
   mode: M,
   options: SessionOptions,
+  sessionVersion: SessionVersion = 2,
 ): ModeOptions[M] {
   if (!Object.hasOwn(OPTION_SPECS, mode)) throw new Error(`Unknown mode: ${String(mode)}.`);
-  const specs = OPTION_SPECS[mode];
+  const specs =
+    mode === "ladder" && sessionVersion === 1
+      ? { ...OPTION_SPECS.ladder, steps: STEPS_V1 }
+      : OPTION_SPECS[mode];
   if (typeof options !== "object" || options === null || Array.isArray(options))
     throw new Error("Options must be an object.");
   // Own members only: an option named "constructor" is unknown, not inherited.
@@ -271,10 +283,12 @@ function checkSessionSize(byteLength: number): void {
 }
 // A session is valid when it matches the schema and replays without error.
 export function validateSession(input: unknown): Session {
+  const version = (input as { sessionVersion?: unknown } | null)?.sessionVersion;
+  const validateSchema = version === 1 ? validateSchemaV1 : validateSchemaV2;
   if (!validateSchema(input)) {
     const first = validateSchema.errors?.[0];
     throw new Error(
-      `Invalid session: ${first?.instancePath || "/"} ${first?.message || "does not match session-v1"}.`,
+      `Invalid session: ${first?.instancePath || "/"} ${first?.message || `does not match session-v${version === 1 ? 1 : 2}`}.`,
     );
   }
   assertWellFormed(input, "session");
@@ -307,7 +321,7 @@ export function exportSession(session: Session): string {
     deckId: session.deckId,
     deckTitle: session.deckTitle,
     mode: session.mode,
-    options: normalizeOptions(session.mode, session.options) as SessionOptions,
+    options: normalizeOptions(session.mode, session.options, session.sessionVersion) as SessionOptions,
     seed: session.seed,
     players: session.players,
     actions: session.actions,

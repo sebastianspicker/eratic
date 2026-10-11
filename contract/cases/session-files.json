@@ -1,5 +1,5 @@
 {
-  "description": "Session file text accepted or rejected by the strict session decoder (game-rules.md section 4), shared by Apple and web. A case carries `session` (a JSON value), `json` (exact file text) or `base64` (exact file bytes). When `padToBytes` is present, the runner appends ASCII spaces to `json` until its UTF-8 encoding is exactly that many bytes, so the 2 MiB limit is tested without storing 2 MiB here. A session is valid only when it matches session-v1.schema.json and replays without error.",
+  "description": "Session file text accepted or rejected by the strict session decoder (game-rules.md section 4), shared by Apple and web. A case carries `session` (a JSON value), `json` (exact file text) or `base64` (exact file bytes). When `padToBytes` is present, the runner appends ASCII spaces to `json` until its UTF-8 encoding is exactly that many bytes, so the 2 MiB limit is tested without storing 2 MiB here. A session is valid only when it matches session-v1.schema.json (sessionVersion 1) or session-v2.schema.json (sessionVersion 2) and replays without error.",
   "cases": [
     {
       "name": "valid-minimal-session",
@@ -445,34 +445,6 @@
       "session": {
         "format": "eratic-deck",
         "sessionVersion": 1,
-        "id": "s-20261011-1",
-        "createdAt": "2026-10-11T19:30:00Z",
-        "deckId": "demo-deck",
-        "deckTitle": "Demo deck",
-        "mode": "bullseye",
-        "options": {
-          "rounds": 1
-        },
-        "seed": 42,
-        "players": [
-          {
-            "id": "p1",
-            "name": "Ada"
-          },
-          {
-            "id": "p2",
-            "name": "Lin"
-          }
-        ],
-        "actions": []
-      }
-    },
-    {
-      "name": "invalid-session-version-2",
-      "valid": false,
-      "session": {
-        "format": "eratic-session",
-        "sessionVersion": 2,
         "id": "s-20261011-1",
         "createdAt": "2026-10-11T19:30:00Z",
         "deckId": "demo-deck",
@@ -1886,6 +1858,175 @@
             }
           }
         ]
+      }
+    },
+    {
+      "name": "valid-v2-ladder-step-30000",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "steps": [
+            1000,
+            5000,
+            10000,
+            20000,
+            30000
+          ]
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-v2-ladder-step-30001",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "steps": [
+            1000,
+            30001
+          ]
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-v2-ladder-step-60000",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "steps": [
+            1000,
+            5000,
+            10000,
+            30000,
+            60000
+          ]
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-v1-ladder-step-60000",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 1,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "steps": [
+            1000,
+            5000,
+            10000,
+            30000,
+            60000
+          ]
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "valid-v2-minimal-session",
+      "valid": true,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid-session-version-3",
+      "valid": false,
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 3,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "bullseye",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": []
       }
     }
   ]

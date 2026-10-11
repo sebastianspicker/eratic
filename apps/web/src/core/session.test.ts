@@ -5,6 +5,7 @@ import {
   normalizeOptions,
   parseSession,
   usedCardIds,
+  validateSession,
   type Session,
 } from "./session";
 
@@ -51,7 +52,7 @@ describe("normalizeOptions", () => {
     });
     expect(normalizeOptions("ladder", {})).toEqual({
       rounds: 10,
-      steps: [1000, 5000, 10000, 30000, 60000],
+      steps: [1000, 5000, 10000, 20000, 30000],
       guess: "name",
       clipStart: "card",
       stakes: false,
@@ -81,6 +82,13 @@ describe("normalizeOptions", () => {
     expect(() => normalizeOptions("timeline", { anchor: "custom" })).toThrow();
     expect(() => normalizeOptions("daily", { cards: ["a"] })).toThrow();
   });
+  it("keeps the version 1 ladder steps for legacy sessions", () => {
+    expect(normalizeOptions("ladder", {}, 1).steps).toEqual([1000, 5000, 10000, 30000, 60000]);
+    expect(normalizeOptions("ladder", { steps: [1000, 60000] }, 1).steps).toEqual([1000, 60000]);
+    expect(() => normalizeOptions("ladder", { steps: [1000, 60000] }, 2)).toThrow();
+    expect(() => normalizeOptions("ladder", { steps: [1000, 30001] })).toThrow();
+    expect(normalizeOptions("ladder", { steps: [30000] }).steps).toEqual([30000]);
+  });
   it("does not share the default steps between calls", () => {
     const first = normalizeOptions("ladder", {});
     first.steps.push(1);
@@ -97,6 +105,25 @@ describe("exportSession", () => {
     const parsed = parseSession(json);
     expect(parsed).toEqual({ ...session, options: { rounds: 10, stakes: true } });
     expect(exportSession(parsed)).toBe(json);
+  });
+  it("keeps each session's version and ladder rules on export", () => {
+    const ladder = (sessionVersion: 1 | 2, steps?: number[]): Session => ({
+      ...bullseyeSession(),
+      sessionVersion,
+      mode: "ladder",
+      options: { rounds: 1, ...(steps ? { steps } : {}) },
+      actions: [],
+    });
+    const legacy = parseSession(exportSession(ladder(1, [1000, 60000])));
+    expect(legacy.sessionVersion).toBe(1);
+    expect(legacy.options.steps).toEqual([1000, 60000]);
+    expect(replay(legacy).options).toMatchObject({ steps: [1000, 60000] });
+    expect(parseSession(exportSession(ladder(1))).options.steps).toEqual([1000, 5000, 10000, 30000, 60000]);
+    const current = parseSession(exportSession(ladder(2)));
+    expect(current.sessionVersion).toBe(2);
+    expect(current.options.steps).toEqual([1000, 5000, 10000, 20000, 30000]);
+    expect(() => exportSession(ladder(2, [1000, 60000]))).toThrow();
+    expect(() => validateSession({ ...ladder(2), sessionVersion: 3 })).toThrow();
   });
   it("refuses a session that does not replay", () => {
     const session = bullseyeSession();

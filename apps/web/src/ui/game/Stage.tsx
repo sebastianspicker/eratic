@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import type { Card, Deck } from "../../core/deck";
-import type { Session } from "../../core/session";
+import type { CardRef, Session } from "../../core/session";
+import type { PlaybackProvider } from "../../playback/player";
 import { renderQR } from "../../qrSvg";
 import {
   clipLengthFor,
   clipPlaying,
   clipStartFor,
   clipText,
+  backupTrack,
   PROVIDER_NAMES,
   sessionClipStart,
   useCardPlayer,
@@ -126,6 +128,83 @@ function SongQR({ url }: { url: string }) {
   );
 }
 
+// The backup for every card in play, whatever the provider or tier: the song's
+// QR and the hidden in-page preview. Collapsed when exact clips are the main route.
+export function SongBackup({
+  card,
+  provider,
+  collapsed,
+  previewKey,
+}: {
+  card: Card;
+  provider: PlaybackProvider | undefined;
+  collapsed: boolean;
+  previewKey?: string | number;
+}) {
+  const url = backupTrack(card, provider)?.url;
+  if (!url) return null;
+  const body = (
+    <>
+      <SongQR url={url} />
+      <EmbeddedPreview key={previewKey} url={url} />
+    </>
+  );
+  return collapsed ? (
+    <details className="song-backup">
+      <summary>Backup: song QR and hidden preview</summary>
+      {body}
+    </details>
+  ) : (
+    <div className="song-backup">{body}</div>
+  );
+}
+// One selected card's backup at a time (Lineup, Imposter): letters A, B, … pick the
+// card; switching remounts the backup so the previous preview is disposed.
+export function BackupPicker({
+  cards,
+  deck,
+  provider,
+  collapsed,
+  previewKey,
+}: {
+  cards: readonly CardRef[];
+  deck: Deck;
+  provider: PlaybackProvider | undefined;
+  collapsed: boolean;
+  previewKey?: string | number;
+}) {
+  const [picked, setPicked] = useState<string>();
+  const open = cards.flatMap((ref, index) => {
+    const card = deck.cards.find((item) => item.id === ref.cardId);
+    return card ? [{ card, letter: String.fromCharCode(65 + index) }] : [];
+  });
+  const selected = open.find((item) => item.card.id === picked) ?? open[0];
+  if (!selected) return null;
+  return (
+    <div className="backup-picker">
+      <div className="segmented" role="group" aria-label="Backup for song">
+        {open.map(({ card, letter }) => (
+          <button
+            key={card.id}
+            type="button"
+            aria-pressed={card.id === selected.card.id}
+            onClick={() => setPicked(card.id)}
+          >
+            {letter}
+          </button>
+        ))}
+      </div>
+      <SongBackup
+        key={selected.card.id}
+        card={selected.card}
+        provider={provider}
+        collapsed={collapsed}
+        previewKey={previewKey}
+      />
+    </div>
+  );
+}
+
 // The mystery card, Play/Replay through the clip controller, and the clip-start nudge.
 // lengthMs overrides the session's clip length (the 5 s sudden-death clip).
 export function CardStage({
@@ -158,12 +237,14 @@ export function CardStage({
   return (
     <div className="card-stage">
       <MysteryCard />
-      {how?.kind === "open" && how.track.url ? <SongQR url={how.track.url} /> : null}
+      {card ? (
+        <SongBackup card={card} provider={player?.provider} collapsed={how?.kind === "exact"} previewKey={previewRevision} />
+      ) : null}
       <div className="clip-controls">
         {!card ? (
           <p className="muted">This card isn't in the open deck, so it can't be played here.</p>
         ) : !player || !how ? (
-          <p className="muted">Choose how to play songs on Play home to hear this card.</p>
+          <p className="muted">Use the preview or QR, or choose how to play songs on Play home.</p>
         ) : how.kind === "none" ? (
           <p className="muted">{how.message}</p>
         ) : how.kind === "exact" ? (
@@ -175,7 +256,6 @@ export function CardStage({
           </div>
         ) : (
           <>
-            {how.track.url ? <EmbeddedPreview key={previewRevision} url={how.track.url} /> : null}
             {tier?.kind === "unavailable" ? (
               <p className="muted">
                 Play it yourself: {PROVIDER_NAMES[player.provider]} isn't connected, so scan the code or open the song in a new tab.

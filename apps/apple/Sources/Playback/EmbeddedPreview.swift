@@ -167,7 +167,7 @@ struct EmbeddedPreview: View {
 
     private var message: String {
         switch status {
-        case "ready": return "Preview ready. Song details stay hidden."
+        case "ready": return "Preview ready. Press Play; song details stay hidden."
         case "starting": return "Starting preview…"
         case "playing": return "Preview playing"
         case "paused": return "Preview stopped"
@@ -181,14 +181,16 @@ struct EmbeddedPreview: View {
     }
 }
 
-private struct PreviewCommand {
+struct PreviewCommand {
     var id = UUID()
     var action = ""
     var seconds = 0.0
+    /// Snippet length.
+    var ms = 0
 }
 
 /// Narrow WebKit boundary: recognized provider URLs only, no deck HTML or credentials.
-private struct PreviewWebView {
+struct PreviewWebView {
     let track: ProviderTrack
     let url: URL
     let command: PreviewCommand
@@ -196,8 +198,10 @@ private struct PreviewWebView {
     let autoplay: Bool
     let report: (String) -> Void
     let progress: (Double, Double) -> Void
+    /// A Spotify snippet's sound has started.
+    var snippetAudible: () -> Void = {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(report: report, progress: progress) }
+    func makeCoordinator() -> Coordinator { Coordinator(report: report, progress: progress, snippetAudible: snippetAudible) }
 
     func makeWebView(_ coordinator: Coordinator) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -226,6 +230,7 @@ private struct PreviewWebView {
     func update(_ webView: WKWebView, coordinator: Coordinator) {
         coordinator.report = report
         coordinator.progress = progress
+        coordinator.snippetAudible = snippetAudible
         guard coordinator.lastCommand != command.id else { return }
         coordinator.lastCommand = command.id
         let script: String
@@ -237,6 +242,10 @@ private struct PreviewWebView {
             guard command.seconds.isFinite else { return }
             let seconds = min(max(command.seconds, 0), 36_000)
             script = "window.eraticPreview?.seek(\(String(format: "%.3f", seconds)))"
+        case "snippet":
+            guard command.seconds.isFinite, command.ms > 0 else { return }
+            let seconds = min(max(command.seconds, 0), 36_000)
+            script = "window.eraticPreview?.snippet(\(String(format: "%.3f", seconds)), \(min(command.ms, 600_000)))"
         default:
             return
         }
@@ -271,6 +280,7 @@ private struct PreviewWebView {
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var report: (String) -> Void
         var progress: (Double, Double) -> Void
+        var snippetAudible: () -> Void
         var lastCommand: UUID?
         var disposed = false
         weak var webView: WKWebView?
@@ -280,9 +290,10 @@ private struct PreviewWebView {
                 if let webView { PreviewWebView.unload(webView) }
             }
         }
-        init(report: @escaping (String) -> Void, progress: @escaping (Double, Double) -> Void) {
+        init(report: @escaping (String) -> Void, progress: @escaping (Double, Double) -> Void, snippetAudible: @escaping () -> Void) {
             self.report = report
             self.progress = progress
+            self.snippetAudible = snippetAudible
         }
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard !disposed, message.frameInfo.isMainFrame else { return }
@@ -293,6 +304,8 @@ private struct PreviewWebView {
                       let position = values["position"] as? Double, let duration = values["duration"] as? Double,
                       position.isFinite, duration.isFinite, position >= 0, duration >= 0 {
                 progress(position, duration)
+            } else if let values = message.body as? [String: Any], values["snippet"] as? String == "audible" {
+                snippetAudible()
             }
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -318,35 +331,58 @@ private struct PreviewWebView {
         <style>html,body{margin:0;background:transparent}iframe{border:0}</style></head><body><div id="player"></div>
         <script>
         const autoplay=\(autoplay ? "true" : "false");
-        let controller, timer, started=false, pending=false, disposed=false, terminal=false, pauseRequested=false, lastPos=0, lastDur=0;
+        let controller, timer, autoTimer, snip, started=false, pending=false, disposed=false, terminal=false, pauseRequested=false, lastPos=0, lastDur=0;
         const send=s=>{if(!disposed)window.webkit.messageHandlers.preview.postMessage(s)};
         const update=s=>{clearTimeout(timer);timer=undefined;send(s)};
-        const fail=()=>{if(disposed||terminal)return;terminal=true;pending=false;clearTimeout(timer);timer=undefined;
+        const fail=()=>{if(disposed||terminal)return;terminal=true;pending=false;cancelSnippet();clearTimeout(timer);timer=undefined;
           try{controller?.pause()}catch{}try{controller?.destroy()}catch{}send('error')};
+        const cancelSnippet=()=>{if(snip){clearTimeout(snip.timer);clearTimeout(snip.staleTimer)}snip=undefined};
+        const stopSnippet=()=>{cancelSnippet();pauseRequested=true;pending=false;update('paused');try{controller?.pause()}catch{fail()}};
         const deadline=()=>{if(timer===undefined)timer=setTimeout(fail,12000)};
         window.eraticPreview={
-          play(){if(!controller||disposed||terminal)return;pauseRequested=false;pending=true;send('starting');deadline();
+          play(){if(!controller||disposed||terminal)return;clearTimeout(autoTimer);cancelSnippet();pauseRequested=false;pending=true;send('starting');deadline();
             try{if(!started)controller.play();else if(lastDur>0&&lastPos>=lastDur-500)controller.restart();else controller.resume()}catch{fail()}},
-          restart(){if(!controller||disposed||terminal)return;pauseRequested=false;pending=true;send('starting');deadline();try{controller.restart()}catch{fail()}},
-          seek(s){if(!controller||disposed||terminal||!Number.isFinite(s)||s<0)return;try{controller.seek(s)}catch{fail()}},
-          pause(){if(disposed||terminal)return;pauseRequested=true;pending=false;update('paused');try{controller?.pause()}catch{fail()}},
-          dispose(){disposed=true;clearTimeout(timer);try{controller?.pause()}catch{}try{controller?.destroy()}catch{}}
+          restart(){if(!controller||disposed||terminal)return;clearTimeout(autoTimer);cancelSnippet();pauseRequested=false;pending=true;send('starting');deadline();try{controller.restart()}catch{fail()}},
+          seek(s){if(!controller||disposed||terminal||!Number.isFinite(s)||s<0)return;cancelSnippet();try{controller.seek(s)}catch{fail()}},
+          // Plays from fromSec and pauses itself ms after sound starts; posts {snippet:'audible'} once at the onset.
+          snippet(f,ms){if(!controller||disposed||terminal||!Number.isFinite(f)||f<0||!Number.isFinite(ms)||ms<=0)return;
+            clearTimeout(autoTimer);cancelSnippet();
+            // Only a position well past the start can be told apart from the rewound snippet; stale reports stop counting after 1.5 s.
+            const run={from:f*1000,ms,audible:false,before:started&&lastPos-f*1000>=500?lastPos:undefined};snip=run;
+            if(run.before!==undefined)run.staleTimer=setTimeout(()=>{run.before=undefined},1500);pauseRequested=false;pending=true;send('starting');deadline();
+            try{if(f===0){if(started)controller.restart();else controller.play()}else{if(started)controller.resume();else controller.play();controller.seek(f)}}catch{fail()}},
+          pause(){if(disposed||terminal)return;clearTimeout(autoTimer);cancelSnippet();pauseRequested=true;pending=false;update('paused');try{controller?.pause()}catch{fail()}},
+          dispose(){disposed=true;cancelSnippet();clearTimeout(timer);clearTimeout(autoTimer);try{controller?.pause()}catch{}try{controller?.destroy()}catch{}}
         };
+        // Spotify can drop a play() sent right at 'ready'. Retry once; if still silent,
+        // offer Play instead of a 'starting' state that never starts.
+        const autostart=()=>{window.eraticPreview.play();
+          autoTimer=setTimeout(()=>{if(disposed||terminal||started||!pending)return;try{controller.play()}catch{fail();return}
+            autoTimer=setTimeout(()=>{if(disposed||terminal||started||!pending)return;pending=false;update('ready')},4000)},2000)};
         deadline();
         window.onSpotifyIframeApiReady=api=>{
           if(disposed||terminal)return;
           try{api.createController(document.getElementById('player'),{uri:'spotify:track:\(id)',width:'100%',height:152},c=>{
             if(disposed||terminal){c.destroy();return}controller=c;
-            c.addListener('ready',()=>{if(disposed||terminal)return;update('ready');if(autoplay)window.eraticPreview.play()});
+            c.addListener('ready',()=>{if(disposed||terminal)return;update('ready');if(autoplay)autostart()});
             c.addListener('error',fail);
             c.addListener('playback_update',({data:d})=>{
               if(!d||disposed||terminal)return;
               if(Number.isFinite(d.position)&&Number.isFinite(d.duration)){lastPos=d.position;lastDur=d.duration;
                 if(!disposed)window.webkit.messageHandlers.preview.postMessage({position:Math.max(d.position,0)/1000,duration:Math.max(d.duration,0)/1000})}
               if(pauseRequested){if(d.isPaused)pauseRequested=false;return}
+              // Reports at or past where the player was when the snippet was asked for are stale, until a paused report, a lower position or 1.5 s.
+              if(snip&&snip.before!==undefined){if(!d.isPaused&&d.position>=snip.before)return;snip.before=undefined}
+              if(!d.isPaused)clearTimeout(autoTimer);
               if(!d.isPaused&&!d.isBuffering&&d.position>0){started=true;pending=false;update('playing')}
               else if(!d.isPaused&&d.isBuffering&&(pending||started)){pending=true;send('starting');deadline()}
-              else if(d.isPaused&&started&&!pending)update('paused');
+              else if(d.isPaused&&started&&!pending){if(snip&&snip.audible)cancelSnippet();update('paused')}
+              if(snip&&!d.isPaused&&!d.isBuffering&&d.position>snip.from){
+                const run=snip;
+                if(!run.audible){run.audible=true;send({snippet:'audible'});
+                  run.timer=setTimeout(()=>{if(snip===run)stopSnippet()},Math.max(0,run.ms-(d.position-run.from)))}
+                if(d.position>=run.from+run.ms)stopSnippet();
+              }
             });
           })}catch{fail()}
         };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Deck } from "../../core/deck";
 import type { GameMode } from "../../core/session";
 import type { PlaybackHub } from "../../playback/hub";
@@ -34,6 +34,11 @@ export function Play({
   // The host already agreed to replace the saved game (from Play today's round).
   const [agreed, setAgreed] = useState(false);
   const hasCamera = cameraAvailable();
+  // A game never runs unconnected: with no provider chosen it is Play it yourself.
+  const inGame = Boolean(view.session);
+  useEffect(() => {
+    if (inGame && !hubState.provider && !hubState.connecting) void hub.connect("manual");
+  }, [inGame, hub, hubState.provider, hubState.connecting]);
   if (view.session && view.state && view.summary)
     return (
       <Host
