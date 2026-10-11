@@ -24,6 +24,7 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing boundaries or data flow,
 - `make web-dev`: local dev server.
 - `make check`: `web-check` plus `core-test`.
 - `make core-test`: `swift test` for EraticCore, including all contract cases.
+- `make apple-preview-test`: macOS regression harness for native preview recovery, using the actual player source and AVFoundation with controlled inputs.
 - `make apple-project`: generate the ignored Xcode project.
 - `make apple-build`: unsigned macOS and generic iOS Simulator builds.
 

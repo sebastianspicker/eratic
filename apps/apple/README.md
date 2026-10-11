@@ -4,6 +4,7 @@ One SwiftUI source tree targets macOS 14+, iOS 17+ and iPadOS 17+. XcodeGen gene
 
 ```sh
 make core-test       # swift test --package-path apps/apple/EraticCore
+make apple-preview-test # native preview timeout, retry and callback regression tests
 make apple-project   # xcodegen generate --spec apps/apple/project.yml
 make apple-build     # unsigned macOS and generic iOS Simulator builds
 ./script/build_and_run.sh --verify # rebuild/launch Mac app and verify its process
@@ -22,6 +23,8 @@ The run script stops the existing Eratic process before rebuilding; export unsav
 | `project.yml` | macOS and iOS app targets, both depending on `EraticCore` by path and bundling `contract/demo-deck.json` and `design/eras.json` |
 
 The core tests find `contract/` by walking up from the test source, and they run every case file in it. To build the package outside this repository, include `contract/`.
+
+The preview regression harness compiles the actual `ApplePreviewPlayer.swift` against AVFoundation on macOS, with controlled lookup responses, player events and deadlines. It does not access music services or verify audible playback. The web suite also executes the native Spotify bridge script to check its timeout and pause behavior.
 
 ## Behaviour notes
 

@@ -47,9 +47,16 @@ struct EmbeddedPreview: View {
                         }
                     }
                     if spotify || embedFallback {
-                        Button(shown ? "Hide player" : "Show player (reveals song)") { shown.toggle() }
+                        Button(shown ? "Hide player" : "Show player (reveals song)") {
+                            if spotify, !shown, status == "error" { start(track); shown = true }
+                            else { shown.toggle() }
+                        }
                     } else if status == "unavailable" || status == "error" {
-                        Button("Show Apple Music player (reveals song)") { embedFallback = true; shown = true }
+                        Button("Show Apple Music player (reveals song)") {
+                            apple.dispose()
+                            embedFallback = true
+                            shown = true
+                        }
                     }
                     if spotify || embedFallback {
                         PreviewWebView(track: track, url: url, command: command, autoplay: true,
@@ -200,9 +207,10 @@ private struct PreviewWebView {
         // Playback is still explicitly requested by the host. A SwiftUI button does
         // not carry a DOM user gesture into evaluateJavaScript.
         configuration.mediaTypesRequiringUserActionForPlayback = []
-        configuration.userContentController.add(coordinator, name: "preview")
+        configuration.userContentController.add(WeakMessageHandler(coordinator), name: "preview")
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = coordinator
+        coordinator.webView = webView
         coordinator.lastCommand = command.id
         if track.provider == .spotify {
             webView.loadHTMLString(Self.spotifyHTML(id: track.id, autoplay: autoplay), baseURL: URL(string: "https://open.spotify.com"))
@@ -233,12 +241,16 @@ private struct PreviewWebView {
             return
         }
         webView.evaluateJavaScript(script) { _, error in
-            if error != nil { coordinator.report("error") }
+            if error != nil, !coordinator.disposed { coordinator.report("error") }
         }
     }
 
     static func dismantle(_ webView: WKWebView, coordinator: Coordinator) {
         coordinator.disposed = true
+        unload(webView)
+    }
+
+    private static func unload(_ webView: WKWebView) {
         webView.evaluateJavaScript("window.eraticPreview?.dispose()", completionHandler: nil)
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "preview")
         webView.navigationDelegate = nil
@@ -246,11 +258,28 @@ private struct PreviewWebView {
         webView.loadHTMLString("", baseURL: nil)
     }
 
+    // WebKit retains its message handler. A weak forwarding object lets SwiftUI's
+    // coordinator deinitialize and stop playback even if dismantle/onDisappear is skipped.
+    private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
+        weak var coordinator: Coordinator?
+        init(_ coordinator: Coordinator) { self.coordinator = coordinator }
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            coordinator?.userContentController(userContentController, didReceive: message)
+        }
+    }
+
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var report: (String) -> Void
         var progress: (Double, Double) -> Void
         var lastCommand: UUID?
         var disposed = false
+        weak var webView: WKWebView?
+        deinit {
+            let webView = webView
+            Task { @MainActor in
+                if let webView { PreviewWebView.unload(webView) }
+            }
+        }
         init(report: @escaping (String) -> Void, progress: @escaping (Double, Double) -> Void) {
             self.report = report
             self.progress = progress
@@ -289,34 +318,37 @@ private struct PreviewWebView {
         <style>html,body{margin:0;background:transparent}iframe{border:0}</style></head><body><div id="player"></div>
         <script>
         const autoplay=\(autoplay ? "true" : "false");
-        let controller, timer, started=false, pending=false, disposed=false, lastPos=0, lastDur=0;
+        let controller, timer, started=false, pending=false, disposed=false, terminal=false, pauseRequested=false, lastPos=0, lastDur=0;
         const send=s=>{if(!disposed)window.webkit.messageHandlers.preview.postMessage(s)};
-        const update=s=>{clearTimeout(timer);send(s)};
-        const fail=()=>{pending=false;try{controller?.pause()}catch{}update('error')};
-        const deadline=()=>{clearTimeout(timer);timer=setTimeout(fail,12000)};
+        const update=s=>{clearTimeout(timer);timer=undefined;send(s)};
+        const fail=()=>{if(disposed||terminal)return;terminal=true;pending=false;clearTimeout(timer);timer=undefined;
+          try{controller?.pause()}catch{}try{controller?.destroy()}catch{}send('error')};
+        const deadline=()=>{if(timer===undefined)timer=setTimeout(fail,12000)};
         window.eraticPreview={
-          play(){if(!controller)return;pending=true;send('starting');deadline();
+          play(){if(!controller||disposed||terminal)return;pauseRequested=false;pending=true;send('starting');deadline();
             try{if(!started)controller.play();else if(lastDur>0&&lastPos>=lastDur-500)controller.restart();else controller.resume()}catch{fail()}},
-          restart(){if(!controller)return;pending=true;send('starting');deadline();try{controller.restart()}catch{fail()}},
-          seek(s){if(!controller||!Number.isFinite(s))return;try{controller.seek(s)}catch{fail()}},
-          pause(){pending=false;try{controller?.pause();update('paused')}catch{fail()}},
+          restart(){if(!controller||disposed||terminal)return;pauseRequested=false;pending=true;send('starting');deadline();try{controller.restart()}catch{fail()}},
+          seek(s){if(!controller||disposed||terminal||!Number.isFinite(s)||s<0)return;try{controller.seek(s)}catch{fail()}},
+          pause(){if(disposed||terminal)return;pauseRequested=true;pending=false;update('paused');try{controller?.pause()}catch{fail()}},
           dispose(){disposed=true;clearTimeout(timer);try{controller?.pause()}catch{}try{controller?.destroy()}catch{}}
         };
         deadline();
         window.onSpotifyIframeApiReady=api=>{
-          if(disposed)return;
-          api.createController(document.getElementById('player'),{uri:'spotify:track:\(id)',width:'100%',height:152},c=>{
-            if(disposed){c.destroy();return}controller=c;
-            c.addListener('ready',()=>{update('ready');if(autoplay)window.eraticPreview.play()});
+          if(disposed||terminal)return;
+          try{api.createController(document.getElementById('player'),{uri:'spotify:track:\(id)',width:'100%',height:152},c=>{
+            if(disposed||terminal){c.destroy();return}controller=c;
+            c.addListener('ready',()=>{if(disposed||terminal)return;update('ready');if(autoplay)window.eraticPreview.play()});
             c.addListener('error',fail);
             c.addListener('playback_update',({data:d})=>{
-              if(!d)return;
+              if(!d||disposed||terminal)return;
               if(Number.isFinite(d.position)&&Number.isFinite(d.duration)){lastPos=d.position;lastDur=d.duration;
                 if(!disposed)window.webkit.messageHandlers.preview.postMessage({position:Math.max(d.position,0)/1000,duration:Math.max(d.duration,0)/1000})}
+              if(pauseRequested){if(d.isPaused)pauseRequested=false;return}
               if(!d.isPaused&&!d.isBuffering&&d.position>0){started=true;pending=false;update('playing')}
+              else if(!d.isPaused&&d.isBuffering&&(pending||started)){pending=true;send('starting');deadline()}
               else if(d.isPaused&&started&&!pending)update('paused');
             });
-          });
+          })}catch{fail()}
         };
         </script><script src="https://open.spotify.com/embed/iframe-api/v1" onerror="fail()"></script></body></html>
         """

@@ -57,6 +57,19 @@ describe("Spotify preview lifecycle", () => {
     expect(f.state).toHaveBeenLastCalledWith("starting");
     session.dispose();
   });
+  it("ends an expired Spotify load so late readiness cannot autoplay", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    const session = new SpotifyPreviewSession(f.host, "track", f.state, { load: async () => f.api, autoplay: true });
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(f.controller.destroy).toHaveBeenCalledOnce();
+    f.listeners.ready({});
+    f.listeners.playback_update({ data: { isPaused: false, position: 200 } });
+    expect(f.state).toHaveBeenLastCalledWith("error");
+    expect(f.controller.play).not.toHaveBeenCalled();
+    session.dispose();
+  });
   it("converts progress to seconds, restarts at the end, seeks clamped, and restarts on request", async () => {
     const f = fixture(); const progress = vi.fn();
     const session = new SpotifyPreviewSession(f.host, "track", f.state, {load: async () => f.api, progress});
@@ -87,6 +100,19 @@ describe("Spotify preview lifecycle", () => {
     f.listeners.playback_update({data: {isPaused: true, position: 200}});
     vi.advanceTimersByTime(12_000);
     expect(f.state).toHaveBeenLastCalledWith("error");
+    session.dispose();
+  });
+  it("keeps the host pause until Spotify acknowledges it, then allows player controls", async () => {
+    const f = fixture();
+    const session = new SpotifyPreviewSession(f.host, "track", f.state, { load: async () => f.api });
+    await Promise.resolve(); f.listeners.ready({}); session.play();
+    f.listeners.playback_update({ data: { isPaused: false, position: 200 } });
+    session.pause();
+    f.listeners.playback_update({ data: { isPaused: false, position: 300 } });
+    expect(f.state).toHaveBeenLastCalledWith("paused");
+    f.listeners.playback_update({ data: { isPaused: true, position: 300 } });
+    f.listeners.playback_update({ data: { isPaused: false, position: 400 } });
+    expect(f.state).toHaveBeenLastCalledWith("playing");
     session.dispose();
   });
   it("stops playback on provider errors and tears down even if provider methods throw", async () => {
@@ -232,6 +258,96 @@ describe("Apple hidden preview", () => {
     vi.advanceTimersByTime(12_000);
     expect(f.state).toHaveBeenLastCalledWith("error");
     f.session.dispose();
+  });
+  it("keeps a stall failure terminal when pause and other media events arrive late", async () => {
+    const f = await start([track()], { autoplay: true });
+    vi.useFakeTimers();
+    f.audio.pause = vi.fn(() => { setTimeout(() => f.audio.dispatchEvent(new Event("pause")), 0); });
+    f.audio.dispatchEvent(new Event("canplay"));
+    f.audio.dispatchEvent(new Event("playing"));
+    f.audio.dispatchEvent(new Event("waiting"));
+    await vi.advanceTimersByTimeAsync(12_001);
+    for (const name of ["pause", "ended", "playing", "canplay"]) f.audio.dispatchEvent(new Event(name));
+    expect(f.state).toHaveBeenLastCalledWith("error");
+    expect(f.audio.hasAttribute("src")).toBe(false);
+    f.session.play(); f.session.restart();
+    expect(f.audio.play).toHaveBeenCalledOnce();
+    f.session.dispose();
+  });
+  it("does not extend a stall deadline on repeated waiting, but cancels it for host pause", async () => {
+    const f = await start([track()]);
+    vi.useFakeTimers();
+    f.audio.dispatchEvent(new Event("canplay")); f.session.play();
+    await vi.advanceTimersByTimeAsync(6_000);
+    f.audio.dispatchEvent(new Event("waiting"));
+    await vi.advanceTimersByTimeAsync(6_000);
+    expect(f.state).toHaveBeenLastCalledWith("error");
+    f.session.dispose();
+    vi.useRealTimers();
+    const paused = await start([track()]);
+    vi.useFakeTimers();
+    paused.audio.dispatchEvent(new Event("canplay")); paused.session.play();
+    paused.session.pause();
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(paused.state).toHaveBeenLastCalledWith("paused");
+    paused.session.dispose();
+  });
+  it("keeps the new start deadline when an earlier pause event arrives after resume", async () => {
+    const f = await start([track()]);
+    vi.useFakeTimers();
+    f.audio.dispatchEvent(new Event("canplay")); f.session.play();
+    f.session.pause(); f.session.play();
+    Object.defineProperty(f.audio, "paused", { value: false, configurable: true });
+    f.audio.dispatchEvent(new Event("pause"));
+    expect(f.state).toHaveBeenLastCalledWith("starting");
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(f.state).toHaveBeenLastCalledWith("error");
+    f.session.dispose();
+  });
+  it("ignores an earlier play rejection after a newer play request", async () => {
+    const f = await start([track()]);
+    vi.useFakeTimers();
+    let reject!: (error: unknown) => void;
+    f.audio.play = vi.fn().mockImplementationOnce(() => new Promise((_resolve, r) => { reject = r; }))
+      .mockResolvedValue(undefined);
+    f.audio.dispatchEvent(new Event("canplay")); f.session.play();
+    f.session.pause(); f.session.play();
+    reject(Object.assign(Error(), { name: "NotAllowedError" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(f.state).toHaveBeenLastCalledWith("starting");
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(f.state).toHaveBeenLastCalledWith("error");
+    f.session.dispose();
+  });
+  it("aborts an expired lookup and ignores its response even if cancellation loses the race", async () => {
+    vi.useFakeTimers();
+    let resolve!: (response: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>(r => { resolve = r; }));
+    const state = vi.fn(); const createAudio = vi.fn(audioFixture);
+    const session = new ApplePreviewSession("456", "us", state, {
+      fetch: fetchMock as unknown as typeof fetch, createAudio, autoplay: true,
+    });
+    await vi.advanceTimersByTimeAsync(12_000);
+    const signal = (fetchMock.mock.calls[0] as unknown as [string, { signal: AbortSignal }])[1].signal;
+    expect(signal.aborted).toBe(true);
+    resolve({ ok: true, json: async () => ({ results: [track()] }) } as Response);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(createAudio).not.toHaveBeenCalled();
+    expect(state).toHaveBeenLastCalledWith("error");
+    session.dispose();
+  });
+  it("unloads a media load that expires and never autoplays a late canplay event", async () => {
+    vi.useFakeTimers();
+    const audio = audioFixture(); const state = vi.fn();
+    const session = new ApplePreviewSession("456", "us", state, {
+      fetch: reply([track()]), createAudio: () => audio, autoplay: true,
+    });
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(state).toHaveBeenLastCalledWith("error");
+    audio.dispatchEvent(new Event("canplay"));
+    expect(audio.play).not.toHaveBeenCalled();
+    expect(audio.hasAttribute("src")).toBe(false);
+    session.dispose();
   });
   it("aborts the lookup, pauses and ignores late events after dispose", async () => {
     const f = await start([track()]);

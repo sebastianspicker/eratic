@@ -82,7 +82,10 @@ function SpotifyPreview({ id }: { id: string }) {
         <PreviewTransport session={session} state={state} progress={progress} />
         <div className="action-row">
           {state === "error" ? <button onClick={() => setAttempt(attempt + 1)}>Retry preview</button> : null}
-          <button aria-expanded={showPlayer} onClick={() => setShowPlayer(!showPlayer)}>
+          <button aria-expanded={showPlayer} onClick={() => {
+            if (!showPlayer && state === "error") setAttempt(attempt + 1);
+            setShowPlayer(!showPlayer);
+          }}>
             {showPlayer ? "Hide player" : "Show player (reveals song)"}
           </button>
         </div>
@@ -118,7 +121,10 @@ function ApplePreview({ id, storefront, url }: { id: string; storefront: string;
         {state === "error" ? <div className="action-row"><button onClick={() => setAttempt(attempt + 1)}>Retry preview</button></div> : null}
         <p role="status">{messages("Apple Music")[state]}</p>
       </>}
-      {fallback ? <AppleRevealPlayer url={url} /> : null}
+      {fallback ? <AppleRevealPlayer url={url} onActivate={() => {
+        session.current?.dispose();
+        session.current = undefined;
+      }} /> : null}
       <p className="preview-note">Preview via Apple Music. Usually 30 seconds; availability depends on Apple.</p>
     </section>
   );
@@ -126,12 +132,15 @@ function ApplePreview({ id, storefront, url }: { id: string; storefront: string;
 
 // Fallback when no hidden preview exists: Apple's standard interactive embed.
 // The host explicitly reveals it to start playback; hiding keeps audio running.
-function AppleRevealPlayer({ url }: { url: string }) {
+function AppleRevealPlayer({ url, onActivate }: { url: string; onActivate: () => void }) {
   const [loaded, setLoaded] = useState(false);
   const [shown, setShown] = useState(false);
   return (
     <>
-      <button className="primary" aria-expanded={shown} onClick={() => { setLoaded(true); setShown(!shown); }}>
+      <button className="primary" aria-expanded={shown} onClick={() => {
+        if (!loaded) onActivate();
+        setLoaded(true); setShown(!shown);
+      }}>
         {shown ? "Hide player" : "Show Apple Music player (reveals song)"}
       </button>
       {loaded ? <>

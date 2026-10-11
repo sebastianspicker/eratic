@@ -23,8 +23,38 @@ final class ApplePreviewPlayer: ObservableObject {
     private var autoplay = false
     private var ready = false
     private var disposed = false
+    /// Every teardown invalidates work already queued by lookup, KVO and seek callbacks.
+    private var generation = UUID()
+    private var startRequest = UUID()
+    private var deadline = UUID()
 
-    private let loadTimeout = Duration.seconds(12)
+    private let timeout: Duration
+    private let lookup: (String, String) async -> Result<URL?, Error>
+    private let makePlayer: (URL) -> AVPlayer
+    private let sleep: (Duration) async throws -> Void
+
+    // The defaults use the real providers. Injection keeps recovery tests independent of networking/audio.
+    init(timeout: Duration = .seconds(12),
+         lookup: @escaping (String, String) async -> Result<URL?, Error> = { id, storefront in
+             await ApplePreviewPlayer.previewURL(id: id, storefront: storefront)
+         },
+         makePlayer: @escaping (URL) -> AVPlayer = { AVPlayer(playerItem: AVPlayerItem(url: $0)) },
+         sleep: @escaping (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+        self.timeout = timeout
+        self.lookup = lookup
+        self.makePlayer = makePlayer
+        self.sleep = sleep
+    }
+
+    deinit {
+        loadTask?.cancel()
+        timeoutTask?.cancel()
+        if let timeObserver { player?.removeTimeObserver(timeObserver) }
+        itemObservation?.invalidate()
+        controlObservation?.invalidate()
+        if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
+        player?.pause()
+    }
 
     /// Decodes only what is needed to find the preview file.
     private struct Lookup: Decodable {
@@ -38,10 +68,9 @@ final class ApplePreviewPlayer: ObservableObject {
 
     func load(id: String, storefront: String, autoplay: Bool) {
         // A view may reappear after `dispose()`; loading again re-arms the player.
+        dispose()
         disposed = false
-        teardownPlayer()
-        loadTask?.cancel()
-        timeoutTask?.cancel()
+        let generation = self.generation
         self.autoplay = autoplay
         #if os(iOS)
         // The default category follows the silent switch; the host expects to hear the preview.
@@ -51,21 +80,16 @@ final class ApplePreviewPlayer: ObservableObject {
         position = 0
         duration = 0
         status = "loading"
-        timeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: self?.loadTimeout ?? .seconds(12))
-            guard !Task.isCancelled, let self, !self.disposed, !self.ready, self.status == "loading" else { return }
-            self.teardownPlayer()
-            self.status = "error"
-        }
+        armDeadline()
+        let lookup = self.lookup
         loadTask = Task { [weak self] in
-            let outcome = await Self.previewURL(id: id, storefront: storefront)
-            guard !Task.isCancelled, let self, !self.disposed else { return }
+            let outcome = await lookup(id, storefront)
+            guard !Task.isCancelled, let self, self.isCurrent(generation) else { return }
             switch outcome {
             case .success(let url):
-                if let url { self.attach(url) } else { self.timeoutTask?.cancel(); self.status = "unavailable" }
+                if let url { self.attach(url, generation: generation) } else { self.finish("unavailable") }
             case .failure:
-                self.timeoutTask?.cancel()
-                self.status = "error"
+                self.finish("error")
             }
         }
     }
@@ -76,25 +100,33 @@ final class ApplePreviewPlayer: ObservableObject {
             player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
             position = 0
         }
+        startRequest = UUID()
         status = "starting"
+        armDeadline()
         player.play()
     }
 
     func pause() {
         guard !disposed, ready, let player else { return }
-        player.pause()
+        startRequest = UUID()
+        cancelDeadline()
         status = "paused"
+        player.pause()
     }
 
     func restart() {
         guard !disposed, ready, let player else { return }
         position = 0
+        startRequest = UUID()
+        let request = startRequest
+        let generation = self.generation
         status = "starting"
+        armDeadline()
         player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self, weak player] finished in
             Task { @MainActor in
                 // Pause, dispose or a newer seek may have happened while this one ran.
-                guard finished, let self, let player, !self.disposed, self.player === player,
-                      self.status == "starting" else { return }
+                guard finished, let self, let player, self.isCurrent(generation), self.player === player,
+                      self.startRequest == request, self.status == "starting" else { return }
                 player.play()
             }
         }
@@ -104,22 +136,33 @@ final class ApplePreviewPlayer: ObservableObject {
         guard !disposed, ready, let player, seconds.isFinite else { return }
         let upper = duration > 0 ? duration : seconds
         let target = min(max(seconds, 0), max(upper, 0))
+        startRequest = UUID()
+        let request = startRequest
+        let generation = self.generation
+        let resumeAfterSeek = status == "starting"
         position = target
-        player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+        player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero) { [weak self, weak player] finished in
+            Task { @MainActor in
+                guard resumeAfterSeek, finished, let self, let player, self.isCurrent(generation), self.player === player,
+                      self.startRequest == request, self.status == "starting" else { return }
+                player.play()
+            }
+        }
     }
 
     func dispose() {
         disposed = true
+        generation = UUID()
+        startRequest = UUID()
         loadTask?.cancel()
-        timeoutTask?.cancel()
         loadTask = nil
-        timeoutTask = nil
+        cancelDeadline()
         teardownPlayer()
     }
 
     // MARK: Lookup
 
-    private static func previewURL(id: String, storefront: String) async -> Result<URL?, Error> {
+    nonisolated private static func previewURL(id: String, storefront: String) async -> Result<URL?, Error> {
         var components = URLComponents(string: "https://itunes.apple.com/lookup")
         components?.queryItems = [
             URLQueryItem(name: "id", value: id),
@@ -147,29 +190,40 @@ final class ApplePreviewPlayer: ObservableObject {
 
     // MARK: Playback
 
-    private func attach(_ url: URL) {
-        let item = AVPlayerItem(url: url)
-        let player = AVPlayer(playerItem: item)
+    private func attach(_ url: URL, generation: UUID) {
+        guard isCurrent(generation) else { return }
+        let player = makePlayer(url)
+        guard let item = player.currentItem else { finish("error"); return }
         self.player = player
 
-        itemObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
-            let itemStatus = item.status
-            Task { @MainActor in self?.itemStatusChanged(itemStatus) }
+        itemObservation = item.observe(\.status, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor in
+                guard let self, self.isCurrent(generation), let currentItem = self.player?.currentItem else { return }
+                self.itemStatusChanged(currentItem.status)
+            }
         }
-        controlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
-            let control = player.timeControlStatus
-            Task { @MainActor in self?.controlChanged(control) }
+        controlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor in
+                guard let self, self.isCurrent(generation), let currentPlayer = self.player else { return }
+                self.controlChanged(currentPlayer.timeControlStatus)
+            }
         }
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main
         ) { [weak self] time in
             let seconds = time.seconds
-            Task { @MainActor in self?.timeChanged(seconds) }
+            Task { @MainActor in
+                guard let self, self.isCurrent(generation) else { return }
+                self.timeChanged(seconds)
+            }
         }
         endObserver = NotificationCenter.default.addObserver(
             forName: AVPlayerItem.didPlayToEndTimeNotification, object: item, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.finished() }
+            Task { @MainActor in
+                guard let self, self.isCurrent(generation) else { return }
+                self.finished()
+            }
         }
     }
 
@@ -179,15 +233,12 @@ final class ApplePreviewPlayer: ObservableObject {
         case .readyToPlay:
             guard !ready else { return }
             ready = true
-            timeoutTask?.cancel()
+            cancelDeadline()
             updateDuration()
             status = "ready"
             if autoplay { play() }
         case .failed:
-            timeoutTask?.cancel()
-            player?.pause()
-            ready = false
-            status = "error"
+            finish("error")
         default:
             break
         }
@@ -197,12 +248,18 @@ final class ApplePreviewPlayer: ObservableObject {
         guard !disposed, ready else { return }
         switch control {
         case .playing:
+            // A queued callback must not undo the host's explicit pause.
+            guard status == "playing" || status == "starting" else { return }
+            cancelDeadline()
             status = "playing"
         case .waitingToPlayAtSpecifiedRate:
-            if status == "playing" || status == "starting" { status = "starting" }
+            if status == "playing" || status == "starting" {
+                status = "starting"
+                armDeadline()
+            }
         case .paused:
             // Ignore the brief paused state while a requested start or restart is in flight.
-            if status == "playing" { status = "paused" }
+            if status == "playing" { cancelDeadline(); status = "paused" }
         @unknown default:
             break
         }
@@ -213,7 +270,10 @@ final class ApplePreviewPlayer: ObservableObject {
         updateDuration()
         if seconds.isFinite, seconds >= 0 { position = duration > 0 ? min(seconds, duration) : seconds }
         // A restart while already playing may not change timeControlStatus, so KVO stays silent.
-        if status == "starting", player?.timeControlStatus == .playing { status = "playing" }
+        if status == "starting", player?.timeControlStatus == .playing {
+            cancelDeadline()
+            status = "playing"
+        }
     }
 
     private func updateDuration() {
@@ -223,8 +283,38 @@ final class ApplePreviewPlayer: ObservableObject {
 
     private func finished() {
         guard !disposed, player != nil else { return }
+        cancelDeadline()
         if duration > 0 { position = duration }
         status = "paused"
+    }
+
+    private func isCurrent(_ generation: UUID) -> Bool { !disposed && self.generation == generation }
+
+    private func armDeadline() {
+        // Repeated buffering notifications cannot keep extending the same stall.
+        guard timeoutTask == nil else { return }
+        let generation = self.generation
+        let deadline = UUID()
+        self.deadline = deadline
+        let timeout = self.timeout
+        let sleep = self.sleep
+        timeoutTask = Task { [weak self] in
+            do { try await sleep(timeout) } catch { return }
+            guard !Task.isCancelled, let self, self.isCurrent(generation), self.deadline == deadline else { return }
+            self.finish("error")
+        }
+    }
+
+    private func cancelDeadline() {
+        deadline = UUID()
+        timeoutTask?.cancel()
+        timeoutTask = nil
+    }
+
+    private func finish(_ status: String) {
+        // Terminal results stop audio and invalidate both queued observations and late lookup responses.
+        dispose()
+        self.status = status
     }
 
     private func teardownPlayer() {

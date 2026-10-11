@@ -81,6 +81,7 @@ export class SpotifyPreviewSession implements PreviewSession {
   private timer?: ReturnType<typeof setTimeout>;
   private started = false;
   private pendingStart = false;
+  private pauseRequested = false;
   private position = 0;
   private duration = 0;
 
@@ -107,6 +108,12 @@ export class SpotifyPreviewSession implements PreviewSession {
           this.position = (data.position ?? 0) / 1000;
           this.duration = (data.duration ?? 0) / 1000;
           this.options.progress?.({ position: this.position, duration: this.duration });
+          // Ignore playback snapshots queued before the host's pause command.
+          // Once Spotify acknowledges pause, its revealed player can control playback again.
+          if (this.pauseRequested) {
+            if (data.isPaused) this.pauseRequested = false;
+            return;
+          }
           // A successful play request isn't evidence that audio has started.
           if (!data.isPaused && !data.isBuffering && (data.position ?? 0) > 0) {
             this.started = true;
@@ -114,10 +121,7 @@ export class SpotifyPreviewSession implements PreviewSession {
             this.update("playing");
           } else if (data.isPaused && this.started && !this.pendingStart) this.update("paused");
         });
-        controller.addListener("error", () => {
-          try { controller.pause(); } catch { /* Keep the fallback available. */ }
-          this.update("error");
-        });
+        controller.addListener("error", () => this.update("error"));
       });
     }).catch(() => this.update("error"));
   }
@@ -125,19 +129,20 @@ export class SpotifyPreviewSession implements PreviewSession {
   private update(state: PreviewState) {
     if (this.disposed) return;
     clearTimeout(this.timer);
+    if (state === "error") this.dispose();
     this.notify(state);
   }
   private deadline() {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.pendingStart = false;
-      try { this.controller?.pause(); } catch { /* Surface the timeout below. */ }
       this.update("error");
     }, 12_000);
   }
   private begin(start: (controller: SpotifyEmbedController) => void) {
     if (this.disposed || !this.controller) return;
     this.pendingStart = true;
+    this.pauseRequested = false;
     this.notify("starting");
     this.deadline();
     try { start(this.controller); } catch { this.update("error"); }
@@ -159,9 +164,11 @@ export class SpotifyPreviewSession implements PreviewSession {
   }
   pause() {
     this.pendingStart = false;
+    this.pauseRequested = true;
     try { this.controller?.pause(); this.update("paused"); } catch { this.update("error"); }
   }
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     clearTimeout(this.timer);
     try { this.controller?.pause(); } catch { /* Teardown must continue. */ }
@@ -182,6 +189,7 @@ export class ApplePreviewSession implements PreviewSession {
   private abort = new AbortController();
   private state: PreviewState = "loading";
   private canPlay = false;
+  private playRequest = 0;
   private listeners: [string, () => void][] = [];
 
   constructor(id: string, storefront: string, private notify: (state: PreviewState) => void,
@@ -199,9 +207,9 @@ export class ApplePreviewSession implements PreviewSession {
       if (this.disposed) return;
       const track = body.results?.find((item) => item?.wrapperType === "track" && String(item.trackId) === id);
       const src = this.previewSource(track?.previewUrl);
-      if (!src) return this.update("unavailable");
+      if (!src) return this.finish("unavailable");
       this.attach(src);
-    }).catch(() => this.update("error"));
+    }).catch(() => this.finish("error"));
   }
 
   private previewSource(value: unknown): string | undefined {
@@ -229,13 +237,15 @@ export class ApplePreviewSession implements PreviewSession {
     });
     on("playing", () => this.update("playing"));
     on("waiting", () => {
-      if (this.state !== "playing" && this.state !== "starting") return;
+      // A repeated waiting event must not extend an already running deadline.
+      if (this.state !== "playing") return;
       this.update("starting");
       this.deadline();
     });
-    on("pause", () => this.update("paused"));
+    // A queued pause from the previous command must not cancel a newer play's deadline.
+    on("pause", () => { if (audio.paused) this.update("paused"); });
     on("ended", () => this.update("paused"));
-    on("error", () => this.update("error"));
+    on("error", () => this.finish("error"));
     for (const name of ["timeupdate", "durationchange", "loadedmetadata"]) on(name, progress);
     audio.preload = "auto";
     audio.src = src;
@@ -248,27 +258,33 @@ export class ApplePreviewSession implements PreviewSession {
   }
   private deadline() {
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      this.audio?.pause();
-      this.update("error");
-    }, 12_000);
+    this.timer = setTimeout(() => this.finish("error"), 12_000);
+  }
+  private finish(state: "error" | "unavailable") {
+    if (this.disposed) return;
+    // End this attempt before pausing/aborting: both can queue callbacks. Only
+    // an explicit retry creates a new session and can resume hidden playback.
+    this.dispose();
+    this.notify(state);
   }
   play() {
     const audio = this.audio;
     if (this.disposed || !audio) return;
+    const request = ++this.playRequest;
     if (audio.ended || (Number.isFinite(audio.duration) && audio.duration > 0 && audio.currentTime >= audio.duration - 0.5)) audio.currentTime = 0;
     this.update("starting");
     this.deadline();
     try {
       void Promise.resolve(audio.play()).catch((error: unknown) => {
+        if (this.disposed || request !== this.playRequest) return;
         const name = (error as { name?: string } | undefined)?.name;
         // A pause during startup aborts the request; that's not a failure.
         if (name === "AbortError") return;
         // Blocked autoplay: stay playable from the host's next Play press.
         if (name === "NotAllowedError") return this.update("ready");
-        this.update("error");
+        this.finish("error");
       });
-    } catch { this.update("error"); }
+    } catch { this.finish("error"); }
   }
   restart() {
     if (this.disposed || !this.audio) return;
@@ -283,12 +299,19 @@ export class ApplePreviewSession implements PreviewSession {
     audio.currentTime = target;
     this.options.progress?.({ position: target, duration });
   }
-  pause() { this.audio?.pause(); }
+  pause() {
+    if (this.disposed) return;
+    this.playRequest++;
+    this.audio?.pause();
+    this.update("paused");
+  }
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     clearTimeout(this.timer);
     this.abort.abort();
     const audio = this.audio;
+    this.audio = undefined;
     if (!audio) return;
     try { audio.pause(); } catch { /* Teardown must continue. */ }
     for (const [name, handler] of this.listeners) audio.removeEventListener(name, handler);

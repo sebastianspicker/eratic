@@ -80,6 +80,15 @@ it("Spotify error offers retry that recreates the session", async () => {
   expect(fake.created).toHaveBeenCalledTimes(2);
   expect(fake.dispose).toHaveBeenCalledOnce();
 });
+it("showing Spotify after a terminal error starts a fresh visible player", async () => {
+  fake.state = "error";
+  await render(spotify); await click("Play preview");
+  fake.state = "ready";
+  await click("Show player (reveals song)");
+  expect(fake.created).toHaveBeenCalledTimes(2);
+  expect(fake.dispose).toHaveBeenCalledOnce();
+  expect(host.querySelector('.embed-frame[aria-hidden="false"]')).not.toBeNull();
+});
 it("Apple plays hidden without revealing the embed, and resets when the song changes", async () => {
   await render("https://music.apple.com/us/song/example/123");
   await click("Play preview");
@@ -98,6 +107,7 @@ it("Apple falls back to the reveal flow when no hidden preview exists; Hide reta
   expect(host.textContent).toContain("No hidden preview is available for this song.");
   expect(host.querySelector("iframe")).toBeNull();
   await click("Show Apple Music player (reveals song)");
+  expect(fake.dispose).toHaveBeenCalledOnce();
   const frame = host.querySelector("iframe");
   expect(frame?.src).toBe("https://embed.music.apple.com/us/song/example/123");
   await click("Hide player");
@@ -109,7 +119,12 @@ it("Apple error offers retry and the reveal fallback", async () => {
   fake.state = "error";
   await render("https://music.apple.com/us/song/example/123");
   await click("Play preview");
+  await click("Show Apple Music player (reveals song)");
+  expect(fake.dispose).toHaveBeenCalledOnce();
+  expect(host.querySelector("iframe")).not.toBeNull();
+  fake.state = "ready";
   await click("Retry preview");
   expect(fake.created).toHaveBeenCalledTimes(2);
-  expect(host.textContent).toContain("Show Apple Music player (reveals song)");
+  expect(host.querySelector("iframe")).toBeNull();
+  expect(host.textContent).not.toContain("Show Apple Music player (reveals song)");
 });
