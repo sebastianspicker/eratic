@@ -158,7 +158,7 @@ private struct MysteryCard: View {
     }
 }
 
-/// *Play* / *Replay* with a text countdown when clips are exact; otherwise *Play on Spotify* opens the song.
+/// *Play* / *Replay* with a text countdown when clips are exact; otherwise the song's QR to scan, and *Play on Spotify* opens the song.
 private struct ClipPanel: View {
     let card: SongCard
     let deck: Deck
@@ -222,6 +222,14 @@ private struct ClipPanel: View {
                 }
                 .buttonStyle(.bordered)
             } else if let track = manualTrack {
+                // The song's link as a QR: a player scans it and starts the song on their own
+                // phone, so the title never shows on the shared screen.
+                if let url = track.url {
+                    VStack(spacing: 6) {
+                        QRPreview(payload: url.absoluteString, size: 160, label: "QR code for this song")
+                        Text("Scan with a phone to play the song there.").font(.callout).foregroundStyle(.secondary)
+                    }
+                }
                 Button("Play on \(providerName(track))") { openManually(track) }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)

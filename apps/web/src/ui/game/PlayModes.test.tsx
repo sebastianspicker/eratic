@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { drawOrder } from "../../core/random";
 import { imposterPairs } from "../../core/scoring";
+import { renderQR } from "../../qrSvg";
 import type { PlaybackTier } from "../../playback/player";
 import { SESSION_KEY } from "../../sessions";
 import { STORAGE_KEY } from "../../storage";
@@ -92,6 +93,11 @@ function button(name: string) {
   const found = $$("button").find((item) => item.textContent === name);
   if (!found) throw new Error(`No button "${name}"`);
   return found as HTMLButtonElement;
+}
+async function waitFor(ready: () => boolean) {
+  for (let i = 0; i < 50 && !ready(); i++)
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  expect(ready()).toBe(true);
 }
 async function click(element: Element) {
   await act(async () => (element as HTMLElement).click());
@@ -322,6 +328,36 @@ describe("Playback without exact clips", () => {
     expect(fake.plays).toEqual([]);
     expect(fake.prepared).toEqual([]);
     expect(actions().at(-1)).toEqual({ type: "clip", fromMs: 0 });
+  });
+
+  it("shows the song's link as a QR to scan, and no QR with exact clips", async () => {
+    fake.tier = { kind: "noExactPlayback" };
+    const stored = deck({}, Object.fromEntries(YEARS.map((_, i) => [i, { links: links(i) }])));
+    const card = drawOrder(stored.cards.map((item) => item.id), SEED)[0];
+    await openPlay(stored, "Spotify Free: you start each song yourself");
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    await waitFor(() => !!$(".song-qr .qr-image svg"));
+    const url = `https://open.spotify.com/track/${trackId(Number(card.split("-")[1]))}`;
+    // The same modules as the QR for the card's Spotify link.
+    const modules = (svg: string) => svg.match(/stroke="#000000" d="([^"]+)"/)?.[1];
+    const expected = modules(await renderQR(url));
+    expect(expected).toBeTruthy();
+    expect(modules($(".song-qr .qr-image")!.innerHTML)).toBe(expected);
+    expect($(".song-qr .qr-image")?.getAttribute("aria-label")).toBe("QR code for this song");
+    expect($(".song-qr")?.textContent).toContain("Scan with a phone to play the song there.");
+    expect(text()).not.toContain(title(card));
+    expect(opened).toEqual([]);
+    expect(fake.plays).toEqual([]);
+  });
+
+  it("shows no QR when clips are exact", async () => {
+    await openPlay(deck(), "Spotify Premium: exact clips");
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    expect($(".stage button.primary")?.textContent).toBe("Play");
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect($(".song-qr")).toBeNull();
   });
 
   it("falls back to the first link, or says the card has none", async () => {

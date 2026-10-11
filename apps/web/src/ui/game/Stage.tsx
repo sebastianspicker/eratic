@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Card, Deck } from "../../core/deck";
 import type { Session } from "../../core/session";
+import { renderQR } from "../../qrSvg";
 import {
   clipLengthFor,
   clipPlaying,
@@ -86,6 +87,44 @@ export function MysteryCard({ label = "Mystery card", small = false }: { label?:
   );
 }
 
+// Without exact clips, the song's link as a QR: a player scans it and starts the
+// song on their own phone, so the title never shows on the shared screen.
+function SongQR({ url }: { url: string }) {
+  const [rendered, setRendered] = useState<{ url: string; svg?: string }>();
+  useEffect(() => {
+    let active = true;
+    void renderQR(url).then(
+      (svg) => {
+        if (active) setRendered({ url, svg });
+      },
+      () => {
+        if (active) setRendered({ url });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [url]);
+  const current = rendered?.url === url ? rendered : undefined;
+  return (
+    <figure className="song-qr">
+      <div className="qr-preview">
+        {current?.svg ? (
+          <div
+            className="qr-image"
+            role="img"
+            aria-label="QR code for this song"
+            dangerouslySetInnerHTML={{ __html: current.svg }}
+          />
+        ) : current ? (
+          <p className="qr-empty">The QR code could not be drawn.</p>
+        ) : null}
+      </div>
+      <figcaption>Scan with a phone to play the song there.</figcaption>
+    </figure>
+  );
+}
+
 // The mystery card, Play/Replay through the clip controller, and the clip-start nudge.
 // lengthMs overrides the session's clip length (the 5 s sudden-death clip).
 export function CardStage({
@@ -116,6 +155,7 @@ export function CardStage({
   return (
     <div className="card-stage">
       <MysteryCard />
+      {how?.kind === "open" && how.track.url ? <SongQR url={how.track.url} /> : null}
       <div className="clip-controls">
         {!card ? (
           <p className="muted">This card isn't in the open deck, so it can't be played here.</p>
@@ -134,7 +174,7 @@ export function CardStage({
           <>
             {tier?.kind === "unavailable" ? (
               <p className="muted">
-                Play it yourself: {PROVIDER_NAMES[player.provider]} isn't connected, so the song opens in a new tab.
+                Play it yourself: {PROVIDER_NAMES[player.provider]} isn't connected, so scan the code or open the song in a new tab.
               </p>
             ) : null}
             <div className="action-row">

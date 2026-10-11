@@ -3,6 +3,8 @@ import CoreImage.CIFilterBuiltins
 
 struct QRPreview: View {
     let payload: String
+    var size: CGFloat = 220
+    var label = "QR code for the selected card route"
 
     private var image: CGImage? {
         let filter = CIFilter.qrCodeGenerator()
@@ -18,11 +20,11 @@ struct QRPreview: View {
                 .interpolation(.none)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 220, height: 220)
-                .padding(32)
+                .frame(width: size, height: size)
+                .padding(size * 32 / 220)
                 .background(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .accessibilityLabel("QR code for the selected card route")
+                .accessibilityLabel(label)
         } else {
             Text("QR preview could not be generated.").foregroundStyle(.secondary)
         }
