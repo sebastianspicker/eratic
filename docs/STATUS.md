@@ -33,7 +33,7 @@ These are focused checks, not exhaustive acceptance. Still unverified:
 - Rendered gameplay for Snippet Ladder and Original or Imposter; wider modifier/keyboard coverage, VoiceOver, Dynamic Type and mobile Safari.
 - Native iPhone/iPad rendering: builds pass; simulator UI checks were explicitly skipped in the latest acceptance pass.
 - Physical cameras/printed cards, physical devices, signing and release packaging.
-- GitHub CI and Pages deployment until the first public workflow runs complete.
+- Coverage beyond the current [GitHub CI checks](https://github.com/sebastianspicker/eratic/actions/workflows/check.yml); the current workflow status is available there.
 
 ## Next work
 
@@ -58,4 +58,4 @@ These are focused checks, not exhaustive acceptance. Still unverified:
 
 ## Public demo
 
-The public repository and GitHub Pages workflow are being prepared. The demo uses fictional sample data and has no provider credentials. Account-free editing and manual game hosting remain usable. Do not upload local research, private decks, exports or credentials; publication boundaries are recorded in [ADR 0012](adr/0012-public-repository-and-private-archive.md).
+[Source repository](https://github.com/sebastianspicker/eratic) and [GitHub Pages demo](https://sebastianspicker.github.io/eratic/) are public. The Pages workflow deployed successfully, and the live site passed the same twelve desktop/phone smoke scenarios for Timeline, Era Sort, Higher or Lower, Relay, Lineup by name and Daily Eratic. The first hosted Apple CI run exposed a compiler-sensitive array concatenation; explicit appends preserve the standings order and pass all 94 local Swift tests. See [Checks](https://github.com/sebastianspicker/eratic/actions/workflows/check.yml) for hosted verification. The demo uses fictional sample data and has no provider credentials. Account-free editing and manual game hosting remain usable. Do not upload local research, private decks, exports or credentials; publication boundaries are recorded in [ADR 0012](adr/0012-public-repository-and-private-archive.md).

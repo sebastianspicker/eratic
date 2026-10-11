@@ -1,6 +1,6 @@
 # ADR 0012 Public source and demo, local private archive
 
-Date: 2026-10-11. Status: accepted by the user; public repository and GitHub Pages demo requested. Amends [ADR 0006](0006-provenance-and-repository-boundaries.md) and [ADR 0007](0007-repository-layout.md).
+Date: 2026-10-11. Status: implemented; public repository and GitHub Pages demo requested by the user. Amends [ADR 0006](0006-provenance-and-repository-boundaries.md) and [ADR 0007](0007-repository-layout.md).
 
 ## Decision
 
@@ -9,6 +9,8 @@ Publish the maintained application source, fictional contract fixtures, current 
 Keep historical research (including downloaded/decompiled material and provenance), the superseded game implementation ledger, old verification logs and unrelated private task notes in ignored `private/`. A local archive manifest records file sizes and SHA-256 hashes. Keep current game explanations in `docs/game-modes.md`, exact rules in `contract/game-rules.md`, interactions in `DESIGN.md`, and outstanding decisions in `docs/STATUS.md`.
 
 Start the public repository from a clean source snapshot so archived material is absent from public Git history as well as the current tree. Preserve the earlier local history in a private Git bundle and local archive branch. Push only the public `main` branch; do not mirror or push all local refs. Commits contain no co-author trailers.
+
+The default branch follows the owner's `main-default` protection policy: pull requests, resolved discussions, squash merges, linear history, no deletion or force pushes, and required `web`/`apple` checks. Administrative bypass is restricted to pull requests.
 
 ## Consequences
 
