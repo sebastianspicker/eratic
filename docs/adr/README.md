@@ -20,6 +20,7 @@ ADRs retain the reasons for consequential choices so a later session can continu
 | [0014](0014-app-first-playback.md) | Reuse authorization, prefer installed music apps and keep credential-free QR/link fallback | Implemented; live provider/device verification remains open |
 | [0015](0015-mit-licence.md) | License the project's own code under MIT | Accepted |
 | [0016](0016-session-v2-ladder-step-cap.md) | Session version 2 caps Snippet Ladder steps at 30 s | Accepted |
+| [0017](0017-everyone-calls-closer-draws-buzzer-and-relation-suggestions.md) | Higher or Lower for everyone, closer draws, a Ladder buzzer and linked-recording suggestions | Accepted |
 
 ## Add or change a decision
 

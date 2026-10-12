@@ -68,8 +68,12 @@ struct CardInputs: Equatable, Sendable {
     var challenges: [Challenge] = []
     var nameIt: Marks?
     var locks: [String: LadderLock] = [:]
+    /// Ladder players in the order they locked (the buzzer goes to the first who scores).
+    var lockOrder: [String] = []
     var marks: [String: Marks] = [:]
     var call: HigherLowerCall?
+    /// Higher or Lower `everyone` calls, one per player still in.
+    var calls: [String: HigherLowerCall] = [:]
     var orders: [String: [String]] = [:]
     var choices: [String: ImposterChoice] = [:]
 }
@@ -115,7 +119,7 @@ public struct GameState: Equatable, Sendable {
     var activeIndex = 0
     var points: [String: Int] = [:]
     var chips: [String: Int] = [:]
-    /// Per-player counters by summary name: exact, distance, rightEras, tokens, wrong, added, usedMs, exactYears, perfect, bonuses, streaks.
+    /// Per-player counters by summary name: exact, distance, rightEras, tokens, wrong, added, usedMs, exactYears, buzzers, perfect, bonuses, streaks, lives.
     var stats: [String: [String: Int]] = [:]
     var card: CardRef?
     var cardSet: [CardRef] = []
@@ -129,6 +133,8 @@ public struct GameState: Equatable, Sendable {
     var reference: CardRef?
     /// Higher or Lower versus players out, in elimination order.
     public internal(set) var eliminated: [String] = []
+    /// The reveal (round number) that eliminated each Higher or Lower player.
+    var eliminatedRound: [String: Int] = [:]
     /// Relay lives.
     public internal(set) var lives = 0
     /// Relay outcome: `playing`, `won`, `lost` or `ended`.
@@ -140,6 +146,17 @@ public struct GameState: Equatable, Sendable {
     public var mode: GameMode { options.mode }
     var playerIDs: [String] { players.map(\.id) }
     var activePlayer: String { players[activeIndex].id }
+    /// Higher or Lower with `play: everyone`: no active player, per-player lives (section 6.5).
+    var everyonePlays: Bool {
+        if case let .higherLower(higherLower) = options { return higherLower.play == .everyone }
+        return false
+    }
+    /// Whether the mode has an active player (Timeline, Relay, Higher or Lower in turns).
+    var hasActivePlayer: Bool { [.timeline, .relay, .higherLower].contains(mode) && !everyonePlays }
+    /// Higher or Lower players still in, in turn order.
+    var playersStillIn: [String] {
+        playerIDs.filter { !eliminated.contains($0) && (!everyonePlays || stat("lives", $0) > 0) }
+    }
 
     init(options: GameOptions, players: [SessionPlayer], seed: UInt32) {
         self.options = options
@@ -162,6 +179,10 @@ public struct GameState: Equatable, Sendable {
             if timeline.ownership == .personal { timelines = Dictionary(uniqueKeysWithValues: players.map { ($0.id, []) }) }
         case let .relay(relay):
             lives = relay.lives
+        case let .higherLower(higherLower) where higherLower.play == .everyone:
+            stats["lives"] = Dictionary(uniqueKeysWithValues: players.map { ($0.id, higherLower.startingLives) })
+        case let .ladder(ladder) where ladder.buzzer:
+            stats["buzzers"] = Dictionary(uniqueKeysWithValues: players.map { ($0.id, 0) })
         default: break
         }
     }
@@ -253,7 +274,7 @@ public enum GameEngine {
             "scores": scores(of: state),
             "standings": standings(of: state),
         ]
-        if [.timeline, .relay, .higherLower].contains(state.mode), state.phase != .finished {
+        if state.hasActivePlayer, state.phase != .finished {
             out["active"] = state.activePlayer
         }
         if let sd = state.suddenDeath, state.phase == .suddenDeath || state.phase == .suddenDeathOpen {
@@ -274,14 +295,16 @@ public enum GameEngine {
             }
             out["tokens"] = state.stats["tokens"]
             out["wrong"] = state.stats["wrong"]
-        case .ladder:
+        case let .ladder(ladder):
             out["usedMs"] = state.stats["usedMs"]
             out["exactYears"] = state.stats["exactYears"]
             out["step"] = state.step
-        case .higherLower:
+            if ladder.buzzer { out["buzzers"] = state.stats["buzzers"] }
+        case let .higherLower(higherLower):
             out["streaks"] = state.stats["streaks"]
             out["eliminated"] = state.eliminated
             if let reference = state.reference { out["reference"] = reference.cardId }
+            if higherLower.play == .everyone { out["lives"] = state.stats["lives"] }
         case .relay:
             out["lives"] = state.lives
             out["timeline"] = state.line.map(\.cardId)
@@ -345,7 +368,14 @@ public enum GameEngine {
             let maximumStep = LadderOptions.maximumStep(version: sessionVersion)
             try require((1...5).contains(o.steps.count) && o.steps.allSatisfy { (500...maximumStep).contains($0) }
                         && zip(o.steps, o.steps.dropFirst()).allSatisfy { $0 < $1 }, "steps must be 1–5 strictly increasing values 500–\(maximumStep).")
-        case let .higherLower(o): try require((2...100).contains(o.cards), "cards must be 2–100.")
+            try require(sessionVersion != 1 || !o.buzzer, "buzzer needs session version 2.")
+        case let .higherLower(o):
+            try require((2...100).contains(o.cards), "cards must be 2–100.")
+            try require(sessionVersion != 1 || (o.play == .turns && o.lives == nil && !o.closer), "play, lives and closer need session version 2.")
+            if let lives = o.lives {
+                try require(o.play == .everyone, "lives is only allowed with play: everyone.")
+                try require((1...5).contains(lives), "lives must be 1–5.")
+            }
         case let .relay(o):
             try anchorYear(o.anchor, o.anchorYear)
             try require((2...30).contains(o.target), "target must be 2–30.")
@@ -576,8 +606,9 @@ extension GameState {
         case .timeline: return [-score, stat("wrong", player)]
         case .ladder: return [-score, stat("usedMs", player), -stat("exactYears", player)]
         case .higherLower:
-            if let index = eliminated.firstIndex(of: player) { return [1, -index] }
-            return [0, -stat("streaks", player)]
+            // Eliminated players by the reveal that eliminated them, later first; lives count only with everyone (0 otherwise).
+            if let round = eliminatedRound[player] { return [1, -round, -stat("streaks", player)] }
+            return [0, -stat("streaks", player), -stat("lives", player)]
         case .lineup: return [-score, -stat("perfect", player)]
         case .imposter: return [-score, -stat("bonuses", player)]
         case .daily: return [-score]

@@ -33,6 +33,22 @@ final class SessionCodecTests: XCTestCase {
         XCTAssertEqual(try SessionCodec.decode(data(minimal)).options, .bullseye(BullseyeOptions()))
     }
 
+    func testVersion2AdditionsWrittenOnlyWhenNotDefault() throws {
+        func options(_ value: GameOptions) throws -> [String: Any] {
+            var session = sample()
+            session.options = value
+            session.actions = []
+            return try XCTUnwrap(object(session)["options"] as? [String: Any])
+        }
+        XCTAssertEqual(try options(.higherLower(HigherLowerOptions())).keys.sorted(), ["cards"])
+        var everyone = HigherLowerOptions()
+        everyone.play = .everyone
+        let written = try options(.higherLower(everyone))
+        XCTAssertEqual(written["play"] as? String, "everyone")
+        XCTAssertEqual(written["lives"] as? Int, 3)
+        XCTAssertNil(try options(.ladder(LadderOptions()))["buzzer"])
+    }
+
     private func ladderSession(version: Int, options: [String: Any]) throws -> Data {
         var root = try object(sample())
         root["sessionVersion"] = version

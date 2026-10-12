@@ -11,6 +11,10 @@ struct DeckWorkspace: View {
     @State private var showDefaultClipStart = false
     /// Shown once, when an edit converts the deck to format version 2.
     @State private var migratedNotice = false
+    /// Suggestions the host dismissed; kept in memory only.
+    @State private var dismissedSuggestions: Set<String> = []
+    /// `suggestRelations` for the loaded cards, recomputed when they change rather than on every redraw.
+    @State private var relationSuggestions: [RelationSuggestion] = []
 
     private var deck: Deck? { store.deck }
 
@@ -33,6 +37,17 @@ struct DeckWorkspace: View {
                         }
                     } header: {
                         Text("\(deck.cards.count) cards · local collection")
+                    }
+                    let suggestions = relationSuggestions.filter { !dismissedSuggestions.contains(suggestionKey($0)) }
+                    if !suggestions.isEmpty {
+                        Section {
+                            DisclosureGroup("Suggested linked recordings (\(suggestions.count))") {
+                                Text("These come from matching titles. Check each one before linking.").font(.caption).foregroundStyle(.secondary)
+                                ForEach(suggestions, id: \.cardId) { suggestion in
+                                    suggestionRow(suggestion, deck)
+                                }
+                            }
+                        }
                     }
                 }
                 .safeAreaInset(edge: .top, spacing: 0) {
@@ -94,6 +109,7 @@ struct DeckWorkspace: View {
                 DefaultClipStartEditor(deck: deck) { ms in apply(try deck.updatingDefaultClipStart(ms)) }
             }
         }
+        .onChange(of: store.deck?.cards, initial: true) { relationSuggestions = deck.map { RelationSuggestions.suggestRelations($0.cards) } ?? [] }
         .alert("Saved as deck format 2; older Eratic versions can't open it.", isPresented: $migratedNotice) {
             Button("OK", role: .cancel) {}
         }
@@ -108,6 +124,30 @@ struct DeckWorkspace: View {
                 selectedCardID = deck?.cards.first?.id
                 #endif
             } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    private func suggestionKey(_ suggestion: RelationSuggestion) -> String { "\(suggestion.cardId)\n\(suggestion.relatedTo)" }
+
+    @ViewBuilder
+    private func suggestionRow(_ suggestion: RelationSuggestion, _ deck: Deck) -> some View {
+        if let card = deck.card(suggestion.cardId), let original = deck.card(suggestion.relatedTo) {
+            let relation = suggestion.relation == .remasterOf ? "remaster of" : "cover of"
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\(card.title) — \(relation) \(original.title) (\(String(original.gameYear.value)))").font(.callout)
+                HStack {
+                    Button("Link") {
+                        do {
+                            apply(try deck.updatingGameFields(clip: card.clip, difficulty: card.difficulty,
+                                                              relatedTo: RelatedCard(cardId: original.id, relation: suggestion.relation), forCardID: card.id))
+                        } catch { errorMessage = error.localizedDescription }
+                    }
+                    Button("Dismiss") { dismissedSuggestions.insert(suggestionKey(suggestion)) }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .padding(.vertical, 4)
         }
     }
 

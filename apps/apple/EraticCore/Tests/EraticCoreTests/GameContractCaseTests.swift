@@ -130,6 +130,26 @@ final class GameContractCaseTests: XCTestCase {
                 return (id, RelatedCard(cardId: target, relation: relation))
             }
             return try GameRandom.imposterPairs(cards, seed: try args.seed()).map { ["a": $0.a, "b": $0.b, "original": $0.original] }
+        case "closerPick":
+            let candidates = try args.objects("candidates").map { card -> AnchorCandidate in
+                guard let id = card["id"] as? String, let year = card["year"].flatMap(SessionCodec.integerValue) else { throw CaseError("\(name): candidate needs id and year") }
+                return AnchorCandidate(id: id, year: year)
+            }
+            return GameRandom.closerPick(candidates, referenceYear: try args.int("referenceYear"), revealed: try args.int("revealed")) ?? NSNull()
+        case "songKey": return RelationSuggestions.songKey(try args.string("text"))
+        case "suggestRelations":
+            let cards = try args.objects("cards").map { card -> SongCard in
+                guard let id = card["id"] as? String, let title = card["title"] as? String, let artist = card["artist"] as? String,
+                      let year = card["year"].flatMap(SessionCodec.integerValue) else { throw CaseError("\(name): card needs id, title, artist and year") }
+                var related: RelatedCard?
+                if let raw = card["relatedTo"] {
+                    guard let object = raw as? [String: Any], let target = object["cardId"] as? String,
+                          let relation = (object["relation"] as? String).flatMap(Relation.init(rawValue:)) else { throw CaseError("\(name): invalid relatedTo") }
+                    related = RelatedCard(cardId: target, relation: relation)
+                }
+                return SongCard(id: id, title: title, artist: artist, gameYear: GameYear(value: year, source: "case"), relatedTo: related)
+            }
+            return RelationSuggestions.suggestRelations(cards).map { ["cardId": $0.cardId, "relatedTo": $0.relatedTo, "relation": $0.relation.rawValue] }
         case "eraticCardURL":
             return ScanRules.eraticCardURL(host: try args.string("host"), deckId: try args.string("deckId"), cardId: try args.string("cardId")) ?? NSNull()
         default:

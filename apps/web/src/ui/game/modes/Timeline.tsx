@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { timelineOf } from "../../../core/game/engine";
 import { placementCorrect } from "../../../core/scoring";
 import type { CardRef, Session, TimelineOptions } from "../../../core/session";
@@ -86,10 +86,14 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
   const named = inputs.find((action) => action.type === "nameIt");
   const [challenger, setChallenger] = useState<string>();
   const [error, setError] = useState("");
+  // An undone placement takes its open challenge picker with it.
+  useEffect(() => {
+    if (!placed) setChallenger(undefined);
+  }, [placed]);
   const markers = placementMarkers(session, inputs);
   const taken = new Set(Object.keys(markers).map(Number));
   const others = session.players.filter((player) => player.id !== active);
-  const wagered = active in state.wagers;
+  const wagered = Object.hasOwn(state.wagers, active);
   const lineLabel = personal ? `${name}'s timeline` : "Shared timeline";
 
   let main;
@@ -98,6 +102,7 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
       <>
         <h3>{name}, where does this song go?</h3>
         <TimelineStrip
+          key="place"
           cards={line}
           deck={deck}
           label={lineLabel}
@@ -110,10 +115,12 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
       <>
         <h3>{playerName(session, challenger)}, choose a free slot</h3>
         <TimelineStrip
+          key={`challenge-${challenger}`}
           cards={line}
           deck={deck}
           label={lineLabel}
           markers={markers}
+          verb="Challenge"
           open={(slot) => !taken.has(slot)}
           onSlot={(slot) => {
             const problem = send(controller, { type: "challenge", playerId: challenger, slot });
@@ -132,7 +139,7 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
     main = (
       <>
         <h3>{name} placed the card</h3>
-        <TimelineStrip cards={line} deck={deck} label={lineLabel} markers={markers} />
+        <TimelineStrip key="placed" cards={line} deck={deck} label={lineLabel} markers={markers} />
       </>
     );
 

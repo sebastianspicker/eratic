@@ -58,6 +58,11 @@ struct TimelineInput: View {
                 if personal { otherTimelines(active) }
             }
             .onChange(of: state.currentCard?.cardId) { reset() }
+            .onChange(of: state.placement) {
+                // An undone placement leaves no challenge in progress.
+                challenger = nil
+                challengeSlot = nil
+            }
         }
     }
 

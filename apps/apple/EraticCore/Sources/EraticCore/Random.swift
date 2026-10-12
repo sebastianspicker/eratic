@@ -94,6 +94,19 @@ public enum GameRandom {
         shuffle(uniqueSorted(cardIds), seed: deriveSeed(seed, "draw"))
     }
 
+    /// Higher or Lower with `closer` (section 1.5): `candidates` are the unused cards in `drawOrder` order.
+    /// The first within `W = max(3, 20 − 2 × revealed)` years (1 to W), else the nearest nonzero distance
+    /// (first on a tie), else the first candidate; nil for no candidates.
+    public static func closerPick(_ candidates: [AnchorCandidate], referenceYear: Int, revealed: Int) -> String? {
+        let window = max(3, 20 - 2 * revealed)
+        if let near = candidates.first(where: { (1...window).contains(abs($0.year - referenceYear)) }) { return near.id }
+        var nearest: AnchorCandidate?
+        for candidate in candidates where candidate.year != referenceYear {
+            if nearest.map({ abs(candidate.year - referenceYear) < abs($0.year - referenceYear) }) ?? true { nearest = candidate }
+        }
+        return (nearest ?? candidates.first)?.id
+    }
+
     /// The day's cards: deck order never matters; the hash input is `date + deckId` concatenated.
     public static func dailySelection(_ cardIds: [String], date: String, deckId: String) -> [String] {
         Array(shuffle(uniqueSorted(cardIds), seed: fnv1a32(date + deckId)).prefix(5))

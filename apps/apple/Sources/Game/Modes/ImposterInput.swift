@@ -2,6 +2,7 @@ import SwiftUI
 import EraticCore
 
 /// Original or Imposter: *Play A* and *Play B* (with the backup QR and preview of one of them), then each player picks A or B and may add a year, hidden until the reveal.
+/// Without exact clips, A and B play 10-second snippets of their hidden previews; a side without one is played by hand from the backup (a title would give the pair away).
 struct ImposterInput: View {
     let session: GameSession
     let state: GameState
@@ -12,14 +13,17 @@ struct ImposterInput: View {
     @EnvironmentObject private var playback: PlaybackHub
     @State private var current: String?
     @State private var pick: PairSide?
-    @State private var addYear = false
-    @State private var year = 1990
+    @State private var year = ""
+    @State private var yearError: String?
     @State private var playing: PairSide?
     @State private var playError: String?
     @State private var prepareTask: Task<Void, Never>?
     /// Starting an exact clip remounts the backup's preview, which stops it.
     @State private var previewRevision = UUID()
+    /// Without exact clips: A and B as preview snippets, one loaded at a time.
+    @StateObject private var snippets = TileSnippets()
     static let clipMs = 30_000
+    static let snippetMs = 10_000
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -29,6 +33,13 @@ struct ImposterInput: View {
                     playButton(.a, pair.a)
                     playButton(.b, pair.b)
                 }
+            } else if snippetMode {
+                HStack(alignment: .top, spacing: 12) {
+                    snippetTile(0, pair.a)
+                    snippetTile(1, pair.b)
+                }
+                if let url = snippets.url { SnippetPreview(controller: snippets.controller, url: url).id(url) }
+                if let problem = snippets.problem { Text(problem).font(.callout) }
             } else {
                 Text("Play A and B by hand with the preview or QR below.").font(.callout).foregroundStyle(.secondary)
             }
@@ -38,17 +49,23 @@ struct ImposterInput: View {
                 Text("\(playing.rawValue.uppercased()): \(status)").font(.callout.monospacedDigit())
             }
             if let playError { Text(playError).foregroundStyle(.red).font(.callout) }
-            SetBackup(cards: [pair.a, pair.b], deck: deck, collapsed: playback.tier.exactClips, previewID: previewRevision)
+            SetBackup(cards: [pair.a, pair.b], deck: deck, collapsed: playback.tier.exactClips || snippetMode, previewID: previewRevision)
             LockedEntryList(players: session.players, isLocked: { state.choices[$0] != nil }, current: $current) { player in
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
                         sideButton(.a)
                         sideButton(.b)
                     }
-                    Toggle("Add a year guess", isOn: $addYear)
-                    if addYear { YearField(label: "\(player.name)'s year for the original", year: $year) }
+                    YearEntry(label: "\(player.name)'s year for the original (optional)", text: $year, error: yearError)
                     Button("Lock in") {
-                        guard let pick, game.dispatch(.choose(playerId: player.id, pick: pick, year: addYear ? year : nil)) else { return }
+                        let trimmed = year.trimmingCharacters(in: .whitespaces)
+                        let parsed = YearEntry.parse(trimmed)
+                        if !trimmed.isEmpty, parsed == nil {
+                            yearError = "Enter a year from 1850 to 2100, or leave it empty."
+                            return
+                        }
+                        yearError = nil
+                        guard let pick, game.dispatch(.choose(playerId: player.id, pick: pick, year: parsed)) else { return }
                         current = nil
                         resetEntry()
                     }
@@ -59,10 +76,46 @@ struct ImposterInput: View {
         }
         .onChange(of: current) { resetEntry() }
         .onChange(of: clip.state) { if clip.state == .idle, prepareTask == nil { playing = nil } }
+        .onAppear {
+            guard snippetMode else { return }
+            var urls: [Int: URL] = [:]
+            for (index, card) in [pair.a, pair.b].enumerated() {
+                if let song = deck.card(card.cardId), let url = SongBackup.snippetURL(for: song, provider: playback.provider) { urls[index] = url }
+            }
+            snippets.configure(urls: urls, lengthMs: Self.snippetMs)
+        }
         .onDisappear {
             prepareTask?.cancel()
             prepareTask = nil
+            snippets.stop()
         }
+    }
+
+    /// Without exact clips, A and B play preview snippets when at least one of them has a Spotify or Apple Music preview.
+    private var snippetMode: Bool {
+        !playback.tier.exactClips && [pair.a, pair.b].contains { deck.card($0.cardId).map(SongBackup.hasSnippet) ?? false }
+    }
+
+    /// A side's snippet button, or a by-hand note when it has no preview (a title would give the pair away).
+    private func snippetTile(_ index: Int, _ card: CardRef) -> some View {
+        let label = tileLetter(index)
+        let song = deck.card(card.cardId)
+        let isPlaying = snippets.isPlaying(index)
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(label).font(.system(.largeTitle, design: .rounded).weight(.heavy))
+            if song.map(SongBackup.hasSnippet) ?? false {
+                SnippetTileButton(snippets: snippets, index: index)
+            } else {
+                // Never the title: it would give the pair away. This side is played by hand.
+                Text("Play \(label) by hand from the backup below.").font(.callout).foregroundStyle(.secondary)
+            }
+        }
+        .frame(minWidth: 140, minHeight: 100, alignment: .topLeading)
+        .padding(12)
+        .foregroundStyle(isPlaying ? Stage.paper : Color.primary)
+        .background(isPlaying ? Stage.ink : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Version \(label)" + (isPlaying ? ", playing" : ""))
     }
 
     private func playButton(_ side: PairSide, _ card: CardRef) -> some View {
@@ -110,8 +163,8 @@ struct ImposterInput: View {
 
     private func resetEntry() {
         pick = nil
-        addYear = false
-        year = 1990
+        year = ""
+        yearError = nil
     }
 }
 
@@ -121,6 +174,9 @@ struct ImposterReveal: View {
     let reveal: RevealSnapshot
     let session: GameSession
     let deck: Deck
+    /// The reveal's stage (see `RevealView`): the year, then the songs, then the results.
+    var shown = 2
+    var leader: String?
 
     var body: some View {
         let original = pair.original == .a ? pair.a : pair.b
@@ -129,13 +185,20 @@ struct ImposterReveal: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("\(pair.original.rawValue.uppercased()) was the original").font(.title2.bold())
             EraYear(year: original.year, era: era).id(original.cardId)
-            songLine(original)
-            Divider().overlay(era?.inkColor.opacity(0.4) ?? .secondary)
-            Text("\((pair.original == .a ? PairSide.b : .a).rawValue.uppercased()): \(String(other.year))").font(.headline)
-            songLine(other)
-            if let relation = relationText(original: original, other: other) { Text(relation).font(.callout.weight(.semibold)) }
-            Divider().overlay(era?.inkColor.opacity(0.4) ?? .secondary)
-            ForEach(resultLines(original), id: \.self) { Text($0).font(.body.weight(.medium)) }
+            Group {
+                songLine(original)
+                Divider().overlay(era?.inkColor.opacity(0.4) ?? .secondary)
+                Text("\((pair.original == .a ? PairSide.b : .a).rawValue.uppercased()): \(String(other.year))").font(.headline)
+                songLine(other)
+                if let relation = relationText(original: original, other: other) { Text(relation).font(.callout.weight(.semibold)) }
+            }
+            .opacity(shown >= 1 ? 1 : 0)
+            Group {
+                Divider().overlay(era?.inkColor.opacity(0.4) ?? .secondary)
+                ForEach(resultLines(original), id: \.self) { Text($0).font(.body.weight(.medium)) }
+                if let leader { Text(leader).font(.headline) }
+            }
+            .opacity(shown >= 2 ? 1 : 0)
         }
         .foregroundStyle(era?.inkColor ?? .primary)
         .frame(maxWidth: .infinity, alignment: .leading)

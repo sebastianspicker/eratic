@@ -20,7 +20,10 @@ struct LadderInput: View {
     /// The hidden preview that plays the steps when there are no exact clips.
     @StateObject private var snippets = SnippetController()
     @State private var current: String?
-    @State private var year = 1990
+    @State private var year = ""
+    @State private var yearError: String?
+    /// The host's ±5 s nudge of the exact clip's start, for this card only.
+    @State private var nudgeMs = 0
     @State private var wagers: [String: Int] = [:]
     @State private var showAnswer = false
     @State private var titleMarks: [String: Bool] = [:]
@@ -34,6 +37,11 @@ struct LadderInput: View {
     private var step: Int { state.ladderStep }
     /// A step is preparing or starting: Space and the step buttons wait, so one press plays one step.
     private var busy: Bool { prepareTask != nil || clip.state == .starting || (snippetMode && !snippets.canPlay) }
+    /// The answer is shown, or a step is preparing, starting or playing: the host screen hides Undo.
+    private var undoLocked: Bool {
+        showAnswer || prepareTask != nil || ExactClip.isPlaying(clip) || clip.state == .starting
+            || snippets.status == "starting" || snippets.status == "playing"
+    }
     private var last: Int { options.steps.count - 1 }
     private var song: SongCard? { deck.card(card.cardId) }
     /// The card's Spotify or Apple Music link, the only source of a snippet without exact clips.
@@ -80,7 +88,11 @@ struct LadderInput: View {
                 }
             }
         }
+        .onChange(of: card.cardId) { nudgeMs = 0 }
+        .onChange(of: undoLocked) { game.ladderBusy = undoLocked }
+        .onAppear { game.ladderBusy = undoLocked }
         .onDisappear {
+            game.ladderBusy = false
             prepareTask?.cancel()
             prepareTask = nil
         }
@@ -107,6 +119,31 @@ struct LadderInput: View {
     }
 
     private var stepControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            stepButtons
+            if playback.tier.exactClips, let song { nudgeControl(start: startMs(song)) }
+        }
+    }
+
+    /// "−5 s", "Starts at 0:45", "+5 s": the start of this card's exact clips, 5 s at a time, never before 0:00.
+    private func nudgeControl(start: Int) -> some View {
+        HStack(spacing: 12) {
+            Button("−5 s") { nudgeMs = max(nudgeMs - 5000, nudgeMs - start) }
+                .accessibilityLabel("Start 5 seconds earlier")
+                .disabled(start == 0)
+            Text("Starts at \(Self.clock(start))").font(.callout.monospacedDigit())
+            Button("+5 s") { nudgeMs += 5000 }
+                .accessibilityLabel("Start 5 seconds later")
+        }
+        .buttonStyle(.bordered)
+        .accessibilityElement(children: .contain)
+    }
+
+    private static func clock(_ ms: Int) -> String {
+        String(format: "%d:%02d", ms / 60_000, (ms % 60_000) / 1000)
+    }
+
+    private var stepButtons: some View {
         HStack(spacing: 12) {
             if step < last {
                 Button(nextLabel) { play(step + 1) }
@@ -121,6 +158,11 @@ struct LadderInput: View {
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                     .disabled(showAnswer || busy)
+            }
+            if playback.tier.exactClips, ExactClip.isPlaying(clip) {
+                Button("Stop") { clip.cancel() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
             }
             if snippetMode, snippets.status == "starting" || snippets.status == "playing" {
                 Button("Stop snippet") { snippets.stop() }
@@ -146,9 +188,9 @@ struct LadderInput: View {
         return step < 0 ? "Mark \(seconds) played" : "Next: mark \(seconds) played"
     }
 
-    /// The card's start, else the deck default, else the session's choice.
+    /// The card's start, else the deck default, else the session's choice, plus the host's nudge for this card.
     private func startMs(_ song: SongCard) -> Int {
-        deck.clipStartMs(for: song) ?? (options.clipStart == .skipIntro ? 15_000 : 0)
+        max(0, (deck.clipStartMs(for: song) ?? (options.clipStart == .skipIntro ? 15_000 : 0)) + nudgeMs)
     }
 
     /// With exact clips the `step` action is dispatched by the host screen once the clip is audible; a clip that fails leaves the step unplayed.
@@ -202,15 +244,20 @@ struct LadderInput: View {
                             Button("Lock in at \(secondsText(options.steps[step]))") { game.dispatch(.lock(playerId: player.id, year: nil)) }
                                 .accessibilityLabel("Lock in \(player.name) at \(secondsText(options.steps[step]))")
                         } else if current != player.id {
-                            Button("Enter for \(player.name)") { current = player.id; year = 1990 }
+                            Button("Enter for \(player.name)") { current = player.id; year = ""; yearError = nil }
                         }
                     }
                     if options.guess != .name, current == player.id, state.locks[player.id] == nil {
-                        YearField(label: "\(player.name)'s year", year: $year)
+                        YearEntry(label: "\(player.name)'s year", text: $year, error: yearError)
                         Button("Lock in at \(secondsText(options.steps[step]))") {
-                            guard game.dispatch(.lock(playerId: player.id, year: year)) else { return }
+                            guard let parsed = YearEntry.parse(year) else {
+                                yearError = YearEntry.errorText
+                                return
+                            }
+                            yearError = nil
+                            guard game.dispatch(.lock(playerId: player.id, year: parsed)) else { return }
                             current = nil
-                            year = 1990
+                            year = ""
                         }
                         .buttonStyle(.borderedProminent)
                     }

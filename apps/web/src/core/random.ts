@@ -54,6 +54,22 @@ const uniqueSorted = (ids: readonly string[]): string[] =>
 export function drawOrder(cardIds: readonly string[], seed: number): string[] {
   return shuffle(uniqueSorted(cardIds), mulberry32(deriveSeed(seed, "draw")));
 }
+// Higher or Lower with closer (section 1.5): candidates are the unused cards in
+// drawOrder order; the window narrows as more cards are revealed.
+export function closerPick(
+  candidates: readonly { id: string; year: number }[],
+  referenceYear: number,
+  revealed: number,
+): string | undefined {
+  const span = Math.max(3, 20 - 2 * revealed);
+  const gap = (card: { year: number }) => Math.abs(card.year - referenceYear);
+  const inWindow = candidates.find((card) => gap(card) >= 1 && gap(card) <= span);
+  if (inWindow) return inWindow.id;
+  let nearest: { id: string; year: number } | undefined;
+  for (const card of candidates)
+    if (gap(card) > 0 && (nearest === undefined || gap(card) < gap(nearest))) nearest = card;
+  return (nearest ?? candidates[0])?.id;
+}
 export function dailySelection(
   cardIds: readonly string[],
   date: string,

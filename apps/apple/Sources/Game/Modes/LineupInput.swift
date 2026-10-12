@@ -1,9 +1,26 @@
 import SwiftUI
 import EraticCore
 
-/// Lineup (and the `lineup` sudden death): tiles A–E, each with its own *Play*, then each player orders them
-/// with *Move up* / *Move down*, hidden as "Locked" until the reveal. Without exact clips the tiles show
-/// title and artist instead ("Lineup by name").
+/// How a Lineup set is played: exact clips, preview snippets (no exact clips, but at least one tile has a Spotify or
+/// Apple Music preview), or by name (neither: every tile shows its title and artist).
+enum LineupPlayMode: Equatable {
+    case exact, snippets, byName
+
+    static func of(cards: [CardRef], deck: Deck, tier: PlaybackTier) -> LineupPlayMode {
+        if tier.exactClips { return .exact }
+        return cards.contains { deck.card($0.cardId).map(SongBackup.hasSnippet) ?? false } ? .snippets : .byName
+    }
+
+    /// The mode's title on Play home and the host bar: "Lineup by name" only when no card in the deck can play a snippet.
+    static func byName(deck: Deck?, tier: PlaybackTier) -> Bool {
+        !tier.exactClips && !(deck?.cards.contains(where: SongBackup.hasSnippet) ?? false)
+    }
+}
+
+/// Lineup (and the `lineup` sudden death): tiles A–E, each with its own *Play*, then each player taps the tiles
+/// into order (earliest first), adjusting with *Move up* / *Move down* and *Remove*, hidden as "Locked" until the
+/// reveal. Without exact clips the tiles play preview snippets; a tile without a preview shows its title and artist
+/// instead, and with no preview at all the set is "Lineup by name".
 struct LineupInput: View {
     let cards: [CardRef]
     let deck: Deck
@@ -16,39 +33,81 @@ struct LineupInput: View {
     @EnvironmentObject private var playback: PlaybackHub
     @State private var current: String?
     @State private var order: [String] = []
+    @State private var orderError: String?
 
-    private var byName: Bool { !playback.tier.exactClips }
+    private var mode: LineupPlayMode { LineupPlayMode.of(cards: cards, deck: deck, tier: playback.tier) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            LineupTiles(cards: cards, deck: deck, clipMs: clipMs, byName: byName, clip: clip)
+            LineupTiles(cards: cards, deck: deck, clipMs: clipMs, mode: mode, clip: clip)
             Text("Earliest first").font(.headline)
             LockedEntryList(players: players, isLocked: isLocked, current: $current) { player in
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
+                    pool
                     ForEach(Array(order.enumerated()), id: \.element) { position, id in
                         row(position, id)
                     }
-                    Button("Lock in order") {
-                        guard submit(player.id, order) else { return }
-                        current = nil
+                    if let orderError { Text(orderError).foregroundStyle(.red).font(.callout) }
+                    HStack(spacing: 10) {
+                        Button("Lock in order") {
+                            guard order.count == cards.count else {
+                                orderError = "Place every song first."
+                                return
+                            }
+                            orderError = nil
+                            guard submit(player.id, order) else { return }
+                            current = nil
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button("Clear") { resetEntry() }
+                            .disabled(order.isEmpty)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
             }
         }
-        .onAppear { order = cards.map(\.cardId) }
-        .onChange(of: current) { order = cards.map(\.cardId) }
+        .onChange(of: current) { resetEntry() }
     }
 
-    private func letter(_ id: String) -> String {
-        tileLetter(cards.firstIndex { $0.cardId == id } ?? 0)
+    private func resetEntry() {
+        order = []
+        orderError = nil
+    }
+
+    /// The tiles not placed yet, as buttons; tapping one appends it to the order.
+    private var pool: some View {
+        let unplaced = cards.map(\.cardId).filter { !order.contains($0) }
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(unplaced.isEmpty ? "Every song is placed." : "Tap the songs in order, earliest first.").font(.callout).foregroundStyle(.secondary)
+            if !unplaced.isEmpty {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(unplaced, id: \.self) { id in
+                        Button(label(id)) {
+                            order.append(id)
+                            orderError = nil
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .accessibilityLabel("Place \(label(id)) next")
+                    }
+                }
+            }
+        }
+    }
+
+    private func index(_ id: String) -> Int { cards.firstIndex { $0.cardId == id } ?? 0 }
+
+    private func letter(_ id: String) -> String { tileLetter(index(id)) }
+
+    /// "B", or "B · Title" when the tile shows its title.
+    private func label(_ id: String) -> String {
+        let name = LineupTiles.showsTitle(mode: mode, song: deck.card(id)) ? deck.card(id).map { " · \($0.title)" } ?? "" : ""
+        return letter(id) + name
     }
 
     private func row(_ position: Int, _ id: String) -> some View {
-        let name = byName ? deck.card(id).map { " · \($0.title)" } ?? "" : ""
-        return HStack {
+        HStack {
             Text("\(position + 1).").monospacedDigit().foregroundStyle(.secondary)
-            Text(letter(id) + name).font(.headline)
+            Text(label(id)).font(.headline)
             Spacer()
             Button { move(position, by: -1) } label: { Image(systemName: "arrow.up") }
                 .accessibilityLabel("Move \(letter(id)) up")
@@ -56,6 +115,8 @@ struct LineupInput: View {
             Button { move(position, by: 1) } label: { Image(systemName: "arrow.down") }
                 .accessibilityLabel("Move \(letter(id)) down")
                 .disabled(position == order.count - 1)
+            Button { order.remove(at: position) } label: { Image(systemName: "xmark") }
+                .accessibilityLabel("Remove \(letter(id))")
         }
         .buttonStyle(.bordered)
         .accessibilityElement(children: .contain)
@@ -68,21 +129,33 @@ struct LineupInput: View {
     }
 }
 
-/// The set's tiles, A–E: a *Play* button and playing state each, or title and artist when playing by name; below them
-/// the backup QR and hidden preview of one selected song.
+/// The set's tiles, A–E: a *Play* button and playing state each (an exact clip, or a preview snippet), or title and
+/// artist for a tile that can't play; below them the backup QR and hidden preview of one selected song.
 struct LineupTiles: View {
     let cards: [CardRef]
     let deck: Deck
     let clipMs: Int
-    let byName: Bool
+    let mode: LineupPlayMode
     @ObservedObject var clip: ClipController
     @EnvironmentObject private var playback: PlaybackHub
     @EnvironmentObject private var game: GameController
+    @StateObject private var snippets = TileSnippets()
     @State private var playing: Int?
     @State private var playError: String?
     @State private var prepareTask: Task<Void, Never>?
     /// Starting an exact tile clip remounts the backup's preview, which stops it.
     @State private var previewRevision = UUID()
+    /// Snippets are at most 30 s, from the preview's start.
+    static let snippetCapMs = 30_000
+
+    /// A tile shows its title and artist when the set is played by name, or (with snippets) when it has no preview.
+    static func showsTitle(mode: LineupPlayMode, song: SongCard?) -> Bool {
+        switch mode {
+        case .exact: return false
+        case .byName: return true
+        case .snippets: return !(song.map(SongBackup.hasSnippet) ?? false)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -91,25 +164,40 @@ struct LineupTiles: View {
                     tile(index, card)
                 }
             }
-            SetBackup(cards: cards, deck: deck, collapsed: !byName, previewID: previewRevision)
+            if mode == .snippets, let url = snippets.url {
+                SnippetPreview(controller: snippets.controller, url: url).id(url)
+            }
+            if let problem = snippets.problem { Text(problem).font(.callout) }
+            SetBackup(cards: cards, deck: deck, collapsed: mode != .byName, previewID: previewRevision)
             if let playError { Text(playError).foregroundStyle(.red).font(.callout) }
+        }
+        .onAppear {
+            guard mode == .snippets else { return }
+            var urls: [Int: URL] = [:]
+            for (index, card) in cards.enumerated() {
+                if let song = deck.card(card.cardId), let url = SongBackup.snippetURL(for: song, provider: playback.provider) { urls[index] = url }
+            }
+            snippets.configure(urls: urls, lengthMs: min(clipMs, Self.snippetCapMs))
         }
         .onChange(of: clip.state) { if clip.state == .idle, prepareTask == nil { playing = nil } }
         .onDisappear {
             prepareTask?.cancel()
             prepareTask = nil
+            snippets.stop()
         }
     }
 
     private func tile(_ index: Int, _ card: CardRef) -> some View {
         let letter = tileLetter(index)
         let song = deck.card(card.cardId)
-        let isPlaying = playing == index && ExactClip.isPlaying(clip)
+        let isPlaying = (playing == index && ExactClip.isPlaying(clip)) || snippets.isPlaying(index)
         return VStack(alignment: .leading, spacing: 6) {
             Text(letter).font(.system(.largeTitle, design: .rounded).weight(.heavy))
-            if byName {
+            if Self.showsTitle(mode: mode, song: song) {
                 Text(song?.title ?? card.cardId).font(.headline)
                 if let song { Text(song.artist).font(.callout) }
+            } else if mode == .snippets {
+                SnippetTileButton(snippets: snippets, index: index)
             } else {
                 Button(isPlaying ? "Stop \(letter)" : "Play \(letter)") {
                     if isPlaying { clip.cancel() } else { play(index, song) }
@@ -153,6 +241,9 @@ struct LineupReveal: View {
     let reveal: RevealSnapshot
     let session: GameSession
     let deck: Deck
+    /// The reveal's stage (see `RevealView`): the years, then the songs, then the results.
+    var shown = 2
+    var leader: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -161,16 +252,23 @@ struct LineupReveal: View {
                 HStack(spacing: 10) {
                     Text("\(position + 1).").monospacedDigit().foregroundStyle(.secondary)
                     YearChip(year: entry.card.year)
-                    Text(tileLetter(entry.index)).font(.headline)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(deck.card(entry.card.cardId)?.title ?? entry.card.cardId).font(.headline)
-                        if let artist = deck.card(entry.card.cardId)?.artist { Text(artist).font(.caption) }
+                    Group {
+                        Text(tileLetter(entry.index)).font(.headline)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(deck.card(entry.card.cardId)?.title ?? entry.card.cardId).font(.headline)
+                            if let artist = deck.card(entry.card.cardId)?.artist { Text(artist).font(.caption) }
+                        }
                     }
+                    .opacity(shown >= 1 ? 1 : 0)
                 }
                 .accessibilityElement(children: .combine)
             }
-            Divider()
-            ForEach(resultLines, id: \.self) { Text($0).font(.body.weight(.medium)) }
+            Group {
+                Divider()
+                ForEach(resultLines, id: \.self) { Text($0).font(.body.weight(.medium)) }
+                if let leader { Text(leader).font(.headline) }
+            }
+            .opacity(shown >= 2 ? 1 : 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(24)
@@ -203,7 +301,8 @@ struct LineupReveal: View {
         let scoresAfter = GameEngine.scores(of: after)
         return session.players.map { player in
             let delta = signedPoints((scoresAfter[player.id] ?? 0) - (scoresBefore[player.id] ?? 0))
-            return "\(player.name): \(before.orders[player.id].map(letters) ?? "no order") · \(delta)"
+            let perfect = (after.perfectLines(for: player.id) ?? 0) > (before.perfectLines(for: player.id) ?? 0) ? ", perfect line" : ""
+            return "\(player.name): \(before.orders[player.id].map(letters) ?? "no order") · \(delta)\(perfect)"
         }
     }
 }

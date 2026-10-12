@@ -82,9 +82,16 @@ export interface LadderOptions {
   guess: "name" | "year" | "both";
   clipStart: "card" | "skipIntro" | "zero";
   stakes: boolean;
+  // Version 2 only; absent in version 1 sessions.
+  buzzer?: boolean;
 }
+// play and closer are version 2 only (absent in version 1 sessions); lives is
+// present only with play "everyone".
 export interface HigherLowerOptions {
   cards: number;
+  play?: "turns" | "everyone";
+  lives?: number;
+  closer?: boolean;
 }
 export interface RelayOptions {
   target: number;
@@ -132,6 +139,9 @@ export interface SessionOptions {
   steps?: number[];
   guess?: LadderOptions["guess"];
   clipStart?: LadderOptions["clipStart"];
+  buzzer?: boolean;
+  play?: HigherLowerOptions["play"];
+  closer?: boolean;
   cards?: number | string[];
   lives?: number;
   k?: number;
@@ -222,8 +232,14 @@ const OPTION_SPECS: Record<GameMode, Record<string, Spec>> = {
     guess: choice(["name", "year", "both"], "name"),
     clipStart: choice(["card", "skipIntro", "zero"], "card"),
     stakes: bool(false),
+    buzzer: bool(false),
   },
-  higherLower: { cards: int(2, 100, 10) },
+  higherLower: {
+    cards: int(2, 100, 10),
+    play: choice(["turns", "everyone"], "turns"),
+    lives: int(1, 5, 3),
+    closer: bool(false),
+  },
   relay: {
     target: int(2, 30, 12),
     lives: int(1, 10, 3),
@@ -236,6 +252,17 @@ const OPTION_SPECS: Record<GameMode, Record<string, Spec>> = {
   imposter: { rounds: int(1, 50, 5) },
 };
 
+// Version 1 sessions keep the longer Ladder steps and know none of the options
+// added in version 2 (Ladder buzzer; Higher or Lower play, lives, closer).
+function versionOneSpecs(mode: GameMode): Record<string, Spec> {
+  if (mode === "ladder") {
+    const { rounds, guess, clipStart, stakes } = OPTION_SPECS.ladder;
+    return { rounds, steps: STEPS_V1, guess, clipStart, stakes };
+  }
+  if (mode === "higherLower") return { cards: OPTION_SPECS.higherLower.cards };
+  return OPTION_SPECS[mode];
+}
+
 // Defaults and range checks of section 6; throws on unknown members, values out
 // of range, a missing required member, or anchorYear without a custom anchor.
 export function normalizeOptions<M extends GameMode>(
@@ -244,10 +271,7 @@ export function normalizeOptions<M extends GameMode>(
   sessionVersion: SessionVersion = 2,
 ): ModeOptions[M] {
   if (!Object.hasOwn(OPTION_SPECS, mode)) throw new Error(`Unknown mode: ${String(mode)}.`);
-  const specs =
-    mode === "ladder" && sessionVersion === 1
-      ? { ...OPTION_SPECS.ladder, steps: STEPS_V1 }
-      : OPTION_SPECS[mode];
+  const specs = sessionVersion === 1 ? versionOneSpecs(mode) : OPTION_SPECS[mode];
   if (typeof options !== "object" || options === null || Array.isArray(options))
     throw new Error("Options must be an object.");
   // Own members only: an option named "constructor" is unknown, not inherited.
@@ -273,6 +297,12 @@ export function normalizeOptions<M extends GameMode>(
     throw new Error(
       "Option anchorYear is required with a custom anchor and forbidden otherwise.",
     );
+  // Higher or Lower lives belong to play "everyone" only (section 6.5).
+  if (mode === "higherLower" && sessionVersion === 2 && result.play !== "everyone") {
+    if (Object.hasOwn(given, "lives"))
+      throw new Error('Option lives needs play "everyone".');
+    delete result.lives;
+  }
   return result as unknown as ModeOptions[M];
 }
 
@@ -312,6 +342,17 @@ export function decodeSessionBytes(bytes: Uint8Array): Session {
   }
   return parseSession(text);
 }
+// Options added after version 2 shipped (ADR 0017) are written only when they differ
+// from their defaults, so a default game stays readable by older apps.
+function withoutNewDefaults(options: SessionOptions): SessionOptions {
+  const { play, closer, buzzer, ...rest } = options;
+  return {
+    ...rest,
+    ...(play === "everyone" && { play }),
+    ...(closer === true && { closer }),
+    ...(buzzer === true && { buzzer }),
+  };
+}
 export function exportSession(session: Session): string {
   const normalized: Session = {
     format: session.format,
@@ -321,7 +362,7 @@ export function exportSession(session: Session): string {
     deckId: session.deckId,
     deckTitle: session.deckTitle,
     mode: session.mode,
-    options: normalizeOptions(session.mode, session.options, session.sessionVersion) as SessionOptions,
+    options: withoutNewDefaults(normalizeOptions(session.mode, session.options, session.sessionVersion) as SessionOptions),
     seed: session.seed,
     players: session.players,
     actions: session.actions,

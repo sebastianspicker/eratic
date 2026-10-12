@@ -59,7 +59,7 @@ extension GameMode {
 extension GameState {
     /// The player whose turn it is, in modes that have one, until the game finishes.
     public var activePlayerID: String? {
-        guard [.timeline, .relay, .higherLower].contains(mode), phase != .finished else { return nil }
+        guard hasActivePlayer, phase != .finished else { return nil }
         return activePlayer
     }
 
@@ -102,6 +102,11 @@ extension GameState {
         mode == .timeline ? exactPlayerID(playerID).map { stat("tokens", $0) } ?? 0 : nil
     }
 
+    /// Lineup rounds in which the player ordered every pair right; nil in other modes.
+    public func perfectLines(for playerID: String) -> Int? {
+        mode == .lineup ? exactPlayerID(playerID).map { stat("perfect", $0) } ?? 0 : nil
+    }
+
     /// True once these two cards were paired in this session (Original or Imposter), even if the pair was skipped.
     public func wasPaired(_ first: String, _ second: String) -> Bool {
         usedPairs.contains([Array(first.utf8), Array(second.utf8)].sorted { $0.lexicographicallyPrecedes($1) })
@@ -125,6 +130,19 @@ extension GameState {
     public var locks: [String: LockInPlay] { inputs.locks.mapValues { LockInPlay(step: $0.step, year: $0.year) } }
     public var marks: [String: MarksInPlay] { inputs.marks.mapValues { MarksInPlay(titleOK: $0.titleOK, artistOK: $0.artistOK) } }
     public var call: HigherLowerCall? { inputs.call }
+    /// Higher or Lower `everyone` calls by player.
+    public var calls: [String: HigherLowerCall] { inputs.calls }
+    /// Whether Higher or Lower is played with `play: everyone`.
+    public var isEveryonePlay: Bool { everyonePlays }
+    /// Higher or Lower lives left with `play: everyone`; nil otherwise.
+    public func higherLowerLives(for playerID: String) -> Int? {
+        everyonePlays ? exactPlayerID(playerID).map { stat("lives", $0) } ?? 0 : nil
+    }
+    /// Snippet Ladder buzzers won, with `buzzer` on; nil otherwise.
+    public func buzzers(for playerID: String) -> Int? {
+        if case let .ladder(ladder) = options, ladder.buzzer { return exactPlayerID(playerID).map { stat("buzzers", $0) } ?? 0 }
+        return nil
+    }
     public var orders: [String: [String]] { inputs.orders }
     public var choices: [String: ChoiceInPlay] { inputs.choices.mapValues { ChoiceInPlay(pick: $0.pick, year: $0.year) } }
 
@@ -158,7 +176,9 @@ extension GameState {
         switch options {
         case .bullseye: return inputs.guesses[player] == nil
         case .eraSort: return inputs.eras[player] == nil
-        case .daily: return round < 3 ? inputs.eras[player] == nil : inputs.guesses[player] == nil
+        case .daily: return ((try? Scoring.dailyRoundKind(round + 1)) ?? .bullseye) == .eraSort ? inputs.eras[player] == nil : inputs.guesses[player] == nil
+        case .higherLower where everyonePlays:
+            return playersStillIn.contains(player) && inputs.calls[player] == nil
         case .timeline, .relay, .higherLower:
             guard player == activePlayer else { return false }
             return mode == .higherLower ? inputs.call == nil : inputs.placement == nil

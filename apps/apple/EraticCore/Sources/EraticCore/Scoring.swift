@@ -101,6 +101,12 @@ public enum Scoring {
 
     public static func nameItAward(titleOK: Bool, artistOK: Bool) -> Bool { titleOK && artistOK }
 
+    /// Round `round` (from 1) of a Daily: rounds 1–3 are Era Sort, later rounds Bullseye. Throws below 1.
+    public static func dailyRoundKind(_ round: Int) throws -> GameMode {
+        guard round >= 1 else { throw GameRuleError("Invalid round: \(round).") }
+        return round <= 3 ? .eraSort : .bullseye
+    }
+
     /// `3 × min(3, n) + 10 × max(0, n − 3)`.
     public static func dailyMaxScore(count: Int) -> Int {
         3 * min(3, count) + 10 * max(0, count - 3)

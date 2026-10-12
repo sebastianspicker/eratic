@@ -10,7 +10,7 @@ import {
   summarize,
   type GameState,
 } from "../../core/game/engine";
-import { compareCodePoints, dailySelection, drawOrder, pickAnchors } from "../../core/random";
+import { closerPick, compareCodePoints, dailySelection, drawOrder, pickAnchors } from "../../core/random";
 import { resolveScan } from "../../core/scan";
 import { imposterPairs } from "../../core/scoring";
 import {
@@ -19,6 +19,7 @@ import {
   type DailyOptions,
   type GameAction,
   type GameMode,
+  type HigherLowerOptions,
   type LineupOptions,
   type RelayOptions,
   type Session,
@@ -31,6 +32,7 @@ import {
   discardUnreadableSession,
   loadPlayPrefs,
   PLAY_PREFS_KEY,
+  saveRoster,
   loadSession,
   loadSessionDeck,
   persistSession,
@@ -78,6 +80,8 @@ export interface Summary {
   step?: number;
   perfect?: Record<string, number>;
   bonuses?: Record<string, number>;
+  // Snippet Ladder with the buzzer option.
+  buzzers?: Record<string, number>;
 }
 export type CardSource = "scan" | "draw";
 export interface StartSetup {
@@ -86,6 +90,8 @@ export interface StartSetup {
   players: SessionPlayer[];
   source: CardSource;
   easyOnly: boolean;
+  // Kids' larger controls (the Timeline preset or Era Sort's Kids option).
+  kids?: boolean;
 }
 export interface GameView {
   session?: Session;
@@ -99,6 +105,7 @@ export interface GameView {
   announcement: string;
   source: CardSource;
   easyOnly: boolean;
+  kids: boolean;
   // The deck the open game started with, kept for Resume when another deck is open.
   deckSnapshot?: Deck;
   // Counts games opened (started or resumed), so the host screen starts fresh for each.
@@ -138,6 +145,22 @@ export function cardHosts(): string[] {
     .map((host) => host.trim())
     .filter((host) => host !== "");
 }
+// Actions a player enters before the reveal; only these can be taken back.
+const ENTRIES = new Set<GameAction["type"]>([
+  "guess",
+  "pickEra",
+  "place",
+  "challenge",
+  "nameIt",
+  "wager",
+  "lock",
+  "call",
+  "order",
+  "choose",
+  "sdGuess",
+  "sdOrder",
+  "sdName",
+]);
 const DRAWS = new Set<GameAction["type"]>(["draw", "drawSet", "drawPair", "sdDraw"]);
 const defaultRandom = (): number => crypto.getRandomValues(new Uint32Array(1))[0];
 function defaultStorage(): Storage | undefined {
@@ -174,6 +197,7 @@ export class GameController {
       announcement: "",
       source: "draw",
       easyOnly: false,
+      kids: false,
       run: 0,
     };
   }
@@ -305,9 +329,10 @@ export class GameController {
       return false;
     }
     this.last = setup;
+    if (setup.mode !== "daily") saveRoster(setup.players.map((player) => player.name), this.storage);
     let storageNotice = this.persist(session);
     if (!storageNotice) {
-      if (!savePlayPrefs(session.id, { easyOnly: setup.easyOnly, source: setup.source }, this.storage) && setup.easyOnly)
+      if (!savePlayPrefs(session.id, { easyOnly: setup.easyOnly, source: setup.source, ...(setup.kids && { kids: true }) }, this.storage) && setup.easyOnly)
         storageNotice = "Browser storage refused the game's settings, so Easy cards only won't survive a reload.";
       persistSessionDeck(deck, this.storage);
     }
@@ -321,6 +346,7 @@ export class GameController {
       announcement: lines.join(" "),
       source: setup.source,
       easyOnly: setup.easyOnly,
+      kids: setup.kids === true,
       deckSnapshot: deck,
       run: this.view.run + 1,
     });
@@ -336,6 +362,7 @@ export class GameController {
         players: session.players,
         source: this.view.source,
         easyOnly: this.view.easyOnly,
+        kids: this.view.kids,
       },
       deck,
     );
@@ -356,6 +383,7 @@ export class GameController {
       announcement: "",
       source: prefs?.source ?? "draw",
       easyOnly: prefs?.easyOnly ?? false,
+      kids: prefs?.kids ?? false,
       deckSnapshot: snapshot?.id === saved.deckId ? snapshot : undefined,
       run: this.view.run + 1,
     });
@@ -437,6 +465,62 @@ export class GameController {
     });
     return true;
   }
+  // Log indexes of the last entry and the entries just before it by the same
+  // player (Bullseye's wager and guess), newest first. Clip records between
+  // them are skipped and stay. Empty once anything but an entry came last.
+  private undoIndexes(): number[] {
+    const { session, state } = this.view;
+    if (!session || !state || (state.phase !== "open" && state.phase !== "suddenDeathOpen")) return [];
+    // The last entry; a guess takes the same player's wager directly before it along (Bullseye
+    // sends wager then guess as one entry). Interleaved clip records stay in the log.
+    const found: number[] = [];
+    for (let index = session.actions.length - 1; index >= 0; index--) {
+      const action = session.actions[index];
+      if (action.type === "clip") continue;
+      if (found.length === 0) {
+        if (!ENTRIES.has(action.type)) break;
+        found.push(index);
+        if (action.type !== "guess") break;
+        continue;
+      }
+      const owner = (session.actions[found[0]] as { playerId?: string }).playerId;
+      if (action.type === "wager" && owner !== undefined && action.playerId === owner) found.push(index);
+      break;
+    }
+    return found;
+  }
+  // The entry Undo would take back before the reveal, or undefined when there is none.
+  undoable(): { playerId?: string } | undefined {
+    const { session } = this.view;
+    const last = this.undoIndexes()[0];
+    if (!session || last === undefined) return undefined;
+    const playerId = (session.actions[last] as { playerId?: string }).playerId;
+    return playerId === undefined ? {} : { playerId };
+  }
+  // Replays the log without the last entry; the shortened log is still valid.
+  undo(): boolean {
+    const { session } = this.view;
+    const indexes = this.undoIndexes();
+    if (!session || indexes.length === 0) return false;
+    const removed = new Set(indexes);
+    const updated = { ...session, actions: session.actions.filter((_, index) => !removed.has(index)) };
+    let next: GameState;
+    try {
+      next = replay(updated);
+    } catch (failure) {
+      if (!(failure instanceof GameError)) throw failure;
+      this.set({ notice: friendlyError(failure.message, session) });
+      return false;
+    }
+    this.set({
+      session: updated,
+      state: next,
+      summary: summaryOf(next),
+      notice: "",
+      storageNotice: this.persist(updated),
+    });
+    return true;
+  }
   // The state these inputs would lead to, without recording them; undefined if
   // the engine would reject any of them.
   project(inputs: readonly ActionInput[]): GameState | undefined {
@@ -475,6 +559,23 @@ export class GameController {
       .filter((id) => !used.has(id))
       .slice(0, count)
       .map((id) => byId.get(id)!);
+  }
+  // Higher or Lower with closer: the unused cards in draw order, narrowed to years near the reference (section 1.5).
+  private closerCard(deck: Deck): Card | undefined {
+    const { session, summary } = this.view;
+    if (!session || !summary) return undefined;
+    let referenceYear: number | undefined;
+    for (const action of session.actions)
+      if ((action.type === "reference" || action.type === "draw") && action.card.cardId === summary.reference)
+        referenceYear = action.card.year;
+    const candidates = this.nextDeckCards(deck, Infinity);
+    if (referenceYear === undefined) return candidates[0];
+    const id = closerPick(
+      candidates.map((card) => ({ id: card.id, year: card.gameYear.value })),
+      referenceYear,
+      summary.round,
+    );
+    return candidates.find((card) => card.id === id);
   }
   // The deck the host plays from: the open deck, or the game's own snapshot when
   // another deck is open.
@@ -556,7 +657,8 @@ export class GameController {
     if (session.mode === "daily") {
       const id = (state.options as DailyOptions).cards[state.round];
       card = deck.cards.find((item) => item.id === id);
-    } else card = this.nextDeckCards(deck)[0];
+    } else if (session.mode === "higherLower" && (state.options as HigherLowerOptions).closer) card = this.closerCard(deck);
+    else card = this.nextDeckCards(deck)[0];
     if (!card) {
       this.set({ notice: "No cards left. End the game to see the results." });
       return false;

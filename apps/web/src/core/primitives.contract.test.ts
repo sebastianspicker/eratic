@@ -5,6 +5,7 @@ import scanCases from "../../../../contract/cases/scan-resolution.json";
 import { validateDeck } from "./deck";
 import { eraIndex, eraName, eraOf, isAdjacent } from "./eras";
 import {
+  closerPick,
   compareCodePoints,
   dailySelection,
   deriveSeed,
@@ -14,6 +15,7 @@ import {
   pickAnchors,
   shuffle,
 } from "./random";
+import { songKey, suggestRelations } from "./relations";
 import { eraticCardURL, linkTrack, providerTrack, resolveScan } from "./scan";
 import * as scoring from "./scoring";
 
@@ -62,6 +64,13 @@ const primitives: Record<string, (args: Args) => unknown> = {
   nameItAward: ({ titleOK, artistOK }) => scoring.nameItAward(titleOK, artistOK),
   imposterPairs: ({ cards, seed }) => scoring.imposterPairs(cards, seed),
   eraticCardURL: ({ host, deckId, cardId }) => eraticCardURL(host, deckId, cardId) ?? null,
+  closerPick: ({ candidates, referenceYear, revealed }) =>
+    closerPick(candidates, referenceYear, revealed) ?? null,
+  songKey: ({ text }) => songKey(text),
+  suggestRelations: ({ cards }) =>
+    suggestRelations(
+      cards.map(({ year, ...card }: Args) => ({ ...card, gameYear: { value: year } })),
+    ),
 };
 
 type PrimitiveCase = {

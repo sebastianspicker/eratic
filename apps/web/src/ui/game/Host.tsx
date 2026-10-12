@@ -1,13 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Deck } from "../../core/deck";
 import { canReveal, currentCards, pendingInputs, type GameState } from "../../core/game/engine";
-import { exportSession, type DailyOptions, type RelayOptions, type Session, type TimelineOptions } from "../../core/session";
+import { exportSession, type DailyOptions, type HigherLowerOptions, type RelayOptions, type Session, type TimelineOptions } from "../../core/session";
 import type { PlaybackHub } from "../../playback/hub";
 import { exactClips } from "../../playback/player";
 import { saveText } from "../download";
-import { lastReveal, listNames, playerName } from "./history";
+import { lastReveal, listNames, playerLives, playerName } from "./history";
 import { YearEntry } from "./modes/Bullseye";
-import { LineupTiles, lineupByName, OrderEntry } from "./modes/Lineup";
+import { LineupTiles, lineupByName, lineupDeckByName, OrderEntry } from "./modes/Lineup";
 import { LockedEntry, send } from "./modes/LockedEntry";
 import { MODE_UI } from "./modes/registry";
 import type { ModeInputProps } from "./modes/types";
@@ -24,6 +24,13 @@ const ScannerView = lazy(() => import("../ScannerView").then((module) => ({ defa
 // Ladder's sudden death plays one 5 s clip (game-rules.md section 6.4).
 const FIRST_TO_NAME_MS = 5000;
 
+// What a sudden death asks (game-rules.md section 6.4), in words for the banner.
+const SUDDEN_DEATH_RULES: Record<string, (count: number) => string> = {
+  closestYear: () => "One song. The closest year wins.",
+  lineup: (count) => `Order ${count} songs. The best order wins.`,
+  firstToName: () => "One 5-second clip. The first to name the song wins.",
+};
+
 function roundText(session: Session, state: GameState, summary: Summary): string {
   if (state.phase === "finished") return "Final results";
   if (state.phase === "suddenDeath" || state.phase === "suddenDeathOpen") return "Sudden death";
@@ -35,8 +42,9 @@ function roundText(session: Session, state: GameState, summary: Summary): string
     case "higherLower":
       return state.players.length === 1 ? `Card ${summary.round + 1}` : `Card ${of(options.cards)}`;
     case "timeline":
-    case "relay":
       return `First to ${options.target} cards`;
+    case "relay":
+      return `Line of ${options.target} · Lives ${summary.lives} of ${options.lives}`;
     case "lineup":
       return `Lineup ${of(options.rounds)}`;
     default:
@@ -69,6 +77,7 @@ function Scoreboard({ session, state, summary }: { session: Session; state: Game
     );
   }
   const tokens = session.mode === "timeline" && (state.options as TimelineOptions).challenges;
+  const lives = session.mode === "higherLower" ? playerLives(summary) : undefined;
   return (
     <ul className="scoreboard" aria-label="Scores">
       {session.players.map((player) => {
@@ -80,7 +89,12 @@ function Scoreboard({ session, state, summary }: { session: Session; state: Game
             {summary.chips ? <span className="score-extra">incl. {summary.chips[player.id]} chips</span> : null}
             {tokens && summary.tokens ? <span className="score-extra">Tokens {summary.tokens[player.id]}</span> : null}
             {summary.streaks && session.mode === "higherLower" ? (
-              <span className="score-extra">Streak</span>
+              <span className="score-extra">Streak {summary.streaks[player.id] ?? 0}</span>
+            ) : null}
+            {lives ? (
+              <span className="score-extra">
+                Lives {lives[player.id] ?? 0} of {(state.options as HigherLowerOptions).lives}
+              </span>
             ) : null}
             {summary.eliminated?.includes(player.id) ? <span className="score-extra">Out</span> : null}
             {active ? <span className="turn">{player.name}'s turn</span> : null}
@@ -157,7 +171,7 @@ function SuddenDeathInput({ controller, state, session, deck, playback }: ModeIn
             heading={`${player.name}'s order`}
             cards={sd.cards}
             deck={deck}
-            byName={lineupByName(playback)}
+            byName={lineupByName(playback, sd.cards, deck)}
             onLock={(order) => send(controller, { type: "sdOrder", playerId: player.id, order })}
           />
         )}
@@ -193,12 +207,14 @@ export function Host({
   const state = view.state!;
   const summary = view.summary!;
   const ui = MODE_UI[session.mode];
+  const ownReveal = typeof ui.ownReveal === "function" ? ui.ownReveal(session) : ui.ownReveal === true;
   const { hubState, clip, clipState } = usePlayback(hub);
   const playback: PlaybackProps = { hub, hubState, clip, clipState };
   const [dismissedAt, setDismissedAt] = useState(-1);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<Extract<ScanOutcome, { kind: "message" }>>();
   const [answerAt, setAnswerAt] = useState("");
+  const [ladderBusy, setLadderBusy] = useState(false);
   const reveal = useMemo(() => lastReveal(session, summary), [session, summary]);
   const showReveal = reveal !== undefined && dismissedAt !== session.actions.length;
   const finished = state.phase === "finished";
@@ -208,6 +224,8 @@ export function Host({
   const suddenDeathNames = summary.suddenDeath
     ? listNames(summary.suddenDeath.players.map((id) => playerName(session, id)))
     : "";
+  // Who the generic Reveal is waiting for; empty when nobody owes an input.
+  const stillToAnswer = listNames(pendingInputs(state).map((id) => playerName(session, id)));
   const outOfCards = !controller.canDraw(deck);
   // Sudden deaths that draw several cards at once (a lineup of four) draw from the deck.
   const drawCount = state.phase === "suddenDeath" ? controller.suddenDeathCount() : 1;
@@ -224,6 +242,7 @@ export function Host({
       host.querySelector<HTMLElement>(".reveal h2") ??
       host.querySelector<HTMLElement>(".results h2") ??
       host.querySelector<HTMLElement>(".inputs h3") ??
+      host.querySelector<HTMLElement>(".inputs [data-first-control]") ??
       host.querySelector<HTMLElement>(".inputs button:not(:disabled)") ??
       host.querySelector<HTMLElement>(".stage-empty button.primary");
     if (!target) return;
@@ -304,14 +323,17 @@ export function Host({
     controller, session, state, summary, deck, playback, reveal: revealCard,
     answerShown: answerAt === answerKey,
     showAnswer: () => { stopClip(); setAnswerAt(answerKey); },
+    setPlaybackBusy: setLadderBusy,
   };
   const suddenDeath = state.phase === "suddenDeathOpen";
+  const undoable = controller.undoable();
   const Stage = suddenDeath ? SuddenDeathStage : ui.Stage;
   const cardsKey = `${state.phase}:${cards.map((item) => item.cardId).join(",")}`;
   let body = null;
   if (finished)
     body = (
       <Results
+        deck={deck}
         session={session}
         summary={summary}
         ui={ui}
@@ -339,17 +361,27 @@ export function Host({
         <div className="inputs panel" key={`inputs-${cardsKey}`}>
           {suddenDeath ? <SuddenDeathInput {...inputProps} /> : <ui.Input {...inputProps} />}
           <div className="action-row">
-            {!suddenDeath && ui.ownReveal ? null : (
+            {!suddenDeath && ownReveal ? null : (
               <button className="primary" disabled={!canReveal(state)} onClick={revealCard}>
                 Reveal
               </button>
             )}
+            {undoable && !(session.mode === "ladder" && (inputProps.answerShown || ladderBusy)) ? (
+              <button className="quiet" onClick={() => controller.undo()}>
+                {undoable.playerId === undefined
+                  ? "Undo “Nobody named it”"
+                  : `Undo ${playerName(session, undoable.playerId)}'s entry`}
+              </button>
+            ) : null}
             {session.mode === "daily" ? null : (
               <button className="quiet" onClick={skip}>
                 Skip card
               </button>
             )}
           </div>
+          {!(!suddenDeath && ownReveal) && !canReveal(state) && stillToAnswer ? (
+            <p className="muted">Still to answer: {stillToAnswer}</p>
+          ) : null}
         </div>
       </>
     );
@@ -425,10 +457,12 @@ export function Host({
     );
 
   return (
-    <section className="host" aria-labelledby="host-title" ref={hostRef}>
+    <section className={view.kids ? "host kids" : "host"} aria-labelledby="host-title" ref={hostRef}>
       <div className="host-bar">
         <div>
-          <h1 id="host-title">{MODE_INFO[session.mode].name}</h1>
+          <h1 id="host-title">
+            {session.mode === "lineup" && lineupDeckByName(deck, playback) ? "Lineup by name" : MODE_INFO[session.mode].name}
+          </h1>
           <p className="round-text">{roundText(session, state, showReveal ? reveal.before : summary)}</p>
         </div>
         {finished ? null : <button onClick={endGame}>End game</button>}
@@ -447,7 +481,7 @@ export function Host({
       ) : null}
       {summary.suddenDeath && !finished ? (
         <p className="sudden-death-banner" role="status">
-          Sudden death: {suddenDeathNames}
+          Sudden death: {suddenDeathNames}. {SUDDEN_DEATH_RULES[summary.suddenDeath.kind]?.(controller.suddenDeathCount())}
         </p>
       ) : null}
       {showReveal ? (

@@ -403,7 +403,9 @@ export function summarize(state: GameState): Record<string, unknown> {
 
 // Queries for the UI.
 export function activePlayer(state: GameState): string | undefined {
-  return rulesOf(state).hasActive && state.phase !== "finished"
+  const hasActive = rulesOf(state).hasActive;
+  return (typeof hasActive === "function" ? hasActive(state) : hasActive) &&
+    state.phase !== "finished"
     ? activeId(state)
     : undefined;
 }

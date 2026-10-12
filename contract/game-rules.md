@@ -58,6 +58,7 @@ return t XOR (t >> 14)
 | `pickAnchors(cards, kind, seed, count, year?)` | Section 1.6 |
 | `dailySelection(cardIds, date, deckId)` | Remove duplicates, sort in code-point order, `shuffle` with `mulberry32(fnv1a32(UTF-8 of date + deckId))` (plain concatenation, e.g. `"2026-10-11demo-deck"`), and take the first `min(5, n)` IDs. The deck file's card order never matters. |
 | `imposterPairs(cards, seed)` | Section 8.3 |
+| `closerPick(candidates, referenceYear, revealed)` | Higher or Lower with `closer` (section 6.5). `candidates` is the list of unused cards `{id, year}` in `drawOrder` order. Let `W = max(3, 20 − 2 × revealed)`. Returns the first candidate whose year differs from `referenceYear` by 1 to `W` years; else the candidate with the smallest nonzero distance to `referenceYear` (the first in order on a tie); else the first candidate; nothing for an empty list. The apps draw this card instead of the first unused `drawOrder` ID. |
 
 ### 1.6 Anchor picks
 
@@ -101,7 +102,7 @@ The result is the list of picked IDs in order. Personal Timeline gives the i-th 
 
 ## 4. Session file (`session-v2`, `session-v1`)
 
-[`session-v2.schema.json`](session-v2.schema.json) is the structure of `sessionVersion` 2, which apps create and write. [`session-v1.schema.json`](session-v1.schema.json) is the unchanged structure of `sessionVersion` 1: such files are still read, replayed under the version 1 rules and exported unchanged as version 1, never rewritten. The two differ only in the Snippet Ladder `steps` limit and default (section 6.4). Any other `sessionVersion` is rejected. A session file is strict JSON exactly like a deck file: RFC 8259 text in UTF-8 (a leading BOM is ignored), no duplicate member names, no `null` anywhere, no unknown members, every string well-formed Unicode, at most 2 MiB. A session is valid only when it matches the schema **and** the engine replays every action without error (section 5). Sessions are never written into deck files.
+[`session-v2.schema.json`](session-v2.schema.json) is the structure of `sessionVersion` 2, which apps create and write. [`session-v1.schema.json`](session-v1.schema.json) is the unchanged structure of `sessionVersion` 1: such files are still read, replayed under the version 1 rules and exported unchanged as version 1, never rewritten. The two differ in the Snippet Ladder `steps` limit and default (section 6.4), and version 2 adds the options Snippet Ladder `buzzer` and Higher or Lower `play`, `lives` and `closer` (sections 6.4 and 6.5), which version 1 rejects even with their default values. A writer omits `play` when it is `turns` and `closer` and `buzzer` when they are false, so a game that doesn't use them stays readable by apps that predate them; with `play: everyone` it always writes `lives`. Any other `sessionVersion` is rejected. A session file is strict JSON exactly like a deck file: RFC 8259 text in UTF-8 (a leading BOM is ignored), no duplicate member names, no `null` anywhere, no unknown members, every string well-formed Unicode, at most 2 MiB. A session is valid only when it matches the schema **and** the engine replays every action without error (section 5). Sessions are never written into deck files.
 
 ```json
 {
@@ -193,7 +194,7 @@ Final standings after a sudden death: the winner, then the players eliminated in
 
 ### 5.6 Turns
 
-Modes with an active player (Timeline, Relay, Higher or Lower) start with the first player in `players` order. The turn passes to the next player after each reveal, wrapping around; Higher or Lower versus skips eliminated players.
+Modes with an active player (Timeline, Relay, and Higher or Lower with `play: turns`) start with the first player in `players` order. The turn passes to the next player after each reveal, wrapping around; Higher or Lower versus skips eliminated players.
 
 ## 6. Modes
 
@@ -237,7 +238,7 @@ Each mode lists its options (name, allowed values, default), player-count range,
 
 ### 6.4 Snippet Ladder (`ladder`)
 
-- **Options:** `rounds` 1–100 (10); `steps`, 1–5 strictly increasing integers from 500 to 30000 (`[1000, 5000, 10000, 20000, 30000]`), where step *i* scores with `ladderPoints(i, …)`; `guess` `name` | `year` | `both` (`name`); `clipStart` `card` | `skipIntro` | `zero` (`card`, informational); `stakes` boolean (false). A preview-only account drops the steps longer than its preview before the session starts. Version 1 sessions keep steps up to 600000 and the default `[1000, 5000, 10000, 30000, 60000]`, also when `steps` is omitted.
+- **Options:** `rounds` 1–100 (10); `steps`, 1–5 strictly increasing integers from 500 to 30000 (`[1000, 5000, 10000, 20000, 30000]`), where step *i* scores with `ladderPoints(i, …)`; `guess` `name` | `year` | `both` (`name`); `clipStart` `card` | `skipIntro` | `zero` (`card`, informational); `stakes` boolean (false); `buzzer` boolean (false), session version 2 only. A preview-only account drops the steps longer than its preview before the session starts. Version 1 sessions keep steps up to 600000 and the default `[1000, 5000, 10000, 30000, 60000]`, also when `steps` is omitted.
 - **Players:** 1–8.
 - **Card:**
   1. `draw {card}`; the current step is −1, nothing played yet.
@@ -246,22 +247,23 @@ Each mode lists its options (name, allowed values, default), player-count range,
   4. In `name` and `both` modes, `mark {playerId, titleOK, artistOK}` once for each locked player. Marks may follow any lock; unlocked players are never marked.
   5. Wagers, if stakes.
   6. `reveal`, which needs a step played and either every player locked or the last step played, plus a mark for every locked player (`name`, `both`).
-- **Points per card:** unlocked players 0. `name`: `ladderPoints(lockStep, titleOK, artistOK)`. `year`: `ladderYearPoints`. `both`: `ladderPoints` plus `ladderYearBonus`. An exact year counts as an **exact year** (`year`, `both`).
+- **Points per card:** unlocked players 0. `name`: `ladderPoints(lockStep, titleOK, artistOK)`. `year`: `ladderYearPoints`. `both`: `ladderPoints` plus `ladderYearBonus`. An exact year counts as an **exact year** (`year`, `both`). With `buzzer`, the player whose `lock` came first in action order among those scoring more than 0 on the card gains 2 more points (a **buzzer**); wagers are settled on the points before the bonus, which never changes whether a player was right.
 - **Time used:** each card adds `steps[lockStep]` for a locked player and `steps[last]` for an unlocked one.
 - **End:** after `rounds` reveals.
 - **Ranking:** score ↓, time used ↑, exact years ↓. **Sudden death:** `firstToName` (one card, one 5 s step in the apps).
-- **Summary extras:** `usedMs`, `exactYears`, `step` (current step index, −1 outside a card), `chips` when stakes.
+- **Summary extras:** `usedMs`, `exactYears`, `step` (current step index, −1 outside a card), `chips` when stakes, `buzzers` (player → count) when `buzzer`.
 
 ### 6.5 Higher or Lower (`higherLower`)
 
-- **Options:** `cards` 2–100 (10), the number of reveals after which versus play ends; solo ignores it.
+- **Options:** `cards` 2–100 (10), the number of reveals after which versus play ends; solo ignores it. `play` `turns` | `everyone` (`turns`). `lives` 1–5 (3), allowed only with `play: everyone`. `closer` boolean (false): the apps draw with `closerPick` (section 1.5) so the songs get closer in year as the game goes on; the engine doesn't check how a card was drawn. `play`, `lives` and `closer` exist only in session version 2; a version 1 session with any of them is a setup error.
 - **Players:** 1–6. One player is solo; more is versus.
 - **Setup:** `reference {card}`, face up.
-- **Turn:** `draw {card}` → `call {playerId, call}` by the active player, `earlier` or `later` → `reveal`. Correct (`higherLowerCorrect`) adds 1 to the player's streak. A miss ends a solo game (the solo player is not listed in `eliminated`), or eliminates a versus player. The drawn card becomes the reference either way.
+- **Turns** (`play: turns`): `draw {card}` → `call {playerId, call}` by the active player, `earlier` or `later` → `reveal`. Correct (`higherLowerCorrect`) adds 1 to the player's streak. A miss ends a solo game (the solo player is not listed in `eliminated`), or eliminates a versus player. The drawn card becomes the reference either way.
+- **Everyone** (`play: everyone`): there is no active player. Every player starts with `lives`. `draw {card}` → one `call {playerId, call}` from each player still in, in any order → `reveal`, which needs every such call. For each caller in turn order: correct adds 1 to their streak; a miss costs a life, and a player left with 0 lives is out: a versus player is appended to `eliminated` (players out in the same reveal in turn order); a solo player ends the game and is not listed. The drawn card becomes the reference. A streak counts correct calls; a miss does not reset it.
 - **Score:** the player's streak.
-- **End:** solo, on the first miss; versus, when one player is left, or after `cards` reveals.
-- **Ranking:** players still in ahead of eliminated ones; then streak ↓; eliminated players by elimination, later first (each its own group). No sudden death.
-- **Summary extras:** `streaks`, `eliminated` (player IDs in elimination order), `reference` (card ID).
+- **End:** solo, on the first miss (`turns`) or when the solo player has no lives left (`everyone`); versus, when at most one player is still in, or after `cards` reveals.
+- **Ranking:** players still in ahead of eliminated ones; then streak ↓, then (with `everyone`) lives ↓; eliminated players by the reveal that eliminated them, later first, then streak ↓. Players with equal keys share a group. (With `everyone`, players still in after the same reveals always have equal lives when their streaks are equal, and players out in the same reveal have equal streaks; the keys are listed for completeness.) No sudden death.
+- **Summary extras:** `streaks`, `eliminated` (player IDs in elimination order), `reference` (card ID), `lives` (player → lives, with `everyone` only). With `everyone`, `active` is absent.
 
 ### 6.6 Relay (`relay`)
 
@@ -369,3 +371,19 @@ A version-1 deck containing any of these members is rejected, as before. `migrat
 4. `rng = mulberry32(deriveSeed(seed, "pairs"))`; shuffle the pairs with `rng`; then, for each pair in order, `rng.next() mod 2 = 0` means the original plays as `a`, otherwise as `b`.
 
 The result is a list of `{a, b, original}` card IDs. A chain A ← B ← C (B covers A, C covers B) yields only (A, B): C's target B is derived.
+
+**Linked-recording suggestions.** `suggestRelations(cards)` proposes `relatedTo` links for the host to review; nothing is linked without the host's confirmation, and a suggestion is never a curated fact. `songKey(text)` normalizes a title or artist:
+
+1. Lowercase each code point on its own with its Unicode lowercase mapping, without context (so `Σ` always becomes `σ`), then decompose (NFD) and remove every combining mark (general category M).
+2. Repeat until nothing changes. Remove trailing U+0020 spaces. A part **names a version** when one of its maximal runs of ASCII letters `a`–`z` is one of `remaster`, `remastered`, `live`, `version`, `edit`, `mix`, `remix`, `mono`, `stereo`, `demo`, `acoustic`, `single`, `radio`, `feat`, `ft`. Then:
+   - if the text ends with `)` or `]` and contains a matching `(` or `[` before it, the **group** runs from the last such opener to the end; if the group names a version, remove it and repeat;
+   - otherwise, or when the group names no version: if the text contains ` - ` (space, hyphen-minus, space), the **dash part** is everything after its last occurrence; if the dash part names a version, remove from that occurrence to the end and repeat;
+   - otherwise stop.
+3. Replace every run of characters that are not letters or digits (general categories L and N) with one space, and trim spaces.
+
+Then:
+
+1. Group all cards with a non-empty `songKey(title)` by that key; groups of one card are dropped. A card that already has `relatedTo` can be a group's original but is never suggested itself.
+2. In each group the **original** is the card with the smallest `gameYear.value`, then the smallest ID in code-point order.
+3. Every other card X in the group without `relatedTo` gets `{cardId: X, relatedTo: original, relation}`: `remasterOf` when `songKey(X.artist)` equals `songKey(original.artist)`, otherwise `coverOf`.
+4. Sort by original ID, then card ID, in code-point order.

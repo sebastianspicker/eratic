@@ -438,6 +438,51 @@ describe("Spotify snippets", () => {
     expect(f.controller.pause).toHaveBeenCalledOnce();
     f.session.dispose();
   });
+  it("retries a silent snippet once, then returns to ready without counting the step", async () => {
+    const f = await ready();
+    const audible = vi.fn();
+    f.session.snippet(0, 1000, audible);
+    expect(f.controller.play).toHaveBeenCalledOnce();
+    // Spotify accepted the request but reports no audible progress.
+    f.update({ isPaused: false, isBuffering: true, position: 0 });
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(f.controller.play).toHaveBeenCalledTimes(2);
+    expect(f.state).toHaveBeenLastCalledWith("starting");
+    await vi.advanceTimersByTimeAsync(3_999);
+    expect(f.state).toHaveBeenLastCalledWith("starting");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(f.state).toHaveBeenLastCalledWith("ready");
+    expect(f.controller.pause).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(f.state).toHaveBeenLastCalledWith("ready");
+    expect(audible).not.toHaveBeenCalled();
+    // A late audible report cannot revive the abandoned snippet.
+    f.update({ isPaused: true, position: 0 });
+    f.update({ isPaused: false, position: 300 });
+    expect(audible).not.toHaveBeenCalled();
+    // Play again is a fresh request.
+    f.session.snippet(0, 1000, audible);
+    f.update({ isPaused: false, position: 100 });
+    expect(audible).toHaveBeenCalledOnce();
+    f.session.dispose();
+  });
+  it("does not retry a snippet that became audible in time, or one the host cancelled", async () => {
+    const f = await ready();
+    const audible = vi.fn();
+    f.session.snippet(0, 30_000, audible);
+    await vi.advanceTimersByTimeAsync(1_000);
+    f.update({ isPaused: false, position: 100 });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(f.controller.play).toHaveBeenCalledOnce();
+    expect(audible).toHaveBeenCalledOnce();
+    f.session.pause();
+    f.session.snippet(0, 1000, vi.fn());
+    f.session.pause();
+    f.state.mockClear();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(f.state).not.toHaveBeenCalledWith("ready");
+    f.session.dispose();
+  });
   it("replays in the same controller and seeks for a later start", async () => {
     const f = await ready();
     f.session.snippet(0, 1000, vi.fn());
@@ -530,7 +575,7 @@ describe("Spotify snippets", () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(f.controller.pause).not.toHaveBeenCalled();
   });
-  it("ends quietly when the preview ends first, and errors if it never starts", async () => {
+  it("ends quietly when the preview ends first, and returns to ready if it never starts", async () => {
     const f = await ready();
     f.session.snippet(0, 5000, vi.fn());
     f.update({ isPaused: false, position: 100 });
@@ -541,7 +586,7 @@ describe("Spotify snippets", () => {
     const audible = vi.fn();
     f.session.snippet(0, 1000, audible);
     await vi.advanceTimersByTimeAsync(12_000);
-    expect(f.state).toHaveBeenLastCalledWith("error");
+    expect(f.state).toHaveBeenLastCalledWith("ready");
     expect(audible).not.toHaveBeenCalled();
   });
 });

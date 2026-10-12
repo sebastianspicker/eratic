@@ -225,7 +225,8 @@ export function CardStage({
   const [played, setPlayed] = useState(false);
   const [previewRevision, setPreviewRevision] = useState(0);
   const { start, earlier, later } = useClipStart(card, deck, session);
-  const { player, exact, route, play, stop, status, error } = useCardPlayer(playback, controller);
+  const { player, exact, route, play, stop, status, error, preparingKey } = useCardPlayer(playback, controller);
+  const preparing = card !== undefined && preparingKey === card.id;
   const how = card && route(card);
   const tier = playback.hubState.tier;
   function onPlay() {
@@ -249,8 +250,8 @@ export function CardStage({
           <p className="muted">{how.message}</p>
         ) : how.kind === "exact" ? (
           <div className="action-row">
-            <button className="primary" onClick={onPlay}>
-              {played ? "Replay" : "Play"}
+            <button className="primary" aria-disabled={preparing ? "true" : undefined} onClick={preparing ? undefined : onPlay}>
+              {preparing ? "Preparing…" : played ? "Replay" : "Play"}
             </button>
             {clipPlaying(playback.clipState) ? <button onClick={stop}>Stop</button> : null}
           </div>

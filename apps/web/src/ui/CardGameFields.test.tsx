@@ -130,3 +130,59 @@ describe("deck format 2 game fields", () => {
     });
   });
 });
+
+describe("suggested linked recordings", () => {
+  // demo-002 shares demo-001's title under another artist: a cover of the 1984 original.
+  const withCover = () => ({
+    ...demo,
+    cards: demo.cards.map((card) => (card.id === "demo-002" ? { ...card, title: "Paper Satellites (Live)" } : card)),
+  });
+
+  it("is absent without matching titles", async () => {
+    await render();
+    expect($(".link-suggestions")).toBeNull();
+  });
+
+  it("lists a collapsed suggestion with a caution; Link saves it with the version 2 notice", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(withCover()));
+    await render();
+    const panel = $(".link-suggestions") as HTMLDetailsElement;
+    expect(panel.tagName).toBe("DETAILS");
+    expect(panel.open).toBe(false);
+    expect(panel.querySelector("summary")?.textContent).toBe("Suggested linked recordings (1)");
+    expect(panel.textContent).toContain("suggestions from matching titles");
+    expect(panel.querySelector("li span")?.textContent).toBe("Paper Satellites (Live) — cover of Paper Satellites (1984)");
+    await click(button("Link"));
+    expect(notice()).toBe(MIGRATION_NOTICE);
+    const saved = stored();
+    expect(saved.schemaVersion).toBe(2);
+    expect(saved.cards[1].relatedTo).toEqual({ cardId: "demo-001", relation: "coverOf" });
+    expect($(".link-suggestions")).toBeNull();
+  });
+
+  it("suggests a remaster when the artist matches", async () => {
+    const deck = withCover();
+    deck.cards[1] = { ...deck.cards[1], artist: demo.cards[0].artist, title: "Paper Satellites - Remastered 2011" };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deck));
+    await render();
+    expect($(".link-suggestions li span")?.textContent).toBe(
+      "Paper Satellites - Remastered 2011 — remaster of Paper Satellites (1984)",
+    );
+  });
+
+  it("Dismiss hides a suggestion for this session only, without storing anything", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(withCover()));
+    await render();
+    const before = localStorage.getItem(STORAGE_KEY);
+    const keys = Object.keys(localStorage).sort();
+    await click(button("Dismiss"));
+    expect($(".link-suggestions")).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEY)).toBe(before);
+    expect(Object.keys(localStorage).sort()).toEqual(keys);
+    // A fresh page shows it again.
+    await act(async () => root.unmount());
+    container.remove();
+    await render();
+    expect($(".link-suggestions")).not.toBeNull();
+  });
+});

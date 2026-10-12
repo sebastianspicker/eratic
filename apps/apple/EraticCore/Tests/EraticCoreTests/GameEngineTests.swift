@@ -352,6 +352,38 @@ final class GameEngineTests: XCTestCase {
         check(try run(capped, players: 2, two), ["phase": "finished", "streaks": ["p1": 1, "p2": 1], "standings": [["p1", "p2"]]])
     }
 
+    func testHigherLowerEveryoneHasNoActivePlayer() throws {
+        let options = GameOptions.higherLower(HigherLowerOptions(play: .everyone, lives: 2))
+        var state = try GameEngine.start(options: options, players: players(2), seed: 1)
+        for (index, action) in [GameAction.reference(card: card("r", 1980)), .draw(card: card("c1", 1990)), .call(playerId: "p2", call: .earlier)].enumerated() {
+            state = try GameEngine.apply(SessionAction(at: index * 1000, action), to: state)
+        }
+        XCTAssertNil(GameEngine.summary(of: state)["active"])
+        XCTAssertNil(state.activePlayerID)
+        XCTAssertEqual(state.pendingInputs, ["p1"])
+        XCTAssertEqual(state.higherLowerLives(for: "p1"), 2)
+        state = try GameEngine.apply(SessionAction(at: 3000, .call(playerId: "p1", call: .later)), to: state)
+        state = try GameEngine.apply(SessionAction(at: 4000, .reveal), to: state)
+        check(GameEngine.summary(of: state), ["phase": "awaitingDraw", "lives": ["p1": 2, "p2": 1], "streaks": ["p1": 1, "p2": 0]])
+        XCTAssertNil(GameEngine.summary(of: state)["active"])
+    }
+
+    func testVersion2OptionsAreSetupErrorsInVersion1() {
+        var buzzer = LadderOptions()
+        buzzer.buzzer = true
+        for options in [GameOptions.higherLower(HigherLowerOptions(play: .everyone)), .higherLower(HigherLowerOptions(play: .everyone, lives: 3)),
+                        .higherLower(HigherLowerOptions(closer: true)), .ladder(buzzer)] {
+            XCTAssertThrowsError(try GameEngine.start(options: options, players: players(2), sessionVersion: 1), "\(options)") { error in
+                XCTAssertEqual((error as? GameError)?.actionIndex, -1)
+            }
+            XCTAssertNoThrow(try GameEngine.start(options: options, players: players(2), sessionVersion: 2), "\(options)")
+        }
+        // `lives` needs `play: everyone` and 1–5.
+        for options in [HigherLowerOptions(lives: 3), HigherLowerOptions(play: .everyone, lives: 0), HigherLowerOptions(play: .everyone, lives: 6)] {
+            XCTAssertThrowsError(try GameEngine.start(options: .higherLower(options), players: players(2)), "\(options)")
+        }
+    }
+
     // MARK: Relay
 
     func testRelay() throws {

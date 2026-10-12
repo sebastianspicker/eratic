@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { pendingInputs } from "../../../core/game/engine";
-import { dailyRoundKind } from "../../../core/scoring";
+import { dailyRoundKind, distance } from "../../../core/scoring";
 import type { DailyOptions } from "../../../core/session";
 import { loadDaily } from "../../../sessions";
 import { deltas, signed } from "../history";
-import { YearEntry } from "./Bullseye";
+import { YearEntry, yearsOff } from "./Bullseye";
 import { EraEntry, eraPickText } from "./EraSort";
 import { LockedEntry, send } from "./LockedEntry";
 import type { ModeInputProps, ModeUI } from "./types";
@@ -41,7 +41,7 @@ function DailyInput({ controller, state }: ModeInputProps) {
       <p className="round-note">
         Round {round} of {total}: {eraRound ? "which era?" : "which year?"}
       </p>
-      <LockedEntry players={state.players} pending={pendingInputs(state)}>
+      <LockedEntry players={state.players} pending={pendingInputs(state)} hideList>
         {(player) =>
           eraRound ? (
             <EraEntry
@@ -71,7 +71,7 @@ export const dailyUI: ModeUI = {
         return [
           {
             playerId: action.playerId,
-            text: `${signed(deltas(info, action.playerId).points)} (guessed ${action.year})`,
+            text: `${signed(deltas(info, action.playerId).points)}, ${yearsOff(distance(action.year, info.cards[0].year))} (guessed ${action.year})`,
           },
         ];
       return [];

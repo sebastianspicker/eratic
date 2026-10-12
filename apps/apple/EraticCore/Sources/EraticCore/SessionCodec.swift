@@ -136,7 +136,7 @@ public enum SessionCodec {
             if values["clip"] != nil { options.clip = try choice(values, "clip", path) }
             return .timeline(options)
         case .ladder:
-            let values = try object(raw, required: [], optional: ["rounds", "steps", "guess", "clipStart", "stakes"], path: path)
+            let values = try object(raw, required: [], optional: ["rounds", "steps", "guess", "clipStart", "stakes", "buzzer"], path: path)
             var options = LadderOptions()
             options.steps = LadderOptions.defaultSteps(version: version)
             if values["rounds"] != nil { options.rounds = try integer(values, "rounds", path) }
@@ -150,11 +150,17 @@ public enum SessionCodec {
             if values["guess"] != nil { options.guess = try choice(values, "guess", path) }
             if values["clipStart"] != nil { options.clipStart = try choice(values, "clipStart", path) }
             if values["stakes"] != nil { options.stakes = try bool(values, "stakes", path) }
+            try requireVersion2(values, ["buzzer"], version: version)
+            if values["buzzer"] != nil { options.buzzer = try bool(values, "buzzer", path) }
             return .ladder(options)
         case .higherLower:
-            let values = try object(raw, required: [], optional: ["cards"], path: path)
+            let values = try object(raw, required: [], optional: ["cards", "play", "lives", "closer"], path: path)
+            try requireVersion2(values, ["play", "lives", "closer"], version: version)
             var options = HigherLowerOptions()
             if values["cards"] != nil { options.cards = try integer(values, "cards", path) }
+            if values["play"] != nil { options.play = try choice(values, "play", path) }
+            if values["lives"] != nil { options.lives = try integer(values, "lives", path) }
+            if values["closer"] != nil { options.closer = try bool(values, "closer", path) }
             return .higherLower(options)
         case .relay:
             let values = try object(raw, required: [], optional: ["target", "lives", "anchor", "anchorYear", "nameIt"], path: path)
@@ -186,6 +192,12 @@ public enum SessionCodec {
             if values["rounds"] != nil { options.rounds = try integer(values, "rounds", path) }
             return .imposter(options)
         }
+    }
+
+    /// Options that exist only in session version 2 are a setup error in version 1, even with their default value.
+    private static func requireVersion2(_ values: [String: Any], _ keys: [String], version: Int) throws {
+        guard version == 1 else { return }
+        for key in keys where values[key] != nil { throw DeckError("options.\(key) needs session version 2.") }
     }
 
     // MARK: Actions
@@ -307,8 +319,18 @@ public enum SessionCodec {
                                          "tokens": o.tokens, "nameIt": o.nameIt, "stakes": o.stakes, "clip": o.clip.rawValue]
             if let year = o.anchorYear { object["anchorYear"] = year }
             return object
-        case let .ladder(o): return ["rounds": o.rounds, "steps": o.steps, "guess": o.guess.rawValue, "clipStart": o.clipStart.rawValue, "stakes": o.stakes]
-        case let .higherLower(o): return ["cards": o.cards]
+        case let .ladder(o):
+            var object: [String: Any] = ["rounds": o.rounds, "steps": o.steps, "guess": o.guess.rawValue, "clipStart": o.clipStart.rawValue, "stakes": o.stakes]
+            // Version 2 options are written only when set, so version 1 sessions stay valid.
+            if o.buzzer { object["buzzer"] = true }
+            return object
+        case let .higherLower(o):
+            var object: [String: Any] = ["cards": o.cards]
+            if o.play != .turns { object["play"] = o.play.rawValue }
+            // With play everyone, lives is always written (game-rules.md section 4).
+            if o.play == .everyone { object["lives"] = o.startingLives } else if let lives = o.lives { object["lives"] = lives }
+            if o.closer { object["closer"] = true }
+            return object
         case let .relay(o):
             var object: [String: Any] = ["target": o.target, "lives": o.lives, "anchor": o.anchor.rawValue, "nameIt": o.nameIt]
             if let year = o.anchorYear { object["anchorYear"] = year }

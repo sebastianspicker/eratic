@@ -61,6 +61,10 @@ const frameAPI: SpotifyEmbedAPI = {
   },
 };
 
+// A start that stays silent is retried once after this long, then given up on this much later.
+const SILENT_RETRY_MS = 2_000;
+const SILENT_GIVE_UP_MS = 4_000;
+
 export type PreviewState = "loading" | "ready" | "starting" | "playing" | "paused" | "unavailable" | "error";
 // Seconds.
 export type PreviewProgress = { position: number; duration: number };
@@ -129,7 +133,8 @@ export class SpotifyPreviewSession implements PreviewSession {
           }
           this.followSnippet(data);
           // Spotify accepted the play request: no retry; the original 12 s deadline still applies.
-          if (!data.isPaused) clearTimeout(this.autoTimer);
+          // A snippet keeps watching: accepted is not audible.
+          if (!data.isPaused && !this.clip) clearTimeout(this.autoTimer);
           // A successful play request isn't evidence that audio has started.
           if (!data.isPaused && !data.isBuffering && (data.position ?? 0) > 0) {
             this.started = true;
@@ -191,15 +196,21 @@ export class SpotifyPreviewSession implements PreviewSession {
   // fresh host gesture) instead of a "starting" state that never starts.
   private autoplay() {
     this.play();
+    this.watchSilentStart(() => this.started || !this.pendingStart, () => this.controller?.play(), () => {});
+  }
+  // Retries once after SILENT_RETRY_MS and gives up SILENT_GIVE_UP_MS later by returning to ready.
+  private watchSilentStart(settled: () => boolean, retry: () => void, giveUp: () => void) {
+    clearTimeout(this.autoTimer);
     this.autoTimer = setTimeout(() => {
-      if (this.disposed || this.started || !this.pendingStart) return;
-      try { this.controller?.play(); } catch { this.update("error"); return; }
+      if (this.disposed || settled()) return;
+      try { retry(); } catch { this.update("error"); return; }
       this.autoTimer = setTimeout(() => {
-        if (this.disposed || this.started || !this.pendingStart) return;
+        if (this.disposed || settled()) return;
+        giveUp();
         this.pendingStart = false;
         this.update("ready");
-      }, 4_000);
-    }, 2_000);
+      }, SILENT_GIVE_UP_MS);
+    }, SILENT_RETRY_MS);
   }
   private begin(start: (controller: SpotifyEmbedController) => void) {
     if (this.disposed || !this.controller) return;
@@ -231,12 +242,20 @@ export class SpotifyPreviewSession implements PreviewSession {
     const clip = this.clip;
     if (clip.before !== undefined) clip.staleTimer = setTimeout(() => { clip.before = undefined; }, 1500);
     const from = this.clip.from;
-    this.begin((controller) => {
+    const start = (controller: SpotifyEmbedController) => {
       if (from > 0) {
         controller.seek(from);
         if (this.started) controller.resume(); else controller.play();
       } else if (this.started) controller.restart();
       else controller.play();
+    };
+    this.begin(start);
+    // No audible progress in time: return to ready so the host presses Play again, and
+    // the step never counts as played (onAudible was not called).
+    this.watchSilentStart(() => this.clip !== clip || clip.onset, () => start(this.controller!), () => {
+      this.cancelSnippet();
+      this.pauseRequested = true;
+      try { this.controller?.pause(); } catch { /* Ready is still the right state. */ }
     });
   }
   seek(seconds: number) {

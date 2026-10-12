@@ -19,6 +19,17 @@ struct SongBackup: View {
         return known ?? PlayableTrack.from(card: card, provider: .manual)?.url
     }
 
+    /// The backup link when it is a Spotify or Apple Music track, the only source of a preview snippet.
+    static func snippetURL(for card: SongCard, provider: PlaybackProvider) -> URL? {
+        guard let url = backupURL(for: card, provider: provider), ScanRules.providerTrack(url.absoluteString) != nil else { return nil }
+        return url
+    }
+
+    /// Whether the card can play a preview snippet with any provider: it has a Spotify or Apple Music track link.
+    static func hasSnippet(_ card: SongCard) -> Bool {
+        card.links.contains { ScanRules.providerTrack($0.url) != nil }
+    }
+
     var body: some View {
         if let url {
             if collapsed {

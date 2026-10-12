@@ -1,5 +1,5 @@
 {
-  "description": "Deterministic primitives, eras, scoring, imposter pairs and the Eratic card URL (game-rules.md sections 1-3, 6.8, 8.2 and 8.3), shared by Apple and web. Each case calls `fn` with the named `args` and expects `expected`, or expects the call to fail when `error` is true. Expected values were computed by an independent reference implementation written from the pseudo-code. Sets of IDs and lists are compared exactly; compareCodePoints compares the sign. eraticCardURL expects the URL string, or null when the host or either ID is invalid.",
+  "description": "Deterministic primitives, eras, scoring, imposter pairs and the Eratic card URL (game-rules.md sections 1-3, 6.8, 8.2 and 8.3), shared by Apple and web. Each case calls `fn` with the named `args` and expects `expected`, or expects the call to fail when `error` is true. Expected values were computed by an independent reference implementation written from the pseudo-code. Sets of IDs and lists are compared exactly; compareCodePoints compares the sign. eraticCardURL expects the URL string, or null when the host or either ID is invalid. closerPick expects the picked card ID, or null for no candidates. suggestRelations takes cards as {id, title, artist, year, relatedTo?} with `year` standing for gameYear.value and `relatedTo` as in deck version 2.",
   "cases": [
     {
       "name": "mulberry32-seed-0",
@@ -6478,6 +6478,682 @@
         "cardId": "c1"
       },
       "expected": null
+    },
+    {
+      "name": "closerPick-first-within-window",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1950",
+            "year": 1950
+          },
+          {
+            "id": "k1-2011",
+            "year": 2011
+          },
+          {
+            "id": "k2-1995",
+            "year": 1995
+          },
+          {
+            "id": "k3-1975",
+            "year": 1975
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 0
+      },
+      "expected": "k2-1995"
+    },
+    {
+      "name": "closerPick-window-shrinks",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1975",
+            "year": 1975
+          },
+          {
+            "id": "k1-1993",
+            "year": 1993
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 4
+      },
+      "expected": "k1-1993"
+    },
+    {
+      "name": "closerPick-window-boundary-included",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1978",
+            "year": 1978
+          },
+          {
+            "id": "k1-1993",
+            "year": 1993
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 4
+      },
+      "expected": "k0-1978"
+    },
+    {
+      "name": "closerPick-window-floor-3",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1985",
+            "year": 1985
+          },
+          {
+            "id": "k1-1994",
+            "year": 1994
+          },
+          {
+            "id": "k2-1993",
+            "year": 1993
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 50
+      },
+      "expected": "k2-1993"
+    },
+    {
+      "name": "closerPick-equal-year-skipped",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1990",
+            "year": 1990
+          },
+          {
+            "id": "k1-1991",
+            "year": 1991
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 0
+      },
+      "expected": "k1-1991"
+    },
+    {
+      "name": "closerPick-nearest-outside-window",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1950",
+            "year": 1950
+          },
+          {
+            "id": "k1-2040",
+            "year": 2040
+          },
+          {
+            "id": "k2-2035",
+            "year": 2035
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 0
+      },
+      "expected": "k0-1950"
+    },
+    {
+      "name": "closerPick-nearest-tie-first-in-order",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-2050",
+            "year": 2050
+          },
+          {
+            "id": "k1-1930",
+            "year": 1930
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 0
+      },
+      "expected": "k0-2050"
+    },
+    {
+      "name": "closerPick-only-equal-years",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1990",
+            "year": 1990
+          },
+          {
+            "id": "k1-1990",
+            "year": 1990
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 0
+      },
+      "expected": "k0-1990"
+    },
+    {
+      "name": "closerPick-empty",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [],
+        "referenceYear": 1990,
+        "revealed": 0
+      },
+      "expected": null
+    },
+    {
+      "name": "songKey-lowercase-and-spaces",
+      "fn": "songKey",
+      "args": {
+        "text": "  Paper   Satellites! "
+      },
+      "expected": "paper satellites"
+    },
+    {
+      "name": "songKey-diacritics",
+      "fn": "songKey",
+      "args": {
+        "text": "Café Déjà Vu"
+      },
+      "expected": "cafe deja vu"
+    },
+    {
+      "name": "songKey-remaster-parenthesis",
+      "fn": "songKey",
+      "args": {
+        "text": "Paper Satellites (2011 Remaster)"
+      },
+      "expected": "paper satellites"
+    },
+    {
+      "name": "songKey-live-dash",
+      "fn": "songKey",
+      "args": {
+        "text": "Paper Satellites - Live at Wembley"
+      },
+      "expected": "paper satellites"
+    },
+    {
+      "name": "songKey-repeated-suffixes",
+      "fn": "songKey",
+      "args": {
+        "text": "Paper Satellites [Mono] (Remastered 2009)"
+      },
+      "expected": "paper satellites"
+    },
+    {
+      "name": "songKey-feat-group",
+      "fn": "songKey",
+      "args": {
+        "text": "Neon Rain (feat. Lin)"
+      },
+      "expected": "neon rain"
+    },
+    {
+      "name": "songKey-keeps-unrelated-parenthesis",
+      "fn": "songKey",
+      "args": {
+        "text": "Neon Rain (Part 2)"
+      },
+      "expected": "neon rain part 2"
+    },
+    {
+      "name": "songKey-word-match-only",
+      "fn": "songKey",
+      "args": {
+        "text": "Neon Rain (Alive)"
+      },
+      "expected": "neon rain alive"
+    },
+    {
+      "name": "songKey-non-latin",
+      "fn": "songKey",
+      "args": {
+        "text": "Привет (Live)"
+      },
+      "expected": "привет"
+    },
+    {
+      "name": "songKey-only-punctuation",
+      "fn": "songKey",
+      "args": {
+        "text": "!!!"
+      },
+      "expected": ""
+    },
+    {
+      "name": "suggestRelations-cover-and-remaster",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "b",
+            "title": "Paper Satellites",
+            "artist": "The Orbits",
+            "year": 1999
+          },
+          {
+            "id": "a",
+            "title": "Paper Satellites",
+            "artist": "Ada Vance",
+            "year": 1984
+          },
+          {
+            "id": "c",
+            "title": "Paper Satellites (2011 Remaster)",
+            "artist": "ADA VANCE",
+            "year": 2011
+          },
+          {
+            "id": "d",
+            "title": "Neon Rain",
+            "artist": "Lin",
+            "year": 1990
+          }
+        ]
+      },
+      "expected": [
+        {
+          "cardId": "b",
+          "relatedTo": "a",
+          "relation": "coverOf"
+        },
+        {
+          "cardId": "c",
+          "relatedTo": "a",
+          "relation": "remasterOf"
+        }
+      ]
+    },
+    {
+      "name": "suggestRelations-year-tie-smallest-id",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "z",
+            "title": "Hello",
+            "artist": "X",
+            "year": 1980
+          },
+          {
+            "id": "m",
+            "title": "Hello",
+            "artist": "Y",
+            "year": 1980
+          }
+        ]
+      },
+      "expected": [
+        {
+          "cardId": "z",
+          "relatedTo": "m",
+          "relation": "coverOf"
+        }
+      ]
+    },
+    {
+      "name": "suggestRelations-linked-card-not-suggested",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "a",
+            "title": "Hello",
+            "artist": "X",
+            "year": 1970
+          },
+          {
+            "id": "b",
+            "title": "Hello",
+            "artist": "Y",
+            "year": 1980,
+            "relatedTo": {
+              "cardId": "a",
+              "relation": "coverOf"
+            }
+          },
+          {
+            "id": "c",
+            "title": "Hello",
+            "artist": "Z",
+            "year": 1990
+          }
+        ]
+      },
+      "expected": [
+        {
+          "cardId": "c",
+          "relatedTo": "a",
+          "relation": "coverOf"
+        }
+      ]
+    },
+    {
+      "name": "suggestRelations-linked-original-still-counts",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "a",
+            "title": "Hello",
+            "artist": "X",
+            "year": 1970,
+            "relatedTo": {
+              "cardId": "q",
+              "relation": "originalOf"
+            }
+          },
+          {
+            "id": "q",
+            "title": "Other",
+            "artist": "Q",
+            "year": 2000
+          },
+          {
+            "id": "c",
+            "title": "Hello",
+            "artist": "Z",
+            "year": 1990
+          }
+        ]
+      },
+      "expected": [
+        {
+          "cardId": "c",
+          "relatedTo": "a",
+          "relation": "coverOf"
+        }
+      ]
+    },
+    {
+      "name": "suggestRelations-singletons-dropped",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "a",
+            "title": "Hello",
+            "artist": "X",
+            "year": 1970
+          },
+          {
+            "id": "b",
+            "title": "Goodbye",
+            "artist": "X",
+            "year": 1971
+          },
+          {
+            "id": "e",
+            "title": "!!!",
+            "artist": "X",
+            "year": 1972
+          },
+          {
+            "id": "f",
+            "title": "???",
+            "artist": "Y",
+            "year": 1973
+          }
+        ]
+      },
+      "expected": []
+    },
+    {
+      "name": "suggestRelations-sorted-by-original-then-card",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "y2",
+            "title": "Song B",
+            "artist": "S",
+            "year": 2001
+          },
+          {
+            "id": "y1",
+            "title": "Song B",
+            "artist": "S",
+            "year": 1961
+          },
+          {
+            "id": "x3",
+            "title": "Song A",
+            "artist": "T",
+            "year": 2003
+          },
+          {
+            "id": "x2",
+            "title": "Song A",
+            "artist": "U",
+            "year": 2002
+          },
+          {
+            "id": "x1",
+            "title": "Song A",
+            "artist": "T",
+            "year": 1960
+          }
+        ]
+      },
+      "expected": [
+        {
+          "cardId": "x2",
+          "relatedTo": "x1",
+          "relation": "coverOf"
+        },
+        {
+          "cardId": "x3",
+          "relatedTo": "x1",
+          "relation": "remasterOf"
+        },
+        {
+          "cardId": "y2",
+          "relatedTo": "y1",
+          "relation": "remasterOf"
+        }
+      ]
+    },
+    {
+      "name": "closerPick-window-upper-bound-excluded",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-2011",
+            "year": 2011
+          },
+          {
+            "id": "k1-1960",
+            "year": 1960
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 0
+      },
+      "expected": "k0-2011"
+    },
+    {
+      "name": "closerPick-revealed-8-window-4",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1995",
+            "year": 1995
+          },
+          {
+            "id": "k1-1986",
+            "year": 1986
+          },
+          {
+            "id": "k2-1994",
+            "year": 1994
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 8
+      },
+      "expected": "k1-1986"
+    },
+    {
+      "name": "closerPick-revealed-9-window-3",
+      "fn": "closerPick",
+      "args": {
+        "candidates": [
+          {
+            "id": "k0-1986",
+            "year": 1986
+          },
+          {
+            "id": "k1-1994",
+            "year": 1994
+          },
+          {
+            "id": "k2-1993",
+            "year": 1993
+          }
+        ],
+        "referenceYear": 1990,
+        "revealed": 9
+      },
+      "expected": "k2-1993"
+    },
+    {
+      "name": "songKey-dash-before-plain-group",
+      "fn": "songKey",
+      "args": {
+        "text": "Song - Live At Wembley (1985)"
+      },
+      "expected": "song"
+    },
+    {
+      "name": "songKey-dash-with-unmatched-bracket",
+      "fn": "songKey",
+      "args": {
+        "text": "Track - Live :)"
+      },
+      "expected": "track"
+    },
+    {
+      "name": "songKey-last-dash-only",
+      "fn": "songKey",
+      "args": {
+        "text": "Song - Live - Part 2"
+      },
+      "expected": "song live part 2"
+    },
+    {
+      "name": "songKey-ft",
+      "fn": "songKey",
+      "args": {
+        "text": "Neon Rain (ft. Lin)"
+      },
+      "expected": "neon rain"
+    },
+    {
+      "name": "songKey-empty-after-strip",
+      "fn": "songKey",
+      "args": {
+        "text": "(Live)"
+      },
+      "expected": ""
+    },
+    {
+      "name": "songKey-final-sigma-context-free",
+      "fn": "songKey",
+      "args": {
+        "text": "ΟΔΟΣ"
+      },
+      "expected": "οδοσ"
+    },
+    {
+      "name": "songKey-hyphen-without-spaces",
+      "fn": "songKey",
+      "args": {
+        "text": "Live-In"
+      },
+      "expected": "live in"
+    },
+    {
+      "name": "songKey-only-u0020-trimmed",
+      "fn": "songKey",
+      "args": {
+        "text": "Song (Live) "
+      },
+      "expected": "song live"
+    },
+    {
+      "name": "songKey-dash-group-version-repeat",
+      "fn": "songKey",
+      "args": {
+        "text": "Song (Remastered) - Live"
+      },
+      "expected": "song"
+    },
+    {
+      "name": "suggestRelations-final-sigma-titles-differ",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "a",
+            "title": "ΟΔΟΣ",
+            "artist": "X",
+            "year": 1970
+          },
+          {
+            "id": "b",
+            "title": "Οδος",
+            "artist": "Y",
+            "year": 1980
+          }
+        ]
+      },
+      "expected": []
+    },
+    {
+      "name": "suggestRelations-feat-artist-is-a-cover",
+      "fn": "suggestRelations",
+      "args": {
+        "cards": [
+          {
+            "id": "a",
+            "title": "Hello",
+            "artist": "Ada",
+            "year": 1970
+          },
+          {
+            "id": "b",
+            "title": "Hello",
+            "artist": "Ada feat. Lin",
+            "year": 1980
+          }
+        ]
+      },
+      "expected": [
+        {
+          "cardId": "b",
+          "relatedTo": "a",
+          "relation": "coverOf"
+        }
+      ]
     }
   ]
 }

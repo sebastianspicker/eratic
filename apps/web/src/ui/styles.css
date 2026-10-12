@@ -445,12 +445,35 @@ input[type="checkbox"] {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
+/* The reveal is staggered: the year drops in, then the title and artist, then the results. */
+.reveal-then,
+.reveal-last {
+  animation: reveal-in 0.3s ease-out both;
+}
+.reveal-then {
+  animation-delay: 350ms;
+}
+.reveal-last {
+  animation-delay: 700ms;
+}
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .era-hero {
     transition: none;
   }
   .era-year,
-  .wordmark-era {
+  .wordmark-era,
+  .reveal-then,
+  .reveal-last {
     animation: none;
   }
 }
@@ -1053,6 +1076,11 @@ button.quiet {
   font-weight: 700;
   margin: 14px 0 0;
 }
+.leader-line {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 14px 0 0;
+}
 .ruler-block {
   margin-top: 20px;
 }
@@ -1157,6 +1185,16 @@ button.quiet {
   padding: 8px 12px;
   font-size: 14px;
   font-weight: 700;
+}
+.tl-slot button[aria-pressed="true"] {
+  border-style: solid;
+  background: var(--stage);
+  color: var(--paper);
+  outline: 3px solid var(--stage);
+  outline-offset: 2px;
+}
+.tl-confirm {
+  margin-top: 14px;
 }
 .tl-gap {
   width: 4px;
@@ -1335,6 +1373,22 @@ button.quiet {
 .standings {
   gap: 8px;
 }
+.personal-best {
+  font-weight: 800;
+  margin: 14px 0 0;
+}
+.recap {
+  margin-top: 16px;
+}
+.recap > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.recap-list {
+  gap: 6px;
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+}
 .standings li {
   display: flex;
   flex-wrap: wrap;
@@ -1434,6 +1488,27 @@ button.quiet {
   }
 }
 
+/* Kids: larger tap targets and text (DESIGN.md, Setup) */
+.host.kids .action-row button,
+.host.kids .tl-slot button,
+.host.kids .era-tile {
+  min-height: 56px;
+  font-size: 18px;
+}
+.host.kids .tl-slot button {
+  min-height: 88px;
+  max-width: 180px;
+}
+.host.kids .era-tile {
+  min-height: 112px;
+}
+.host.kids .era-tile-name {
+  font-size: 22px;
+}
+.host.kids .era-tile-label {
+  font-size: 17px;
+}
+
 /* Deck format 2 game fields */
 .game-fields {
   border-top: 1px solid var(--line);
@@ -1481,4 +1556,31 @@ details.song-backup[open] > summary {
 .backup-picker .segmented {
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.link-suggestions {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  background: #fff;
+  border: 1px solid var(--line, #d9d2c3);
+  border-radius: 8px;
+}
+.link-suggestions summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.link-suggestions ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+.link-suggestions li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+.link-suggestions li span {
+  flex: 1 1 14rem;
 }

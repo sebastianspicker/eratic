@@ -4,6 +4,9 @@ import {
   clearSession,
   DAILY_KEY,
   discardUnreadableSession,
+  loadPlayPrefs,
+  PLAY_PREFS_KEY,
+  savePlayPrefs,
   loadDaily,
   loadSession,
   persistSession,
@@ -135,5 +138,16 @@ describe("daily record", () => {
       expect(loadDaily(storage)).toBeUndefined();
       expect(recordDaily("2026-10-11", 5, "d", undefined, storage).streak).toBe(1);
     }
+  });
+});
+
+describe("play preferences", () => {
+  it("round-trips Kids and still loads values stored without it", () => {
+    const storage = fakeStorage();
+    expect(savePlayPrefs("s1", { easyOnly: false, source: "draw", kids: true }, storage)).toBe(true);
+    expect(loadPlayPrefs("s1", storage)).toEqual({ easyOnly: false, source: "draw", kids: true });
+    storage.setItem(PLAY_PREFS_KEY, JSON.stringify({ s1: { easyOnly: true, source: "scan" } }));
+    expect(loadPlayPrefs("s1", storage)).toEqual({ easyOnly: true, source: "scan" });
+    expect(loadPlayPrefs("s1", storage)?.kids).toBeUndefined();
   });
 });

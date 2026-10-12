@@ -2,11 +2,11 @@ import { useState } from "react";
 import { pendingInputs } from "../../../core/game/engine";
 import { eraFor, eraStyle, ERAS } from "../../eras";
 import { chipsText, deltas, inputsSinceDraw, playerName, signed, type RevealInfo } from "../history";
-import { EntryForm, LockedEntry, send } from "./LockedEntry";
+import { AllAtOnceForm, EntryForm, LockedEntry, send } from "./LockedEntry";
 import type { ModeInputProps, ModeUI } from "./types";
 import { parseYear, YearField } from "./YearField";
 
-const yearsOff = (n: number): string => (n === 0 ? "exact" : `${n} year${n === 1 ? "" : "s"} off`);
+export const yearsOff = (n: number): string => (n === 0 ? "exact" : `${n} year${n === 1 ? "" : "s"} off`);
 
 // A year entry for one player; with held set, the player also wagers.
 export function YearEntry({
@@ -42,12 +42,36 @@ function BullseyeInput({ controller, session, state }: ModeInputProps) {
     ),
   );
   return (
-    <LockedEntry players={state.players} pending={pendingInputs(state)}>
+    <LockedEntry
+      players={state.players}
+      pending={pendingInputs(state)}
+      allAtOnce={
+        <AllAtOnceForm<string>
+          heading="Everyone's guesses"
+          controller={controller}
+          players={state.players}
+          pending={pendingInputs(state)}
+          initial=""
+          held={(player) => (state.chips && !Object.hasOwn(state.wagers, player.id) ? state.chips[player.id] : undefined)}
+          field={(player, value, onChange) => (
+            <YearField id={`guess-all-${player.id}`} label={`${player.name}'s year`} value={value} onChange={onChange} />
+          )}
+          build={(player, value, wager) => {
+            const year = parseYear(value);
+            if (year === undefined) return "Enter a year from 1850 to 2100.";
+            return [
+              ...(wager !== undefined ? [{ type: "wager" as const, playerId: player.id, chips: wager }] : []),
+              ...(guessed.has(player.id) ? [] : [{ type: "guess" as const, playerId: player.id, year }]),
+            ];
+          }}
+        />
+      }
+    >
       {(player) => (
         <YearEntry
           id={`guess-${player.id}`}
           heading={`${player.name}'s guess`}
-          held={state.chips && !(player.id in state.wagers) ? state.chips[player.id] : undefined}
+          held={state.chips && !Object.hasOwn(state.wagers, player.id) ? state.chips[player.id] : undefined}
           onLock={(year, wager) =>
             send(
               controller,
@@ -75,6 +99,8 @@ function BullseyeRuler({ info, session }: { info: RevealInfo; session: ModeInput
   const low = Math.min(answer, ...marks.map((mark) => mark.year)) - 2;
   const high = Math.max(answer, ...marks.map((mark) => mark.year)) + 2;
   const span = high - low + 1;
+  // Markers carry the player's 1-based number in session order, so "Ada" and "Anna" never collide.
+  const numberOf = (id: string) => session.players.findIndex((player) => player.id === id) + 1;
   // Keep the full 30px marker visible at the ends of a narrow ruler.
   const at = (year: number) => `clamp(16px, ${((year - low + 0.5) / span) * 100}%, calc(100% - 16px))`;
   return (
@@ -99,7 +125,7 @@ function BullseyeRuler({ info, session }: { info: RevealInfo; session: ModeInput
         })}
         {marks.map((mark) => (
           <span key={mark.id} className="ruler-mark" style={{ left: at(mark.year) }}>
-            {playerName(session, mark.id).slice(0, 1)}
+            {numberOf(mark.id)}
           </span>
         ))}
         <span className="ruler-mark answer" style={{ ...eraStyle(eraFor(answer)), left: at(answer) }}>
@@ -112,7 +138,7 @@ function BullseyeRuler({ info, session }: { info: RevealInfo; session: ModeInput
         </li>
         {marks.map((mark) => (
           <li key={mark.id}>
-            {playerName(session, mark.id)}: {mark.year} ({yearsOff(offBy(info, mark.id))})
+            {numberOf(mark.id)} · {playerName(session, mark.id)}: {mark.year} ({yearsOff(offBy(info, mark.id))})
           </li>
         ))}
       </ul>

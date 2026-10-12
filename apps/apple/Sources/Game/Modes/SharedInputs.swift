@@ -34,6 +34,55 @@ struct YearField: View {
     }
 }
 
+/// A year typed by a player, empty until they enter one (no preset year), with −/+ steppers that start from
+/// the previous value or, when empty, from 1990. `parse` is nil unless the text is a year in 1850–2100.
+struct YearEntry: View {
+    let label: String
+    @Binding var text: String
+    var error: String?
+    var large = false
+    static let startYear = 1990
+    static let errorText = "Enter a year from 1850 to 2100."
+
+    static func parse(_ text: String) -> Int? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard let year = Int(trimmed), YearField.range.contains(year) else { return nil }
+        return year
+    }
+
+    private func step(_ by: Int) {
+        let current = Self.parse(text) ?? Self.startYear - by
+        text = String(min(YearField.range.upperBound, max(YearField.range.lowerBound, current + by)))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Text(label)
+                Spacer(minLength: 8)
+                Button { step(-1) } label: { Image(systemName: "minus") }
+                    .accessibilityLabel("One year earlier")
+                TextField(label, text: $text)
+                    .multilineTextAlignment(.center)
+                    .monospacedDigit()
+                    .font(large ? .title.weight(.semibold) : .title3.weight(.semibold))
+                    .frame(width: large ? 110 : 80)
+                    .textFieldStyle(.roundedBorder)
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
+                    .accessibilityLabel(label)
+                Button { step(1) } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("One year later")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(large ? .extraLarge : .large)
+            if let error { Text(error).font(.callout).foregroundStyle(.red) }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
 /// One player at a time enters a hidden value; entered players show only "Locked" until the reveal,
 /// so the host device can be passed around.
 struct LockedEntryList<Entry: View>: View {
@@ -66,6 +115,25 @@ struct LockedEntryList<Entry: View>: View {
     }
 }
 
+/// How Bullseye and Era Sort take entries; remembered on this device (`eratic.play.entry.v1`, `each` or `all`).
+enum EntryMode: String {
+    case each, all
+    static let key = "eratic.play.entry.v1"
+}
+
+/// "One at a time" or "All at once" for the entries of a hidden-answer round.
+struct EntryModePicker: View {
+    @Binding var mode: String
+
+    var body: some View {
+        Picker("Entry", selection: $mode) {
+            Text("One at a time").tag(EntryMode.each.rawValue)
+            Text("All at once").tag(EntryMode.all.rawValue)
+        }
+        .pickerStyle(.segmented)
+    }
+}
+
 /// Stakes: a 1–3 chip wager, disabled with the reason at 0 chips.
 struct WagerControl: View {
     let held: Int
@@ -92,6 +160,10 @@ struct EraGrid: View {
                 tile(boundary, Eras.all.first { $0.id == boundary.id })
             }
         }
+        #if os(macOS)
+        .focusable()
+        .onMoveCommand(perform: move)
+        #endif
     }
 
     private func tile(_ boundary: EraBoundary, _ era: Era?) -> some View {
@@ -115,6 +187,28 @@ struct EraGrid: View {
         .accessibilityLabel("\(boundary.name), \(label)")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
+
+    #if os(macOS)
+    /// Arrow keys move the selection through the grid: left and right by one tile, up and down by a row.
+    private func move(_ direction: MoveCommandDirection) {
+        let ids = EraBoundaries.all.map(\.id)
+        guard let first = ids.first else { return }
+        guard let current = selection.flatMap({ ids.firstIndex(of: $0) }) else {
+            selection = first
+            return
+        }
+        let step: Int
+        switch direction {
+        case .left: step = -1
+        case .right: step = 1
+        case .up: step = -3
+        case .down: step = 3
+        @unknown default: return
+        }
+        let next = current + step
+        if ids.indices.contains(next) { selection = ids[next] }
+    }
+    #endif
 }
 
 /// The card's song, looked up in the deck.

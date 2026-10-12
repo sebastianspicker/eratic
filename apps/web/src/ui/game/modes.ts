@@ -1,6 +1,7 @@
 import type { Card, Deck } from "../../core/deck";
 import { imposterPairs } from "../../core/scoring";
 import type { GameMode, SessionOptions } from "../../core/session";
+import { previewUrl } from "./SnippetPreview";
 
 // Display metadata for the nine modes of docs/game-modes.md, in gallery order.
 // Player ranges and option ranges restate contract/game-rules.md section 6 for
@@ -110,7 +111,10 @@ export function modeAvailability(
   if (deck.cards.length < smallest) return { reason: "Deck too small" };
   // Without exact clips, Snippet Ladder and Original or Imposter play by hand from the song backup.
   if (mode === "imposter" && imposterPairs(deck.cards, 0).length === 0) return { reason: "Needs linked recordings" };
-  if (mode === "lineup" && !exact) return { label: "Lineup by name" };
+  // Lineup plays preview snippets when any card has a Spotify/Apple Music preview
+  // (provider-agnostic, like Lineup.tsx and the native SongBackup.hasSnippet).
+  if (mode === "lineup" && !exact && !deck.cards.some((card) => previewUrl(card, undefined) !== undefined))
+    return { label: "Lineup by name" };
   return {};
 }
 
@@ -119,6 +123,8 @@ export type OptionField = {
   name: keyof SessionOptions;
   label: string;
   when?: (options: SessionOptions) => boolean;
+  // Sent only when it differs from the fallback, so sessions stay minimal (version 2 additions).
+  sparse?: boolean;
 } & (
   | { kind: "int"; min: number; max: number; fallback: number; scale?: number }
   | { kind: "bool"; fallback: boolean }
@@ -201,6 +207,13 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
       ],
     },
     stakes,
+    {
+      name: "buzzer",
+      label: "Buzzer: +2 for the first right lock-in",
+      kind: "bool",
+      fallback: false,
+      sparse: true,
+    },
   ],
   timeline: [
     {
@@ -250,6 +263,33 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
       max: 100,
       fallback: 10,
     },
+    {
+      name: "play",
+      label: "Who calls each card",
+      kind: "choice",
+      fallback: "turns",
+      sparse: true,
+      choices: [
+        ["turns", "Take turns"],
+        ["everyone", "Everyone, with lives"],
+      ],
+    },
+    {
+      name: "lives",
+      label: "Lives",
+      kind: "int",
+      min: 1,
+      max: 5,
+      fallback: 3,
+      when: (options) => options.play === "everyone",
+    },
+    {
+      name: "closer",
+      label: "Closer years as the game goes on",
+      kind: "bool",
+      fallback: false,
+      sparse: true,
+    },
   ],
   relay: [
     { name: "target", label: "Cards to win", kind: "int", min: 2, max: 30, fallback: 12 },
@@ -282,11 +322,15 @@ export function defaultOptions(mode: GameMode): SessionOptions {
         : structuredClone(field.fallback);
   return options as SessionOptions;
 }
-// Drops fields that don't apply (anchorYear without a custom anchor).
+// Drops fields that don't apply (anchorYear without a custom anchor) and
+// sparse ones left at their default.
 export function sessionOptions(mode: GameMode, options: SessionOptions): SessionOptions {
   const result: Record<string, unknown> = {};
   for (const field of OPTION_FIELDS[mode])
-    if (!field.when || field.when(options))
-      result[field.name] = options[field.name];
+    if (!field.when || field.when(options)) {
+      const value = options[field.name];
+      if (field.sparse && (value === undefined || value === field.fallback)) continue;
+      result[field.name] = value;
+    }
   return result as SessionOptions;
 }

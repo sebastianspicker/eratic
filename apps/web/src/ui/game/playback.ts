@@ -176,6 +176,8 @@ export function useCardPlayer(
   error: string;
   status: string;
   playingKey: string | undefined;
+  // The key being prepared: set until the clip is audible (or the attempt fails).
+  preparingKey: string | undefined;
   route: (card: Card) => CardRoute | undefined;
   play: (
     card: Card,
@@ -189,6 +191,7 @@ export function useCardPlayer(
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [playingKey, setPlayingKey] = useState<string>();
+  const [preparingKey, setPreparingKey] = useState<string>();
   const player = playback.hub.player;
   const tier = playback.hubState.tier;
   const exact = Boolean(player && tier && exactClips(tier));
@@ -212,8 +215,12 @@ export function useCardPlayer(
     }
     setError("");
     setPlayingKey(key);
+    setPreparingKey(key);
     const expected = cardsKey(controller.getSnapshot().state);
+    // Clears the slot only if it is still this call's, so a newer play isn't overwritten.
+    const clearPreparing = () => setPreparingKey((current) => (current === key ? undefined : current));
     const record = (from: number, length: number | undefined) => {
+      clearPreparing();
       if (cardsKey(controller.getSnapshot().state) !== expected) return;
       if (!onAudible()) return;
       controller.dispatch({ type: "clip", fromMs: from, ...(length !== undefined && { lengthMs: length }) });
@@ -233,6 +240,8 @@ export function useCardPlayer(
       }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Could not play the song.");
+    } finally {
+      clearPreparing();
     }
   }
   return {
@@ -241,6 +250,7 @@ export function useCardPlayer(
     error,
     status,
     playingKey,
+    preparingKey,
     route,
     play,
     stop: () => void playback.clip.cancel(player),

@@ -13,6 +13,8 @@ struct SetupView: View {
     @State private var easyOnly = false
     @State private var kids = false
     @State private var cardSource: CardSource
+    @State private var confirmReplace = false
+    @State private var problem: String?
     private let hasCamera = AVCaptureDevice.default(for: .video) != nil
 
     private struct PlayerEntry: Identifiable {
@@ -23,14 +25,39 @@ struct SetupView: View {
     init(mode: GameMode) {
         self.mode = mode
         let range = mode.playerRange
-        let count = max(range.lowerBound, min(2, range.upperBound))
-        _players = State(initialValue: (1...count).map { PlayerEntry(name: "Player \($0)") })
+        let roster = SetupView.loadRoster()
+        // The remembered roster, within the mode's player range; without one, two default players.
+        let count = roster.map { max(range.lowerBound, min($0.count, range.upperBound)) } ?? max(range.lowerBound, min(2, range.upperBound))
+        _players = State(initialValue: (1...count).map { number in
+            PlayerEntry(name: roster.flatMap { $0.indices.contains(number - 1) ? $0[number - 1] : nil } ?? "Player \(number)")
+        })
         _options = State(initialValue: SetupView.defaults(mode))
         #if os(macOS)
         _cardSource = State(initialValue: .draw)
         #else
-        _cardSource = State(initialValue: AVCaptureDevice.default(for: .video) != nil ? .scan : .draw)
+        _cardSource = State(initialValue: AVCaptureDevice.default(for: .video) != nil && SetupView.scanModes(mode) ? .scan : .draw)
         #endif
+    }
+
+    /// Modes that accept single scanned cards; Daily, Higher or Lower, Lineup and Imposter draw from the deck.
+    static func scanModes(_ mode: GameMode) -> Bool {
+        ![.daily, .higherLower, .lineup, .imposter].contains(mode)
+    }
+
+    /// The preview length of a preview-only account.
+    private var previewMs: Int? {
+        if case let .previewOnly(maxMs) = playback.tier { return maxMs }
+        return nil
+    }
+
+    /// Ladder steps longer than a preview-only account's preview (game-rules.md 6.4).
+    private var droppedSteps: [Int] {
+        guard case let .ladder(ladder) = options, let maxMs = previewMs else { return [] }
+        return ladder.steps.filter { $0 > maxMs }
+    }
+
+    private static func seconds(_ ms: Int) -> String {
+        ms % 1000 == 0 ? "\(ms / 1000) s" : String(format: "%g s", Double(ms) / 1000)
     }
 
     /// The contract defaults; Daily's options are built from today's date when it starts.
@@ -94,6 +121,11 @@ struct SetupView: View {
             }
             Section("Options") {
                 ModeOptionsEditor(options: $options, defaultYear: medianYear)
+                if let maxMs = previewMs, !droppedSteps.isEmpty {
+                    let steps = namesList(droppedSteps.map(SetupView.seconds))
+                    Text("Previews play up to \(SetupView.seconds(maxMs)), so the \(steps) step\(droppedSteps.count == 1 ? " is" : "s are") left out.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
             }
             // Daily Eratic always selects from the whole deck, so everyone gets the same songs.
             if mode != .daily, deckStore.deck?.cards.contains(where: { $0.difficulty != nil }) == true {
@@ -105,7 +137,7 @@ struct SetupView: View {
             }
             Section("Cards") {
                 Picker("Card source", selection: $cardSource) {
-                    if hasCamera { Text(CardSource.scan.label).tag(CardSource.scan) }
+                    if hasCamera && SetupView.scanModes(mode) { Text(CardSource.scan.label).tag(CardSource.scan) }
                     Text(CardSource.draw.label).tag(CardSource.draw)
                 }
                 if !hasCamera { Text("No camera found, so cards are drawn from the deck.").font(.caption).foregroundStyle(.secondary) }
@@ -113,35 +145,69 @@ struct SetupView: View {
             Section {
                 if game.resumable { Text("Starting replaces the unfinished saved game.").font(.callout).foregroundStyle(.secondary) }
                 if let error = game.lastError { Text(error).foregroundStyle(.red) }
-                Button("Start") { start() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(deckStore.deck == nil)
+                if let problem { Text(problem).foregroundStyle(.red) }
+                Button("Start") {
+                    if game.resumable { confirmReplace = true } else { start() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(deckStore.deck == nil)
             }
         }
         .formStyle(.grouped)
         .navigationTitle(ModeAvailability(mode: mode, deck: deckStore.deck, tier: playback.tier).title)
-        .onAppear { game.lastError = nil }
+        .onAppear {
+            game.lastError = nil
+            problem = nil
+        }
+        .confirmationDialog("Replace the unfinished game?", isPresented: $confirmReplace, titleVisibility: .visible) {
+            Button("Replace", role: .destructive) { start() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Starting a new game replaces the unfinished saved game.")
+        }
     }
 
     private func start() {
         guard let deck = deckStore.deck else { return }
+        problem = nil
         let sessionPlayers = players.enumerated().map { index, entry in
             SessionPlayer(id: "p\(index + 1)", name: SetupView.cleanName(entry.name, fallback: "Player \(index + 1)"))
         }
         var chosen = options
         // A preview-only account drops the steps longer than its preview (game-rules.md 6.4).
-        if case var .ladder(ladder) = chosen, case let .previewOnly(maxMs) = playback.tier {
+        if case var .ladder(ladder) = chosen, let maxMs = previewMs {
             let kept = ladder.steps.filter { $0 <= maxMs }
-            if !kept.isEmpty { ladder.steps = kept }
+            guard !kept.isEmpty else {
+                problem = "Previews play up to \(SetupView.seconds(maxMs)). Choose a shorter step."
+                return
+            }
+            ladder.steps = kept
             chosen = .ladder(ladder)
         }
-        game.start(options: chosen, players: sessionPlayers, deck: deck, cardSource: hasCamera ? cardSource : .draw, easyOnly: easyOnly && mode != .daily, kids: kids)
+        SetupView.saveRoster(sessionPlayers.map(\.name))
+        game.start(options: chosen, players: sessionPlayers, deck: deck, cardSource: hasCamera && SetupView.scanModes(mode) ? cardSource : .draw, easyOnly: easyOnly && mode != .daily, kids: kids)
     }
 
     /// The loaded deck's median curated year, the default for a custom anchor year.
     private var medianYear: Int {
         let years = (deckStore.deck?.cards.map(\.gameYear.value) ?? []).sorted()
         return years.isEmpty ? 1980 : years[years.count / 2]
+    }
+
+    /// The remembered player names (`eratic.roster.v1`): 1–10 trimmed names of 1–40 characters, otherwise ignored.
+    static let rosterKey = "eratic.roster.v1"
+
+    static func loadRoster(_ defaults: UserDefaults = .standard) -> [String]? {
+        guard let names = defaults.stringArray(forKey: rosterKey), (1...10).contains(names.count),
+              names.allSatisfy({ $0 == $0.trimmingCharacters(in: .whitespacesAndNewlines) && (1...40).contains($0.unicodeScalars.count) }) else { return nil }
+        return names
+    }
+
+    /// Remembers the names of a game that starts (Daily doesn't come through setup).
+    static func saveRoster(_ names: [String], _ defaults: UserDefaults = .standard) {
+        let clean = names.map { cleanName($0, fallback: "") }
+        guard (1...10).contains(clean.count), clean.allSatisfy({ !$0.isEmpty }) else { return }
+        defaults.set(clean, forKey: rosterKey)
     }
 
     /// Trimmed, at most 40 code points, never blank.
@@ -205,10 +271,29 @@ struct ModeOptionsEditor: View {
             }
             Text("Steps: " + value.steps.map { "\($0 / 1000) s" }.joined(separator: " · ")).foregroundStyle(.secondary)
             Toggle("Stakes: wager chips on each song", isOn: o.stakes)
+            Toggle("Buzzer: +2 for the first right lock-in", isOn: o.buzzer)
         case let .higherLower(value):
             let o = bind(value) { .higherLower($0) }
             Stepper("Versus ends after \(value.cards) cards", value: o.cards, in: 2...100)
             Text("Solo play goes on until the first miss.").font(.caption).foregroundStyle(.secondary)
+            Picker("Who calls each card", selection: Binding(get: { value.play }, set: { play in
+                var next = value
+                next.play = play
+                // Lives only exist with Everyone; Take turns leaves them unset.
+                if play == .turns { next.lives = nil }
+                options = .higherLower(next)
+            })) {
+                Text("Take turns").tag(HigherLowerPlay.turns)
+                Text("Everyone, with lives").tag(HigherLowerPlay.everyone)
+            }
+            if value.play == .everyone {
+                Stepper("Lives: \(value.startingLives)", value: Binding(get: { value.startingLives }, set: { lives in
+                    var next = value
+                    next.lives = lives
+                    options = .higherLower(next)
+                }), in: 1...5)
+            }
+            Toggle("Closer years as the game goes on", isOn: o.closer)
         case let .relay(value):
             let o = bind(value) { .relay($0) }
             Stepper("Line of \(value.target) cards wins", value: o.target, in: 2...30)

@@ -4,12 +4,15 @@ import { currentCards, pendingInputs } from "../../../core/game/engine";
 import type { CardRef, GameAction, Session } from "../../../core/session";
 import { cardTitle, deltas, signed, type RevealInfo } from "../history";
 import { clipLengthFor, clipPlaying, clipStartFor, useCardPlayer } from "../playback";
+import { previewUrl, useTileSnippets } from "../SnippetPreview";
 import { BackupPicker, ClipStatus } from "../Stage";
 import { EntryForm, LockedEntry, send } from "./LockedEntry";
 import type { ModeInputProps, ModeUI } from "./types";
 import { parseYear, YearField } from "./YearField";
 
 const SIDES = ["a", "b"] as const;
+// Without exact clips each side plays a 10 s snippet from the start of its preview.
+const SNIPPET_MS = 10_000;
 type Side = (typeof SIDES)[number];
 
 // The pair in play or just revealed: the session's latest drawPair.
@@ -21,48 +24,86 @@ function lastPair(session: Session): Extract<GameAction, { type: "drawPair" }> |
   return undefined;
 }
 
-// Play A and Play B, each with its playing state.
+// Play A and Play B, each with its playing state: exact clips, else preview snippets.
+// A side without a preview is played by hand from the backup (its title would give it away).
 function ImposterStage({ state, deck, session, playback, controller }: ModeInputProps) {
   const cards = currentCards(state);
-  const { player, exact, play, stop, playingKey, status, error } = useCardPlayer(playback, controller);
+  const { player, exact, play, stop, playingKey, preparingKey, status, error } = useCardPlayer(playback, controller);
   const playing = clipPlaying(playback.clipState);
   const [revision, setRevision] = useState(0);
+  const open = cards.map((ref) => deck.cards.find((item) => item.id === ref.cardId));
+  // A snippet stops the backup's own preview, like an exact clip.
+  const snippets = useTileSnippets(
+    exact ? [] : cards.map((ref, index) => ({ id: ref.cardId, url: open[index] && previewUrl(open[index], player?.provider) })),
+    SNIPPET_MS,
+    () => setRevision((value) => value + 1),
+  );
+  const loadedLetter = SIDES[cards.findIndex((ref) => ref.cardId === snippets.loaded)]?.toUpperCase();
   return (
     <div className="lineup-stage">
       <ul className="lineup-tiles" aria-label="The two versions">
         {cards.map((ref, index) => {
-          const card = deck.cards.find((item) => item.id === ref.cardId);
+          const card = open[index];
           const letter = SIDES[index].toUpperCase();
-          const now = playing && playingKey === ref.cardId;
+          const snippet = exact ? undefined : snippets.tile(ref.cardId);
+          const now = snippet
+            ? snippet === "starting" || snippet === "playing"
+            : playing && playingKey === ref.cardId;
+          const preparing = preparingKey === ref.cardId;
           return (
             <li key={ref.cardId} className={now ? "lineup-tile playing" : "lineup-tile"}>
               <span className="tile-letter">{letter}</span>
-              {card && exact ? (
+              {snippet && snippet !== "title" ? (
                 <button
                   className={now ? "" : "primary"}
+                  aria-disabled={snippet === "loading" ? "true" : undefined}
                   onClick={() => {
+                    if (snippet !== "loading") snippets.press(ref.cardId);
+                  }}
+                >
+                  {now ? "Stop" : snippet === "loading" ? `Loading ${letter}…` : `Play ${letter}`}
+                </button>
+              ) : card && exact ? (
+                <button
+                  className={now ? "" : "primary"}
+                  aria-disabled={preparing ? "true" : undefined}
+                  onClick={() => {
+                    if (preparing) return;
                     if (now) return stop();
                     setRevision((value) => value + 1);
                     void play(card, clipStartFor(card, deck, 0), clipLengthFor(session));
                   }}
                 >
-                  {now ? `Stop ${letter}` : `Play ${letter}`}
+                  {preparing ? "Preparing…" : now ? `Stop ${letter}` : `Play ${letter}`}
                 </button>
               ) : (
                 <span className="muted">
                   {card ? "Play it by hand with the preview or QR below." : "Not in the open deck"}
                 </span>
               )}
-              {now ? <span className="tile-state">Playing</span> : null}
+              {snippet === "starting" ? (
+                <span className="tile-state">Starting…</span>
+              ) : now ? (
+                <span className="tile-state">Playing</span>
+              ) : null}
             </li>
           );
         })}
       </ul>
+      {snippets.available ? (
+        <p className="muted">Snippets play from each song's preview and stop by themselves.</p>
+      ) : null}
+      {exact ? null : snippets.frame}
+      {snippets.status ? (
+        <p className="muted" role="status">
+          {loadedLetter}: {snippets.status}
+        </p>
+      ) : null}
       <BackupPicker
         cards={cards}
         deck={deck}
         provider={player?.provider}
-        collapsed={exact}
+        collapsed={exact || snippets.available}
         previewKey={revision}
       />
       <ClipStatus playback={playback} status={status} error={error} />

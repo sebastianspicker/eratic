@@ -86,7 +86,7 @@ extension GameState {
         case let .guess(playerId, year):
             try requireMode(.bullseye, .daily, action: "guess")
             try requireOpen("guess")
-            if mode == .daily { try require(dailyRound > 3, "Daily rounds 1–3 take pickEra.") }
+            if mode == .daily { try require(try Scoring.dailyRoundKind(dailyRound) == .bullseye, "Daily rounds 1–3 take pickEra.") }
             try checkPlayer(playerId)
             try require(inputs.guesses[playerId] == nil, "One guess per player.")
             try requireYear(year)
@@ -95,7 +95,7 @@ extension GameState {
         case let .pickEra(playerId, era):
             try requireMode(.eraSort, .daily, action: "pickEra")
             try requireOpen("pickEra")
-            if mode == .daily { try require(dailyRound <= 3, "Daily rounds after 3 take guess.") }
+            if mode == .daily { try require(try Scoring.dailyRoundKind(dailyRound) == .eraSort, "Daily rounds after 3 take guess.") }
             try checkPlayer(playerId)
             try require(inputs.eras[playerId] == nil, "One pickEra per player.")
             try require(EraBoundaries.eraIndex(era) != nil, "Unknown era: \(era).")
@@ -159,6 +159,7 @@ extension GameState {
                 try requireYear(year)
             }
             inputs.locks[playerId] = LadderLock(step: step, year: year)
+            inputs.lockOrder.append(playerId)
 
         case let .mark(playerId, titleOK, artistOK):
             guard case let .ladder(ladder) = options else { throw Rejection("mark is not part of \(mode.rawValue).") }
@@ -173,9 +174,15 @@ extension GameState {
             try requireMode(.higherLower, action: "call")
             try requireOpen("call")
             try checkPlayer(playerId)
-            try require(playerId == activePlayer, "Only the active player calls.")
-            try require(inputs.call == nil, "One call per turn.")
-            inputs.call = call
+            if everyonePlays {
+                try require(playersStillIn.contains(playerId), "\(playerId) is out.")
+                try require(inputs.calls[playerId] == nil, "One call per player.")
+                inputs.calls[playerId] = call
+            } else {
+                try require(playerId == activePlayer, "Only the active player calls.")
+                try require(inputs.call == nil, "One call per turn.")
+                inputs.call = call
+            }
 
         case let .order(playerId, order):
             try requireMode(.lineup, action: "order")
@@ -262,6 +269,7 @@ extension GameState {
             }
             try requireWagers()
             let year = card!.year
+            var earnedBy = [String: Int]()
             for player in everyone {
                 var earned = 0
                 if let lock = inputs.locks[player] {
@@ -281,9 +289,41 @@ extension GameState {
                     bump("usedMs", player, by: ladder.steps[last])
                 }
                 points[player, default: 0] += earned
+                earnedBy[player] = earned
                 settleWager(player, right: earned > 0)
             }
+            // Buzzer: +2 to the first locker in action order who scored; wagers were settled before it.
+            if ladder.buzzer, let first = inputs.lockOrder.first(where: { (earnedBy[$0] ?? 0) > 0 }) {
+                points[first, default: 0] += 2
+                bump("buzzers", first)
+            }
             finishRound(endsGame: round + 1 == ladder.rounds)
+
+        case let .higherLower(higherLower) where higherLower.play == .everyone:
+            let callers = playersStillIn
+            try require(callers.allSatisfy { inputs.calls[$0] != nil }, "reveal needs a call from every player still in.")
+            let drawn = card!
+            let solo = players.count == 1
+            var soloOut = false
+            // Callers in turn order, so players out in the same reveal are appended in turn order.
+            for player in callers {
+                if Scoring.higherLowerCorrect(refYear: reference!.year, year: drawn.year, call: inputs.calls[player]!) {
+                    bump("streaks", player)
+                } else {
+                    bump("lives", player, by: -1)
+                    if stat("lives", player) == 0 {
+                        if solo {
+                            soloOut = true
+                        } else {
+                            eliminated.append(player)
+                            eliminatedRound[player] = round + 1
+                        }
+                    }
+                }
+            }
+            reference = drawn
+            let ends = solo ? soloOut : playersStillIn.count <= 1 || round + 1 >= higherLower.cards
+            finishRound(endsGame: ends)
 
         case let .higherLower(higherLower):
             guard let call = inputs.call else { throw Rejection("reveal needs a call.") }
@@ -291,7 +331,12 @@ extension GameState {
             let drawn = card!
             let correct = Scoring.higherLowerCorrect(refYear: reference!.year, year: drawn.year, call: call)
             let solo = players.count == 1
-            if correct { bump("streaks", active) } else if !solo { eliminated.append(active) }
+            if correct {
+                bump("streaks", active)
+            } else if !solo {
+                eliminated.append(active)
+                eliminatedRound[active] = round + 1
+            }
             reference = drawn
             if !solo {
                 // The turn passes to the next player still in.
@@ -335,7 +380,7 @@ extension GameState {
         case let .daily(daily):
             let player = everyone[0]
             let drawn = card!
-            if dailyRound <= 3 {
+            if try Scoring.dailyRoundKind(dailyRound) == .eraSort {
                 guard let era = inputs.eras[player] else { throw Rejection("reveal needs a pickEra.") }
                 points[player, default: 0] += try Scoring.eraSortPoints(guessEra: era, answerYear: drawn.year, kids: false)
             } else {

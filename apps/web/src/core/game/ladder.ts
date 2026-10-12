@@ -24,9 +24,12 @@ import {
 interface LadderState {
   step: number;
   locks: Record<string, { step: number; year?: number }>;
+  // Locked players in action order (record keys like "1" don't keep it).
+  lockOrder: string[];
   marks: Record<string, { titleOK: boolean; artistOK: boolean }>;
   usedMs: Record<string, number>;
   exactYears: Record<string, number>;
+  buzzers?: Record<string, number>;
 }
 const of = (state: GameState) => state.m as LadderState;
 const options = (state: GameState) => state.options as LadderOptions;
@@ -47,6 +50,7 @@ function cardPoints(state: GameState, id: string): number {
 function resetCard(m: LadderState): void {
   m.step = -1;
   m.locks = {};
+  m.lockOrder = [];
   m.marks = {};
 }
 
@@ -58,9 +62,11 @@ export const ladder: ModeRules = {
   init: (state): LadderState => ({
     step: -1,
     locks: {},
+    lockOrder: [],
     marks: {},
     usedMs: perPlayer(state, 0),
     exactYears: perPlayer(state, 0),
+    ...(options(state).buzzer && { buzzers: perPlayer(state, 0) }),
   }),
   act(state, action) {
     const m = of(state);
@@ -92,6 +98,7 @@ export const ladder: ModeRules = {
           step: m.step,
           ...(action.year !== undefined && { year: action.year }),
         };
+        m.lockOrder.push(action.playerId);
         return;
       case "mark":
         requirePhase(state, "open");
@@ -127,6 +134,14 @@ export const ladder: ModeRules = {
   reveal(state) {
     const m = of(state);
     const steps = options(state).steps;
+    // Buzzer: 2 more points for the first locker who scores on the card.
+    if (m.buzzers) {
+      const first = m.lockOrder.find((id) => cardPoints(state, id) > 0);
+      if (first !== undefined) {
+        state.points[first] += 2;
+        m.buzzers[first]++;
+      }
+    }
     for (const id of playerIds(state)) {
       state.points[id] += cardPoints(state, id);
       const lock = own(m.locks, id);
@@ -143,6 +158,7 @@ export const ladder: ModeRules = {
     usedMs: of(state).usedMs,
     exactYears: of(state).exactYears,
     step: of(state).step,
+    ...(of(state).buzzers && { buzzers: of(state).buzzers }),
   }),
   wagerers: playerIds,
   right: (state, id) => cardPoints(state, id) > 0,

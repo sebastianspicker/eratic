@@ -42,18 +42,25 @@ const isTextField = (target: EventTarget | null): boolean =>
 // The step bar and the clip buttons. An exact step plays its length from the clip
 // start; without exact clips the hidden preview plays it from 0 and stops by itself,
 // else the host marks each step played by hand.
-function LadderStage({ controller, session, state, summary, deck, playback, answerShown }: ModeInputProps) {
+function LadderStage({ controller, session, state, summary, deck, playback, answerShown, setPlaybackBusy }: ModeInputProps) {
   const options = state.options as LadderOptions;
   const step = summary.step ?? -1;
   const last = options.steps.length - 1;
   const card = deck.cards.find((item) => item.id === currentCards(state)[0]?.cardId);
   const { start, earlier, later } = useClipStart(card, deck, session);
-  const { player, exact, route, play, stop, status, error } = useCardPlayer(playback, controller);
+  const { player, exact, route, play, stop, status, error, preparingKey } = useCardPlayer(playback, controller);
   const next = step < last ? step + 1 : undefined;
   // An exact or snippet step stops the backup's own preview; a step marked by hand keeps it playing.
   const [revision, setRevision] = useState(0);
   const preview = useSnippetPreview(exact || answerShown ? undefined : card && backupTrack(card, player?.provider)?.url, card?.id);
   const snippets = !exact && preview.usable;
+  // A step is logged only once audible, so while one is preparing, starting or
+  // playing the log still ends in a lock: the host's Undo is hidden meanwhile.
+  const busy = preparingKey !== undefined || clipPlaying(playback.clipState) || preview.active;
+  useEffect(() => {
+    setPlaybackBusy(busy);
+    return () => setPlaybackBusy(false);
+  }, [busy, setPlaybackBusy]);
   const playable = !answerShown && (exact || (snippets && preview.ready));
   // The step is recorded once its clip is audible; a clip that fails to start
   // shows why and leaves the ladder where it was.
@@ -179,7 +186,47 @@ function WagerRow({ held, onWager }: { held: number; onWager: (chips: number) =>
   );
 }
 
+// One player's private year entry, so guesses never share the screen. Enter submits.
+function YearEntryPanel({
+  player,
+  value,
+  onChange,
+  onSubmit,
+  onCancel,
+}: {
+  player: { id: string; name: string };
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  const id = `ladder-year-${player.id}`;
+  useEffect(() => document.getElementById(id)?.focus(), [id]);
+  return (
+    <form
+      className="entry-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <h3>{player.name}'s year</h3>
+      <YearField id={id} label={`${player.name}'s year`} value={value} onChange={onChange} />
+      <div className="action-row">
+        <button className="primary" type="submit">
+          Lock in
+        </button>
+        <button type="button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function LadderInput({ controller, session, state, summary, deck, reveal, answerShown: shown, showAnswer }: ModeInputProps) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const wasEntering = useRef<string | undefined>(undefined);
   const options = state.options as LadderOptions;
   const step = summary.step ?? -1;
   const withYear = options.guess !== "name";
@@ -187,9 +234,24 @@ function LadderInput({ controller, session, state, summary, deck, reveal, answer
   const inputs = inputsSinceDraw(session.actions);
   const locks = lockSteps(inputs);
   const [years, setYears] = useState<Record<string, string>>({});
+  // The player whose private year entry is open; it replaces the lock list.
+  const [entering, setEntering] = useState<string>();
   const [marks, setMarks] = useState<Record<string, { title: boolean; artist: boolean }>>({});
   const [error, setError] = useState("");
   const players = session.players;
+  // After a private entry closes (lock or cancel), focus returns to that player's
+  // row: their Lock in button, else the next one, else the lock list.
+  useEffect(() => {
+    const was = wasEntering.current;
+    wasEntering.current = entering;
+    if (entering !== undefined || was === undefined) return;
+    const list = listRef.current;
+    if (!list) return;
+    const own = Array.from(list.querySelectorAll<HTMLElement>("button[data-lock-for]")).find(
+      (button) => button.dataset.lockFor === was,
+    );
+    (own ?? list.querySelector<HTMLElement>("button[data-lock-for]:not(:disabled)") ?? list).focus();
+  }, [entering]);
   const given = new Set(inputs.flatMap((action) => (action.type === "mark" ? [action.playerId] : [])));
   // The marks Score card would record, with the host's toggles so far.
   const markActions = marked
@@ -209,7 +271,7 @@ function LadderInput({ controller, session, state, summary, deck, reveal, answer
   const waiting = projected ? pendingInputs(projected) : pendingInputs(state);
   const waitingText = listNames(waiting.map((id) => playerName(session, id)));
   const wagerRow = (id: string) =>
-    state.chips && !(id in state.wagers) ? (
+    state.chips && !Object.hasOwn(state.wagers, id) ? (
       <WagerRow
         held={state.chips[id]}
         onWager={(chips) => send(controller, { type: "wager", playerId: id, chips })}
@@ -227,7 +289,17 @@ function LadderInput({ controller, session, state, summary, deck, reveal, answer
         return;
       }
     }
-    setError(send(controller, { type: "lock", playerId: id, ...(year !== undefined && { year }) }));
+    const problem = send(controller, { type: "lock", playerId: id, ...(year !== undefined && { year }) });
+    setError(problem);
+    if (!problem) {
+      setEntering(undefined);
+      setYears((current) => ({ ...current, [id]: "" }));
+    }
+  }
+  function cancelEntry() {
+    if (entering !== undefined) setYears((current) => ({ ...current, [entering]: "" }));
+    setEntering(undefined);
+    setError("");
   }
   function score() {
     if (!ready) return;
@@ -284,7 +356,7 @@ function LadderInput({ controller, session, state, summary, deck, reveal, answer
         ) : (
           <p className="muted">The years are scored when you score the card.</p>
         )}
-        {state.chips && players.some((player) => !(player.id in state.wagers)) ? (
+        {state.chips && players.some((player) => !Object.hasOwn(state.wagers, player.id)) ? (
           <ul className="ladder-locks" aria-label="Wagers">
             {players.map((player) => (
               <li key={player.id}>
@@ -309,9 +381,36 @@ function LadderInput({ controller, session, state, summary, deck, reveal, answer
     );
   }
 
+  // The first Lock in button that can be pressed; the Host focuses it (else the list) after an input or undo.
+  const firstLock = step < 0 ? undefined : players.find((player) => !locks.has(player.id))?.id;
+  const enteringPlayer = players.find((player) => player.id === entering && !locks.has(player.id));
+  if (enteringPlayer)
+    return (
+      <div className="ladder-input">
+        <YearEntryPanel
+          player={enteringPlayer}
+          value={years[enteringPlayer.id] ?? ""}
+          onChange={(value) => setYears((current) => ({ ...current, [enteringPlayer.id]: value }))}
+          onSubmit={() => lock(enteringPlayer.id)}
+          onCancel={cancelEntry}
+        />
+        {error ? (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+
   return (
     <div className="ladder-input">
-      <ul className="ladder-locks" aria-label="Locks">
+      <ul
+        className="ladder-locks"
+        aria-label="Locks"
+        tabIndex={-1}
+        ref={listRef}
+        data-first-control={firstLock === undefined ? "" : undefined}
+      >
         {players.map((player) => {
           const at = locks.get(player.id);
           return (
@@ -320,25 +419,29 @@ function LadderInput({ controller, session, state, summary, deck, reveal, answer
               {at !== undefined ? (
                 <span className="lock-state">Locked at {seconds(options.steps[at])}</span>
               ) : (
-                <>
-                  {withYear ? (
-                    <YearField
-                      id={`ladder-year-${player.id}`}
-                      label={`${player.name}'s year`}
-                      value={years[player.id] ?? ""}
-                      onChange={(value) => setYears((current) => ({ ...current, [player.id]: value }))}
-                    />
-                  ) : null}
-                  <button type="button" disabled={step < 0} onClick={() => lock(player.id)}>
-                    Lock in {player.name}
-                  </button>
-                </>
+                <button
+                  type="button"
+                  disabled={step < 0}
+                  data-lock-for={player.id}
+                  data-first-control={player.id === firstLock ? "" : undefined}
+                  onClick={() => {
+                    if (withYear) {
+                      setError("");
+                      setEntering(player.id);
+                    } else lock(player.id);
+                  }}
+                >
+                  Lock in {player.name}
+                </button>
               )}
               {wagerRow(player.id)}
             </li>
           );
         })}
       </ul>
+      {options.guess !== "year" ? (
+        <p className="muted">When you lock in, whisper your answer to the host or write it down.</p>
+      ) : null}
       {step < 0 ? (
         <p className="muted">Play the first step, then players lock in when they know it.</p>
       ) : !ready && waiting.length > 0 ? (
@@ -382,12 +485,14 @@ export const ladderUI: ModeUI = {
       const parts = [`${signed(points)}, locked at ${seconds(steps[at])}`];
       if (mark && mark.type === "mark") parts.push(markText(mark.titleOK, mark.artistOK));
       if (lock && lock.type === "lock" && lock.year !== undefined) parts.push(`guessed ${lock.year}`);
+      if ((info.after.buzzers?.[player.id] ?? 0) > (info.before.buzzers?.[player.id] ?? 0)) parts.push("+2 buzzer");
       return { playerId: player.id, text: `${parts.join(", ")}${chipsText(chips)}` };
     });
   },
   tieBreaks: (summary, id) => [
     `${seconds(summary.usedMs?.[id] ?? 0)} used`,
     `${summary.exactYears?.[id] ?? 0} exact years`,
+    ...(summary.buzzers ? [`${summary.buzzers[id] ?? 0} buzzer${summary.buzzers[id] === 1 ? "" : "s"}`] : []),
   ],
 };
 

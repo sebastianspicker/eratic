@@ -172,4 +172,9 @@ final class GameQueriesTests: XCTestCase {
         XCTAssertEqual(GameMode.timeline.playerRange, 2...8)
         XCTAssertEqual(GameMode.bullseye.playerRange, 1...10)
     }
+
+    func testDailyRoundKind() throws {
+        XCTAssertEqual(try (1...5).map(Scoring.dailyRoundKind), [.eraSort, .eraSort, .eraSort, .bullseye, .bullseye])
+        for round in [0, -1] { XCTAssertThrowsError(try Scoring.dailyRoundKind(round)) }
+    }
 }

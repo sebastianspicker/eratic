@@ -37,10 +37,16 @@ final class GameController: ObservableObject {
     static let dailyKey = "eratic.daily.v1"
     private static let easyOnlyKey = "eratic.play.easyOnlySession.v1"
     private static let kidsKey = "eratic.play.kidsSession.v1"
+    /// The ID of the saved session whose reveal or results the host hasn't seen yet (a new key, no migration).
+    private static let unseenKey = "eratic.play.unseen.v1"
 
     @Published private(set) var session: GameSession?
     @Published private(set) var state: GameState?
     @Published var lastError: String?
+    /// The personal-best outcome recorded for a finished session, so the results can show it again.
+    var bestOutcome: (sessionId: String, outcome: Bests.Outcome)?
+    /// Snippet Ladder's answer is shown, or a step is preparing, starting or playing: Undo is hidden.
+    @Published var ladderBusy = false
     @Published private(set) var lastReveal: RevealSnapshot?
     /// The reveal screen is up; *Next card* clears it.
     @Published var showingReveal = false
@@ -82,6 +88,7 @@ final class GameController: ObservableObject {
                 easyOnly = defaults.string(forKey: Self.easyOnlyKey) == saved.id
                 kids = defaults.string(forKey: Self.kidsKey) == saved.id
                 loadSnapshot(for: saved)
+                restoreUnseen(for: saved)
             } catch {
                 // Kept aside like an unreadable file, so the next game doesn't overwrite it.
                 let reason = Self.message(error)
@@ -125,7 +132,46 @@ final class GameController: ObservableObject {
         return options.date == Self.todayUTC() && session.deckId == deck.id
     }
 
-    func resultsSeen() { unseenResults = false }
+    func resultsSeen() {
+        unseenResults = false
+        syncUnseenMarker()
+    }
+
+    /// *Next card* / *See results*: the reveal was acknowledged.
+    func dismissReveal() {
+        showingReveal = false
+        syncUnseenMarker()
+    }
+
+    /// Persists whether the saved session still has a reveal or results the host hasn't seen.
+    private func syncUnseenMarker() {
+        if let session, showingReveal || unseenResults {
+            defaults.set(session.id, forKey: Self.unseenKey)
+        } else {
+            defaults.removeObject(forKey: Self.unseenKey)
+        }
+    }
+
+    /// Brings back an unseen reveal (replayed to the last `reveal` action) and unseen results after a relaunch.
+    private func restoreUnseen(for saved: GameSession) {
+        guard defaults.string(forKey: Self.unseenKey) == saved.id, let current = state else { return }
+        var replayed = try? GameEngine.start(options: saved.options, players: saved.players, seed: saved.seed, sessionVersion: saved.sessionVersion)
+        var snapshot: RevealSnapshot?
+        for entry in saved.actions {
+            guard let before = replayed, let after = try? GameEngine.apply(entry, to: before) else { break }
+            if case .reveal = entry.action { snapshot = RevealSnapshot(before: before, after: after) }
+            replayed = after
+        }
+        unseenResults = current.phase == .finished
+        // Only a reveal that was the last thing to happen; a game ended by End game goes straight to results.
+        var lastIsReveal = false
+        if let last = saved.actions.last(where: { if case .clip = $0.action { return false }; return true }), case .reveal = last.action { lastIsReveal = true }
+        if let snapshot, lastIsReveal {
+            lastReveal = snapshot
+            showingReveal = true
+        }
+        syncUnseenMarker()
+    }
 
     private func loadSnapshot(for session: GameSession) {
         switch store.loadDeck() {
@@ -174,6 +220,7 @@ final class GameController: ObservableObject {
             lastReveal = nil
             showingReveal = false
             unseenResults = false
+            syncUnseenMarker()
             deckNotice = nil
             pendingClipRecords = []
             announcement = setup.announcement
@@ -255,6 +302,7 @@ final class GameController: ObservableObject {
         lastReveal = nil
         showingReveal = false
         unseenResults = false
+        defaults.removeObject(forKey: Self.unseenKey)
         deckNotice = nil
         pendingClipRecords = []
         isHosting = false
@@ -287,6 +335,72 @@ final class GameController: ObservableObject {
                 unseenResults = true
                 finished(session, next)
             }
+            syncUnseenMarker()
+            return true
+        } catch {
+            lastError = Self.message(error)
+            return false
+        }
+    }
+
+    // MARK: Undo
+
+    /// The player and the action indices an undo removes, or nil when the last non-clip action isn't an entry.
+    /// Trailing `clip` records stay; so do interleaved ones. A guess takes the same player's wager
+    /// directly before it along (Bullseye sends both as one entry); nothing else is grouped.
+    /// Steps, marks, draws, reveals, skips, ends, anchors and references are never undone.
+    static func undoSelection(_ actions: [SessionAction]) -> (playerID: String?, indices: [Int])? {
+        /// The entry's player (nil inside the outer optional means "not an entry").
+        func entryPlayer(_ action: GameAction) -> String?? {
+            switch action {
+            case let .guess(player, _), let .pickEra(player, _), let .place(player, _), let .challenge(player, _),
+                 let .nameIt(player, _, _), let .wager(player, _), let .lock(player, _), let .call(player, _),
+                 let .order(player, _), let .choose(player, _, _), let .sdGuess(player, _), let .sdOrder(player, _):
+                return .some(player)
+            case let .sdName(player):
+                return .some(player)
+            default:
+                return .none
+            }
+        }
+        func isClip(_ action: GameAction) -> Bool {
+            if case .clip = action { return true }
+            return false
+        }
+        guard let last = actions.lastIndex(where: { !isClip($0.action) }), let player = entryPlayer(actions[last].action) else { return nil }
+        var indices = [last]
+        // A guess takes the same player's wager directly before it along (Bullseye sends wager then guess as one entry).
+        var lastIsGuess = false
+        if case .guess = actions[last].action { lastIsGuess = true }
+        if let player, lastIsGuess,
+           let previous = actions[..<last].lastIndex(where: { !isClip($0.action) }),
+           case let .wager(owner, _) = actions[previous].action, owner == player {
+            indices.append(previous)
+        }
+        return (player, indices.sorted())
+    }
+
+    /// What *Undo* would take back before the reveal: the player (nil for “Nobody named it”) and a button label.
+    var undoable: (playerID: String?, label: String)? {
+        guard let session, let state, state.phase == .open || state.phase == .suddenDeathOpen,
+              let selection = Self.undoSelection(session.actions) else { return nil }
+        guard let playerID = selection.playerID else { return (nil, "Undo “Nobody named it”") }
+        return (playerID, "Undo \(session.playerName(playerID))'s entry")
+    }
+
+    /// Takes back the last entry (see `undoSelection`) by replaying the shortened session. Only while a card is open.
+    @discardableResult
+    func undo() -> Bool {
+        guard var session, let state, state.phase == .open || state.phase == .suddenDeathOpen,
+              let selection = Self.undoSelection(session.actions) else { return false }
+        let removed = Set(selection.indices)
+        session.actions = session.actions.enumerated().filter { !removed.contains($0.offset) }.map(\.element)
+        do {
+            let next = try GameEngine.replay(session)
+            self.session = session
+            self.state = next
+            lastError = nil
+            persist()
             return true
         } catch {
             lastError = Self.message(error)
@@ -313,6 +427,17 @@ final class GameController: ObservableObject {
             // A skipped Daily card can't be replaced, so the round's card already used means nothing is left to draw.
             guard state.round < daily.cards.count, let card = deck.cards.first(where: { $0.id == daily.cards[state.round] }),
                   !state.usedCardIDs.contains(card.id) else { return nil }
+            return [card]
+        }
+        if case let .higherLower(higherLower) = session.options, higherLower.closer, count == 1, let reference = state.referenceCard {
+            // Closer years (game-rules.md 1.5): the unused cards in draw order, the pick nearest the reference year first.
+            let pool = drawPool(deck)
+            let byID = Dictionary(pool.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            let candidates = GameRandom.drawOrder(pool.map(\.id), seed: session.seed).filter { !state.usedCardIDs.contains($0) }.compactMap { id in
+                byID[id].map { AnchorCandidate(id: $0.id, year: $0.gameYear.value) }
+            }
+            guard let id = GameRandom.closerPick(candidates, referenceYear: reference.year, revealed: state.round),
+                  let card = deck.cards.first(where: { $0.id == id }) else { return nil }
             return [card]
         }
         let ids = GameRandom.drawOrder(drawPool(deck).map(\.id), seed: session.seed).filter { !state.usedCardIDs.contains($0) }.prefix(count)

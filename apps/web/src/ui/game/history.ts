@@ -1,5 +1,5 @@
 import type { Deck } from "../../core/deck";
-import { currentCards, replay } from "../../core/game/engine";
+import { applyAction, currentCards, replay, startGame, type GameState } from "../../core/game/engine";
 import type { CardRef, GameAction, Session } from "../../core/session";
 import { summaryOf, type Summary } from "./useGame";
 
@@ -29,6 +29,11 @@ export function refById(session: Session, cardId: string | undefined): CardRef |
   }
   return undefined;
 }
+// Higher or Lower with everyone calling reports lives per player; Relay's summary has one number.
+export function playerLives(summary: Summary): Record<string, number> | undefined {
+  const lives: unknown = summary.lives;
+  return typeof lives === "object" && lives !== null ? (lives as Record<string, number>) : undefined;
+}
 export const playerName = (session: Session, id: string): string =>
   session.players.find((player) => player.id === id)?.name ?? id;
 export function cardTitle(deck: Deck, cardId: string): { title: string; artist: string } {
@@ -49,18 +54,33 @@ export interface RevealInfo {
   inputs: GameAction[];
   suddenDeath: boolean;
 }
+// The reveal at actions[index], from the state just before it and the summary after.
+function revealAt(actions: readonly GameAction[], index: number, previous: GameState, after: Summary): RevealInfo {
+  return {
+    cards: currentCards(previous),
+    before: summaryOf(previous),
+    after,
+    inputs: inputsSinceDraw(actions.slice(0, index)),
+    suddenDeath: previous.phase === "suddenDeathOpen",
+  };
+}
 // The latest reveal, when it is the last action.
 export function lastReveal(session: Session, after: Summary): RevealInfo | undefined {
   const actions = session.actions;
   if (actions.at(-1)?.type !== "reveal") return undefined;
   const previous = replay({ ...session, actions: actions.slice(0, -1) });
-  return {
-    cards: currentCards(previous),
-    before: summaryOf(previous),
-    after,
-    inputs: inputsSinceDraw(actions.slice(0, -1)),
-    suddenDeath: previous.phase === "suddenDeathOpen",
-  };
+  return revealAt(actions, actions.length - 1, previous, after);
+}
+// Every reveal in order, by replaying the session once; index is the reveal's action.
+export function reveals(session: Session): (RevealInfo & { index: number })[] {
+  const result: (RevealInfo & { index: number })[] = [];
+  let state = startGame(session);
+  session.actions.forEach((action, index) => {
+    const next = applyAction(state, action, index);
+    if (action.type === "reveal") result.push({ ...revealAt(session.actions, index, state, summaryOf(next)), index });
+    state = next;
+  });
+  return result;
 }
 // Score change for a player across the reveal, split into points and chips.
 export function deltas(info: RevealInfo, id: string): { points: number; chips: number } {

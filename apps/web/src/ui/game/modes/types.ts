@@ -21,6 +21,9 @@ export interface ModeInputProps {
   // Host-only answer inspection before scoring (Snippet Ladder).
   answerShown: boolean;
   showAnswer: () => void;
+  // Snippet Ladder's stage reports a step preparing, starting or playing, so the
+  // inputs' Undo stays hidden until it has finished or been stopped.
+  setPlaybackBusy: (busy: boolean) => void;
 }
 export interface ResultLine {
   playerId: string;
@@ -30,8 +33,8 @@ export interface ModeUI {
   Input: ComponentType<ModeInputProps>;
   // Replaces the default one-card stage (several cards, clip steps).
   Stage?: ComponentType<ModeInputProps>;
-  // The mode's inputs end with their own reveal button.
-  ownReveal?: boolean;
+  // The mode's inputs end with their own reveal button (for some sessions only, if a function).
+  ownReveal?: boolean | ((session: Session) => boolean);
   // The card whose era takes over the reveal; none shows the reveal without a hero.
   heroCard?(info: RevealInfo, session: Session): CardRef | undefined;
   // One line per player who took part in the revealed card.

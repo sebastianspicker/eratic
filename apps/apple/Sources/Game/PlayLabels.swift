@@ -70,7 +70,7 @@ struct ModeAvailability {
             reasons.append("Load a deck in the Deck tab first")
         }
         self.reasons = reasons
-        title = mode == .lineup && !tier.exactClips ? "Lineup by name" : mode.name
+        title = mode == .lineup && LineupPlayMode.byName(deck: deck, tier: tier) ? "Lineup by name" : mode.name
     }
 }
 

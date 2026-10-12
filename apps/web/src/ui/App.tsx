@@ -16,7 +16,8 @@ import {
   UnreadableSlotError,
 } from "../storage";
 import { CardList } from "./CardList";
-import { MIGRATION_NOTICE, DeckGameFields, withCardGameFields, withDeckClipStart } from "./CardGameFields";
+import { MIGRATION_NOTICE, DeckGameFields, withCardGameFields, withCardRelation, withDeckClipStart } from "./CardGameFields";
+import { LinkSuggestions } from "./LinkSuggestions";
 import { CardInspector } from "./CardInspector";
 import { saveText } from "./download";
 import { eraFor } from "./eras";
@@ -230,6 +231,13 @@ export default function App() {
               ) : null}
             </div>
           ) : null}
+          <LinkSuggestions
+            deck={deck}
+            onLink={(item) => {
+              saveV2(withCardRelation(deck, item.cardId, { cardId: item.relatedTo, relation: item.relation }));
+              // The inspector's Game section re-reads the saved relation by itself.
+            }}
+          />
           <div className="workspace">
             <CardList
               deck={deck}

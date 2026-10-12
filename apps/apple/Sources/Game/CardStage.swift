@@ -96,7 +96,7 @@ struct CardStage: View {
         } else {
             HStack(spacing: 12) {
                 // Sets and pairs are drawn from the deck; scanning picks one card at a time.
-                let canScan = hasCamera && session.mode != .daily && game.drawCount == 1
+                let canScan = hasCamera && SetupView.scanModes(session.mode) && game.drawCount == 1
                 if game.cardSource == .scan, canScan {
                     Button("Scan card") { showScanner = true }.buttonStyle(.borderedProminent)
                     Button(drawLabel) { draw() }.buttonStyle(.bordered)

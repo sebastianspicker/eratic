@@ -11,6 +11,7 @@ import {
   sessionOptions,
   type OptionField,
 } from "./modes";
+import { loadRoster } from "../../sessions";
 import { listNames } from "./history";
 import type { CardSource, StartSetup } from "./useGame";
 
@@ -119,9 +120,15 @@ export function Setup({
 }) {
   const info = MODE_INFO[mode];
   const [min, max] = info.players;
-  const [names, setNames] = useState(() =>
-    Array.from({ length: Math.max(min, Math.min(2, max)) }, (_, i) => `Player ${i + 1}`),
-  );
+  // The last game's room, clamped to this mode's range; without one, "Player 1"….
+  const [names, setNames] = useState(() => {
+    const roster = loadRoster();
+    if (!roster)
+      return Array.from({ length: Math.max(min, Math.min(2, max)) }, (_, i) => `Player ${i + 1}`);
+    const kept = roster.slice(0, max);
+    while (kept.length < min) kept.push(`Player ${kept.length + 1}`);
+    return kept;
+  });
   const [options, setOptions] = useState(() => defaultOptions(mode));
   const [kids, setKids] = useState(false);
   const [easyOnly, setEasyOnly] = useState(false);
@@ -174,6 +181,7 @@ export function Setup({
       players: names.map((name, i) => ({ id: `p${i + 1}`, name: name.trim() || `Player ${i + 1}` })),
       source: scanPossible ? source : "draw",
       easyOnly: easy,
+      kids: mode === "timeline" ? kids : mode === "eraSort" && chosen.kids === true,
     });
   }
   const fields = OPTION_FIELDS[mode].filter((field) => !field.when || field.when(options));

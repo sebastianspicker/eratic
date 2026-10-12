@@ -72,7 +72,8 @@ export type ActionOf<T extends GameAction["type"]> = Extract<
 export interface ModeRules {
   players: [number, number];
   start: "setup" | "awaitingDraw";
-  hasActive: boolean;
+  // Whether the mode has an active player; may depend on the options.
+  hasActive: boolean | ((state: GameState) => boolean);
   suddenDeath?: { kind: SuddenDeathKind; count: (state: GameState) => number };
   init(state: GameState): unknown;
   // Mode actions; anything else is rejected.

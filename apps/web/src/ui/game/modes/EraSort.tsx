@@ -3,7 +3,7 @@ import { pendingInputs } from "../../../core/game/engine";
 import { eraName } from "../../../core/eras";
 import { ERAS, eraStyle } from "../../eras";
 import { deltas, signed, type RevealInfo } from "../history";
-import { EntryForm, LockedEntry, send } from "./LockedEntry";
+import { AllAtOnceForm, EntryForm, LockedEntry, send } from "./LockedEntry";
 import type { ModeInputProps, ModeUI } from "./types";
 
 const MOVES: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3 };
@@ -78,7 +78,36 @@ export function EraEntry({
 
 function EraSortInput({ controller, state }: ModeInputProps) {
   return (
-    <LockedEntry players={state.players} pending={pendingInputs(state)}>
+    <LockedEntry
+      players={state.players}
+      pending={pendingInputs(state)}
+      allAtOnce={
+        <AllAtOnceForm<string>
+          heading="Everyone's eras"
+          controller={controller}
+          players={state.players}
+          pending={pendingInputs(state)}
+          initial=""
+          field={(player, value, onChange) => (
+            <select
+              aria-label={`${player.name}'s era`}
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+            >
+              <option value="">Pick an era</option>
+              {ERAS.map((era) => (
+                <option key={era.id} value={era.id}>
+                  {era.name}, {era.label}
+                </option>
+              ))}
+            </select>
+          )}
+          build={(player, era) =>
+            era ? [{ type: "pickEra" as const, playerId: player.id, era }] : "Pick an era."
+          }
+        />
+      }
+    >
       {(player) => (
         <EraEntry
           heading={`${player.name}'s era`}

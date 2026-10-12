@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Deck } from "../../../core/deck";
 import type { CardRef } from "../../../core/session";
 import { eraFor, eraStyle } from "../../eras";
@@ -27,14 +27,17 @@ export function YearChip({ card, deck, letter }: { card: CardRef; deck: Deck; le
 const MOVES: Record<string, number> = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
 
 // A timeline: year chips with a slot button before, between and after them.
-// Arrow keys move between the open slots and Enter places. Without onSlot the
-// strip only shows the chips and any marked slots ("Your slot").
+// Arrow keys move between the open slots and Enter selects one; the confirm
+// button below ("Place: Before 1984") is what calls onSlot, so a stray tap never
+// places a card. Without onSlot the strip only shows the chips and any marked
+// slots ("Your slot").
 export function TimelineStrip({
   cards,
   deck,
   label,
   compact = false,
   onSlot,
+  verb = "Place",
   open = () => true,
   markers = {},
 }: {
@@ -43,6 +46,8 @@ export function TimelineStrip({
   label: string;
   compact?: boolean;
   onSlot?: (slot: number) => void;
+  // The confirm button's verb: "Place" or "Challenge".
+  verb?: string;
   open?: (slot: number) => boolean;
   markers?: Record<number, string>;
 }) {
@@ -51,6 +56,13 @@ export function TimelineStrip({
   const openSlots = onSlot ? slots.filter(open) : [];
   const [focused, setFocused] = useState(openSlots[0] ?? 0);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const [selected, setSelected] = useState<number>();
+  const confirm = useRef<HTMLButtonElement>(null);
+  const chosen = selected !== undefined && openSlots.includes(selected) ? selected : undefined;
+  // Focus moves to the confirm button when a slot is selected.
+  useEffect(() => {
+    if (chosen !== undefined) confirm.current?.focus();
+  }, [chosen]);
   const tabStop = openSlots.includes(focused) ? focused : openSlots[0];
   function move(event: KeyboardEvent, slot: number) {
     const by = MOVES[event.key];
@@ -66,7 +78,7 @@ export function TimelineStrip({
     const text = slotLabel(years, slot);
     if (onSlot && open(slot))
       return (
-        <li key={`slot-${slot}`} className="tl-slot">
+        <li key={`slot-${slot}`} className={slot === chosen ? "tl-slot selected" : "tl-slot"}>
           <button
             type="button"
             ref={(element) => {
@@ -75,7 +87,8 @@ export function TimelineStrip({
             tabIndex={slot === tabStop ? 0 : -1}
             onFocus={() => setFocused(slot)}
             onKeyDown={(event) => move(event, slot)}
-            onClick={() => onSlot(slot)}
+            aria-pressed={slot === chosen}
+            onClick={() => setSelected(slot)}
           >
             {text}
           </button>
@@ -102,6 +115,22 @@ export function TimelineStrip({
           ) : null,
         ])}
       </ol>
+      {onSlot && chosen !== undefined ? (
+        <div className="action-row tl-confirm">
+          <button type="button" className="primary" ref={confirm} onClick={() => onSlot(chosen)}>
+            {verb}: {slotLabel(years, chosen)}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelected(undefined);
+              buttons.current[chosen]?.focus();
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

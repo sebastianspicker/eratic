@@ -56,8 +56,13 @@ describe("normalizeOptions", () => {
       guess: "name",
       clipStart: "card",
       stakes: false,
+      buzzer: false,
     });
-    expect(normalizeOptions("higherLower", {})).toEqual({ cards: 10 });
+    expect(normalizeOptions("higherLower", {})).toEqual({
+      cards: 10,
+      play: "turns",
+      closer: false,
+    });
     expect(normalizeOptions("relay", {})).toEqual({
       target: 12,
       lives: 3,
@@ -88,6 +93,30 @@ describe("normalizeOptions", () => {
     expect(() => normalizeOptions("ladder", { steps: [1000, 60000] }, 2)).toThrow();
     expect(() => normalizeOptions("ladder", { steps: [1000, 30001] })).toThrow();
     expect(normalizeOptions("ladder", { steps: [30000] }).steps).toEqual([30000]);
+  });
+  it("gives Higher or Lower lives only with everyone calling", () => {
+    expect(normalizeOptions("higherLower", { play: "everyone" })).toEqual({
+      cards: 10,
+      play: "everyone",
+      lives: 3,
+      closer: false,
+    });
+    expect(normalizeOptions("higherLower", { play: "everyone", lives: 5 }).lives).toBe(5);
+    expect(() => normalizeOptions("higherLower", { lives: 2 })).toThrow();
+    expect(() => normalizeOptions("higherLower", { play: "turns", lives: 2 })).toThrow();
+    expect(() => normalizeOptions("higherLower", { play: "everyone", lives: 0 })).toThrow();
+    expect(() => normalizeOptions("higherLower", { play: "everyone", lives: 6 })).toThrow();
+    expect(() =>
+      normalizeOptions("higherLower", { play: "all" as unknown as "everyone" }),
+    ).toThrow();
+  });
+  it("rejects the version 2 options in version 1 sessions", () => {
+    expect(normalizeOptions("higherLower", {}, 1)).toEqual({ cards: 10 });
+    expect(normalizeOptions("ladder", {}, 1)).not.toHaveProperty("buzzer");
+    expect(() => normalizeOptions("higherLower", { play: "turns" }, 1)).toThrow();
+    expect(() => normalizeOptions("higherLower", { play: "everyone", lives: 3 }, 1)).toThrow();
+    expect(() => normalizeOptions("higherLower", { closer: false }, 1)).toThrow();
+    expect(() => normalizeOptions("ladder", { buzzer: false }, 1)).toThrow();
   });
   it("does not share the default steps between calls", () => {
     const first = normalizeOptions("ladder", {});
@@ -124,6 +153,16 @@ describe("exportSession", () => {
     expect(current.options.steps).toEqual([1000, 5000, 10000, 20000, 30000]);
     expect(() => exportSession(ladder(2, [1000, 60000]))).toThrow();
     expect(() => validateSession({ ...ladder(2), sessionVersion: 3 })).toThrow();
+  });
+  it("writes the version 2 additions only when they differ from their defaults", () => {
+    const base = { ...bullseyeSession(), sessionVersion: 2 as const, actions: [] };
+    const hl = (options: Session["options"]): Session => ({ ...base, mode: "higherLower", options });
+    expect(JSON.parse(exportSession(hl({}))).options).toEqual({ cards: 10 });
+    expect(JSON.parse(exportSession(hl({ play: "everyone" }))).options).toEqual({ cards: 10, play: "everyone", lives: 3 });
+    expect(JSON.parse(exportSession(hl({ closer: true }))).options).toEqual({ cards: 10, closer: true });
+    const ladder = (options: Session["options"]): Session => ({ ...base, mode: "ladder", options });
+    expect(JSON.parse(exportSession(ladder({ rounds: 1 }))).options).not.toHaveProperty("buzzer");
+    expect(JSON.parse(exportSession(ladder({ rounds: 1, buzzer: true }))).options.buzzer).toBe(true);
   });
   it("refuses a session that does not replay", () => {
     const session = bullseyeSession();

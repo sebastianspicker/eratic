@@ -272,8 +272,9 @@ private struct DailyStartButton: View {
             Button(title) {
                 if game.resumable { confirmReplace = true } else { game.startDaily(deck: deck) }
             }
-            .confirmationDialog("Replace the saved game?", isPresented: $confirmReplace, titleVisibility: .visible) {
-                Button("Start today's round", role: .destructive) { game.startDaily(deck: deck) }
+            .confirmationDialog("Replace the unfinished game?", isPresented: $confirmReplace, titleVisibility: .visible) {
+                Button("Replace", role: .destructive) { game.startDaily(deck: deck) }
+                Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Starting today's round replaces the unfinished saved game.")
             }

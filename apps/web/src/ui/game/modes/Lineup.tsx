@@ -5,6 +5,7 @@ import type { CardRef, Session } from "../../../core/session";
 import { exactClips } from "../../../playback/player";
 import { cardTitle, deltas, signed, type RevealInfo } from "../history";
 import { clipPlaying, clipStartFor, useCardPlayer, type PlaybackProps } from "../playback";
+import { previewUrl, useTileSnippets } from "../SnippetPreview";
 import { BackupPicker, ClipStatus } from "../Stage";
 import type { GameController } from "../useGame";
 import { EntryForm, LockedEntry, send } from "./LockedEntry";
@@ -14,17 +15,39 @@ import type { ModeInputProps, ModeUI } from "./types";
 const LETTERS = ["A", "B", "C", "D", "E"];
 // Lineup's clip length; sudden death in other modes plays 10 s clips.
 const SUDDEN_DEATH_CLIP_MS = 10_000;
+// Snippets play from the start of a provider preview, which holds about 30 s.
+const MAX_SNIPPET_MS = 30_000;
 
-// Without exact clips the lineup is played by name: tiles show titles, not Play buttons.
-export const lineupByName = (playback: PlaybackProps): boolean =>
-  !(playback.hub.player && playback.hubState.tier && exactClips(playback.hubState.tier));
+// How the lineup is played: exact clips, preview snippets (without exact clips, when
+// some tile has a Spotify/Apple Music preview), else by name: tiles show titles.
+export type LineupMode = "exact" | "snippets" | "byName";
+const exactTier = (playback: PlaybackProps): boolean =>
+  Boolean(playback.hub.player && playback.hubState.tier && exactClips(playback.hubState.tier));
+export function lineupMode(cards: readonly CardRef[], deck: Deck, playback: PlaybackProps): LineupMode {
+  if (exactTier(playback)) return "exact";
+  // Provider-agnostic, like modeAvailability and the native SongBackup.hasSnippet.
+  return cards.some((ref) => {
+    const card = deck.cards.find((item) => item.id === ref.cardId);
+    return card !== undefined && previewUrl(card, undefined) !== undefined;
+  })
+    ? "snippets"
+    : "byName";
+}
+// Without cards it answers for the tier alone: no exact clips means by name.
+export const lineupByName = (playback: PlaybackProps, cards?: readonly CardRef[], deck?: Deck): boolean =>
+  cards && deck ? lineupMode(cards, deck, playback) === "byName" : !exactTier(playback);
+// The mode's title on Play home and the host bar: "Lineup by name" only when no card
+// in the deck can play a snippet (and clips aren't exact).
+export const lineupDeckByName = (deck: Deck, playback: PlaybackProps): boolean =>
+  !exactTier(playback) && !deck.cards.some((card) => previewUrl(card, undefined) !== undefined);
 const letterOf = (cards: readonly CardRef[], id: string): string =>
   LETTERS[cards.findIndex((card) => card.cardId === id)] ?? "?";
 // "B, A, D, C" for an order of the set's card IDs.
 export const orderText = (order: readonly string[], cards: readonly CardRef[]): string =>
   order.map((id) => letterOf(cards, id)).join(", ");
 
-// The lineup's tiles A–E, each with its own Play and playing state, or titles by name.
+// The lineup's tiles A–E, each with its own Play and playing state: exact clips,
+// preview snippets, or titles by name (also for a snippet tile without a preview).
 export function LineupTiles({
   cards,
   deck,
@@ -38,51 +61,95 @@ export function LineupTiles({
   playback: PlaybackProps;
   controller: GameController;
 }) {
-  const byName = lineupByName(playback);
-  const { play, stop, playingKey, status, error } = useCardPlayer(playback, controller);
+  const mode = lineupMode(cards, deck, playback);
+  const { play, stop, playingKey, preparingKey, status, error } = useCardPlayer(playback, controller);
   const length =
     session.mode === "lineup" ? (session.options.clipMs as number | undefined) ?? 10_000 : SUDDEN_DEATH_CLIP_MS;
   const playing = clipPlaying(playback.clipState);
   const [revision, setRevision] = useState(0);
+  const provider = playback.hub.player?.provider;
+  const open = cards.map((ref) => deck.cards.find((item) => item.id === ref.cardId));
+  // A snippet stops the backup's own preview, like an exact clip.
+  const snippets = useTileSnippets(
+    mode === "snippets"
+      ? cards.map((ref, index) => ({ id: ref.cardId, url: open[index] && previewUrl(open[index], undefined) }))
+      : [],
+    Math.min(length, MAX_SNIPPET_MS),
+    () => setRevision((value) => value + 1),
+  );
+  const byName = mode === "byName" || (mode === "snippets" && !snippets.available);
+  const loadedLetter = LETTERS[cards.findIndex((ref) => ref.cardId === snippets.loaded)];
   return (
     <div className="lineup-stage">
       <ul className="lineup-tiles" aria-label="Lineup">
         {cards.map((ref, index) => {
-          const card = deck.cards.find((item) => item.id === ref.cardId);
+          const card = open[index];
           const letter = LETTERS[index];
-          const now = playing && playingKey === ref.cardId;
+          const snippet = mode === "snippets" ? snippets.tile(ref.cardId) : undefined;
+          const now = snippet
+            ? snippet === "starting" || snippet === "playing"
+            : playing && playingKey === ref.cardId;
+          const preparing = preparingKey === ref.cardId;
           return (
             <li key={ref.cardId} className={now ? "lineup-tile playing" : "lineup-tile"}>
               <span className="tile-letter">{letter}</span>
-              {byName ? (
+              {mode === "byName" || snippet === "title" ? (
                 <span className="tile-name">
                   <strong>{card ? card.title : `Card ${ref.cardId}`}</strong>
                   <span>{card?.artist}</span>
                 </span>
+              ) : snippet ? (
+                <button
+                  className={now ? "" : "primary"}
+                  aria-disabled={snippet === "loading" ? "true" : undefined}
+                  onClick={() => {
+                    if (snippet !== "loading") snippets.press(ref.cardId);
+                  }}
+                >
+                  {now ? "Stop" : snippet === "loading" ? `Loading ${letter}…` : `Play ${letter}`}
+                </button>
               ) : card ? (
                 <button
                   className={now ? "" : "primary"}
+                  aria-disabled={preparing ? "true" : undefined}
                   onClick={() => {
+                    if (preparing) return;
                     if (now) return stop();
                     setRevision((value) => value + 1);
                     void play(card, clipStartFor(card, deck, 0), length);
                   }}
                 >
-                  {now ? `Stop ${letter}` : `Play ${letter}`}
+                  {preparing ? "Preparing…" : now ? `Stop ${letter}` : `Play ${letter}`}
                 </button>
               ) : (
                 <span className="muted">Not in the open deck</span>
               )}
-              {now ? <span className="tile-state">Playing</span> : null}
+              {snippet === "starting" ? (
+                <span className="tile-state">Starting…</span>
+              ) : now ? (
+                <span className="tile-state">Playing</span>
+              ) : null}
             </li>
           );
         })}
       </ul>
-      {byName ? <p className="muted">Lineup by name: read the titles out, then order them by year.</p> : null}
+      {byName ? (
+        <p className="muted">Lineup by name: read the titles out, then order them by year.</p>
+      ) : mode === "snippets" ? (
+        <p className="muted">
+          Snippets play from each song's preview and stop by themselves. A tile without a preview shows its title.
+        </p>
+      ) : null}
+      {mode === "snippets" ? snippets.frame : null}
+      {mode === "snippets" && snippets.status ? (
+        <p className="muted" role="status">
+          {loadedLetter}: {snippets.status}
+        </p>
+      ) : null}
       <BackupPicker
         cards={cards}
         deck={deck}
-        provider={playback.hub.player?.provider}
+        provider={provider}
         collapsed={!byName}
         previewKey={revision}
       />
@@ -91,7 +158,8 @@ export function LineupTiles({
   );
 }
 
-// One player's order: Move up / Move down, then Lock in.
+// One player's order: tap the songs earliest first (Move up / Move down and
+// Remove fix mistakes), then Lock in once every song is placed.
 export function OrderEntry({
   heading,
   cards,
@@ -105,7 +173,8 @@ export function OrderEntry({
   byName: boolean;
   onLock: (order: string[]) => string;
 }) {
-  const [order, setOrder] = useState(() => cards.map((card) => card.cardId));
+  const [order, setOrder] = useState<string[]>([]);
+  const pool = cards.filter((card) => !order.includes(card.cardId));
   function move(index: number, by: number) {
     setOrder((current) => {
       const next = [...current];
@@ -114,8 +183,28 @@ export function OrderEntry({
     });
   }
   return (
-    <EntryForm heading={heading} onLock={() => onLock(order)}>
+    <EntryForm
+      heading={heading}
+      onLock={() => (order.length < cards.length ? "Place every song first." : onLock(order))}
+    >
       <p className="muted">Earliest first.</p>
+      <div className="action-row" role="group" aria-label={`${heading}, songs left to place`}>
+        {pool.map((card) => (
+          <button
+            key={card.cardId}
+            type="button"
+            onClick={() => setOrder((current) => [...current, card.cardId])}
+          >
+            {letterOf(cards, card.cardId)}
+            {byName ? ` ${cardTitle(deck, card.cardId).title}` : ""}
+          </button>
+        ))}
+        {order.length > 0 ? (
+          <button type="button" className="quiet" onClick={() => setOrder([])}>
+            Clear
+          </button>
+        ) : null}
+      </div>
       <ol className="order-list" aria-label={`${heading}, earliest first`}>
         {order.map((id, index) => {
           const letter = letterOf(cards, id);
@@ -129,6 +218,9 @@ export function OrderEntry({
               </button>
               <button type="button" disabled={index === order.length - 1} onClick={() => move(index, 1)}>
                 Move {letter} down
+              </button>
+              <button type="button" onClick={() => setOrder((current) => current.filter((item) => item !== id))}>
+                Remove {letter}
               </button>
             </li>
           );
@@ -170,7 +262,7 @@ function LineupInput({ controller, state, deck, playback }: ModeInputProps) {
           heading={`${player.name}'s order`}
           cards={cards}
           deck={deck}
-          byName={lineupByName(playback)}
+          byName={lineupByName(playback, cards, deck)}
           onLock={(order) => send(controller, { type: "order", playerId: player.id, order })}
         />
       )}

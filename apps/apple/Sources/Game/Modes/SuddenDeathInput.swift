@@ -7,21 +7,30 @@ struct ClosestYearInput: View {
     let info: SuddenDeathInPlay
     @EnvironmentObject private var game: GameController
     @State private var current: String?
-    @State private var year = 1990
+    @State private var year = ""
+    @State private var yearError: String?
 
     var body: some View {
         LockedEntryList(players: session.players.filter { info.players.contains($0.id) }, isLocked: { info.guesses[$0] != nil }, current: $current) { player in
             VStack(alignment: .leading, spacing: 10) {
-                YearField(label: "\(player.name)'s year", year: $year)
+                YearEntry(label: "\(player.name)'s year", text: $year, error: yearError)
                 Button("Lock in") {
-                    guard game.dispatch(.sdGuess(playerId: player.id, year: year)) else { return }
+                    guard let parsed = YearEntry.parse(year) else {
+                        yearError = YearEntry.errorText
+                        return
+                    }
+                    yearError = nil
+                    guard game.dispatch(.sdGuess(playerId: player.id, year: parsed)) else { return }
                     current = nil
-                    year = 1990
+                    year = ""
                 }
                 .buttonStyle(.borderedProminent)
             }
         }
-        .onChange(of: current) { year = 1990 }
+        .onChange(of: current) {
+            year = ""
+            yearError = nil
+        }
     }
 }
 

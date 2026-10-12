@@ -1,4 +1,4 @@
-import { useState, type SyntheticEvent } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 import { migrateDeck, validateDeck, type Card, type Deck } from "../core/deck";
 
 // Deck format 2's optional game fields (contract/game-rules.md section 8.3). The
@@ -57,6 +57,17 @@ export function withCardGameFields(
     }),
   }));
 }
+// Applies one reviewed suggestion: the card's relatedTo, with the version 2 conversion.
+export function withCardRelation(
+  deck: Deck,
+  cardId: string,
+  relatedTo: NonNullable<Card["relatedTo"]>,
+): { deck: Deck; migrated: boolean } {
+  return saveV2(deck, (base) => ({
+    ...base,
+    cards: base.cards.map((card) => (card.id === cardId ? { ...card, relatedTo } : card)),
+  }));
+}
 export function withDeckClipStart(deck: Deck, seconds: string): { deck: Deck; migrated: boolean } {
   const startMs = ms(seconds);
   return saveV2(deck, (base) => {
@@ -101,6 +112,17 @@ export function CardGameFields({
     relation: card.relatedTo?.relation ?? "",
   });
   const { error, saved, submit, edited } = useSaveStatus(() => onSave(values));
+  // A link applied elsewhere (suggestions) changes the saved relation: re-read it
+  // without losing the other fields' unsaved edits.
+  const savedRelated = card.relatedTo?.cardId ?? "";
+  const savedRelation = card.relatedTo?.relation ?? "";
+  useEffect(() => {
+    setValues((current) =>
+      current.related === savedRelated && current.relation === savedRelation
+        ? current
+        : { ...current, related: savedRelated, relation: savedRelation },
+    );
+  }, [savedRelated, savedRelation]);
   function change(patch: Partial<CardGameValues>) {
     setValues((current) => ({ ...current, ...patch }));
     edited();

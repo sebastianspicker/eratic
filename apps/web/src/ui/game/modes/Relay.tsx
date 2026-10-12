@@ -26,6 +26,7 @@ function RelayInput({ controller, session, state, summary, deck }: ModeInputProp
       </p>
       <h3>{placed ? `${name} placed the card` : `Where does this song go? ${name} decides.`}</h3>
       <TimelineStrip
+        key={placed ? "placed" : "place"}
         cards={timelineOf(state)}
         deck={deck}
         label="The team's line"

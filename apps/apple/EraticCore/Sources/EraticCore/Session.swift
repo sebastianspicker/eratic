@@ -173,12 +173,32 @@ public struct LadderOptions: Equatable, Sendable {
     public var guess: LadderGuess = .name
     public var clipStart: LadderClipStart = .card
     public var stakes = false
+    /// +2 to the first locker who scores (section 6.4); session version 2 only.
+    public var buzzer = false
     public init() {}
 }
 
+public enum HigherLowerPlay: String, CaseIterable, Sendable {
+    case turns, everyone
+}
+
 public struct HigherLowerOptions: Equatable, Sendable {
+    public static let defaultLives = 3
     public var cards = 10
-    public init(cards: Int = 10) { self.cards = cards }
+    /// `play`, `lives` and `closer` exist only in session version 2 (section 6.5).
+    public var play: HigherLowerPlay = .turns
+    /// Lives per player with `play: everyone`; nil means the default 3. Not allowed with `turns`.
+    public var lives: Int?
+    /// The apps draw with `closerPick`; the engine doesn't check how a card was drawn.
+    public var closer = false
+    public init(cards: Int = 10, play: HigherLowerPlay = .turns, lives: Int? = nil, closer: Bool = false) {
+        self.cards = cards
+        self.play = play
+        self.lives = lives
+        self.closer = closer
+    }
+    /// The lives each player starts with in `everyone` play.
+    public var startingLives: Int { lives ?? HigherLowerOptions.defaultLives }
 }
 
 public struct RelayOptions: Equatable, Sendable {

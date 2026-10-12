@@ -164,12 +164,14 @@ export function recordDaily(
 }
 
 // Per-game UI preferences that the session file doesn't hold (easy cards only,
-// the card source), so Resume keeps them. Only the current game can be resumed,
+// the card source, Kids' larger controls), so Resume keeps them. Only the current game can be resumed,
 // so only its entry is kept. A corrupt value counts as absent.
 export const PLAY_PREFS_KEY = "eratic.play.prefs.v1";
 export interface PlayPrefs {
   easyOnly: boolean;
   source: "scan" | "draw";
+  // Optional: values stored before Kids' larger controls have no such field.
+  kids?: boolean;
 }
 export function loadPlayPrefs(sessionId: string, storage = defaultStorage()): PlayPrefs | undefined {
   try {
@@ -183,7 +185,7 @@ export function loadPlayPrefs(sessionId: string, storage = defaultStorage()): Pl
       typeof prefs.easyOnly === "boolean" &&
       (prefs.source === "scan" || prefs.source === "draw")
     )
-      return { easyOnly: prefs.easyOnly, source: prefs.source };
+      return { easyOnly: prefs.easyOnly, source: prefs.source, ...(prefs.kids === true && { kids: true }) };
   } catch {
     // corrupt or unavailable
   }
@@ -194,6 +196,60 @@ export function savePlayPrefs(sessionId: string, prefs: PlayPrefs, storage = def
   try {
     if (!storage) return false;
     storage.setItem(PLAY_PREFS_KEY, JSON.stringify({ [sessionId]: prefs }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The player names of the last non-Daily game, so the next Setup starts with
+// the same room. 1-10 trimmed names of 1-40 code points; anything else counts
+// as absent.
+export const ROSTER_KEY = "eratic.roster.v1";
+export function loadRoster(storage = defaultStorage()): string[] | undefined {
+  try {
+    const value = JSON.parse(storage?.getItem(ROSTER_KEY) ?? "null") as unknown;
+    if (!Array.isArray(value) || value.length < 1 || value.length > 10) return undefined;
+    for (const name of value) {
+      if (typeof name !== "string" || name !== name.trim()) return undefined;
+      const length = [...name].length;
+      if (length < 1 || length > 40) return undefined;
+    }
+    return value as string[];
+  } catch {
+    // corrupt or unavailable
+  }
+  return undefined;
+}
+// False when the names could not be stored; the next Setup then uses the defaults.
+export function saveRoster(names: readonly string[], storage = defaultStorage()): boolean {
+  try {
+    const trimmed = names.map((name) => name.trim());
+    if (!storage || trimmed.length < 1 || trimmed.length > 10) return false;
+    if (trimmed.some((name) => [...name].length < 1 || [...name].length > 40)) return false;
+    storage.setItem(ROSTER_KEY, JSON.stringify(trimmed));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// How Bullseye and Era Sort take entries: one player at a time ("each", the
+// default) or every player's field on one form ("all"). Remembered per device;
+// a corrupt value counts as "each".
+export const ENTRY_KEY = "eratic.play.entry.v1";
+export type EntryStyle = "each" | "all";
+export function loadEntryStyle(storage = defaultStorage()): EntryStyle {
+  try {
+    return JSON.parse(storage?.getItem(ENTRY_KEY) ?? "null") === "all" ? "all" : "each";
+  } catch {
+    return "each";
+  }
+}
+export function saveEntryStyle(style: EntryStyle, storage = defaultStorage()): boolean {
+  try {
+    if (!storage) return false;
+    storage.setItem(ENTRY_KEY, JSON.stringify(style));
     return true;
   } catch {
     return false;

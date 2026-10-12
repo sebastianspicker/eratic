@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { applyAction, startGame, suddenDeathCards, type GameState } from "./game/engine";
+import {
+  activePlayer,
+  applyAction,
+  pendingInputs,
+  startGame,
+  suddenDeathCards,
+  summarize,
+  type GameState,
+} from "./game/engine";
+import { suggestRelations } from "./relations";
 import { dailyRoundKind } from "./scoring";
 import type { GameAction, GameMode, SessionOptions } from "./session";
 
@@ -52,5 +61,36 @@ describe("suddenDeathCards", () => {
     ]);
     expect(state.phase).toBe("suddenDeath");
     expect(suddenDeathCards(state)).toBe(3);
+  });
+});
+
+describe("Higher or Lower with everyone calling", () => {
+  it("has no active player and awaits every player still in", () => {
+    const state = play("higherLower", { play: "everyone" }, [
+      { type: "reference", card: card("c1", 1980, "neon") },
+      { type: "draw", card: card("c2", 1990, "zine") },
+      { type: "call", playerId: "p2", call: "later" },
+    ]);
+    expect(activePlayer(state)).toBeUndefined();
+    expect(summarize(state)).not.toHaveProperty("active");
+    expect(pendingInputs(state)).toEqual(["p1"]);
+  });
+  it("keeps the active player in turns", () => {
+    const state = play("higherLower", {}, [{ type: "reference", card: card("c1", 1980, "neon") }]);
+    expect(summarize(state).active).toBe("p1");
+    expect(summarize(state)).not.toHaveProperty("lives");
+  });
+});
+
+describe("suggestRelations", () => {
+  const song = (id: string, year: number, relatedTo?: { cardId: string; relation: "coverOf" }) => ({
+    id,
+    title: "Hello",
+    artist: "X",
+    gameYear: { value: year },
+    ...(relatedTo && { relatedTo }),
+  });
+  it("never suggests a card that already has relatedTo", () => {
+    expect(suggestRelations([song("a", 1970), song("b", 1980, { cardId: "a", relation: "coverOf" })])).toEqual([]);
   });
 });

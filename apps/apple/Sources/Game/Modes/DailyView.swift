@@ -7,16 +7,18 @@ struct DailyInput: View {
     let options: DailyOptions
     @EnvironmentObject private var game: GameController
     @State private var era: String?
-    @State private var year = 1990
+    @State private var year = ""
+    @State private var yearError: String?
 
     var body: some View {
         let round = state.round + 1
+        let eraRound = (try? Scoring.dailyRoundKind(round)) == .eraSort
         let player = state.players[0].id
         VStack(alignment: .leading, spacing: 12) {
-            Text("Round \(round) of \(options.cards.count): " + (round <= 3 ? "which era?" : "which year?")).font(.headline)
+            Text("Round \(round) of \(options.cards.count): " + (eraRound ? "which era?" : "which year?")).font(.headline)
             if state.pendingInputs.isEmpty {
                 Label("Locked", systemImage: "lock.fill").foregroundStyle(.secondary)
-            } else if round <= 3 {
+            } else if eraRound {
                 EraGrid(selection: $era)
                 Button("Lock in") {
                     guard let era, game.dispatch(.pickEra(playerId: player, era: era)) else { return }
@@ -25,9 +27,16 @@ struct DailyInput: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(era == nil)
             } else {
-                YearField(label: "Your year", year: $year)
-                Button("Lock in") { game.dispatch(.guess(playerId: player, year: year)) }
-                    .buttonStyle(.borderedProminent)
+                YearEntry(label: "Your year", text: $year, error: yearError)
+                Button("Lock in") {
+                    guard let parsed = YearEntry.parse(year) else {
+                        yearError = YearEntry.errorText
+                        return
+                    }
+                    yearError = nil
+                    if game.dispatch(.guess(playerId: player, year: parsed)) { year = "" }
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
     }

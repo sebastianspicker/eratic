@@ -23025,6 +23025,2463 @@
           "p1": 60000
         }
       }
+    },
+    {
+      "name": "setup-higher-lower-lives-with-turns",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "lives": 3
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      },
+      "expect": {
+        "error": {
+          "at": -1
+        }
+      }
+    },
+    {
+      "name": "setup-higher-lower-lives-6",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 6
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": []
+      },
+      "expect": {
+        "error": {
+          "at": -1
+        }
+      }
+    },
+    {
+      "name": "higher-lower-everyone-miss-at-one-life-eliminates",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 4000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "round": 1,
+        "scores": {
+          "p1": 1,
+          "p2": 0
+        },
+        "streaks": {
+          "p1": 1,
+          "p2": 0
+        },
+        "lives": {
+          "p1": 1,
+          "p2": 0
+        },
+        "eliminated": [
+          "p2"
+        ],
+        "standings": [
+          [
+            "p1"
+          ],
+          [
+            "p2"
+          ]
+        ],
+        "reference": "c1990"
+      }
+    },
+    {
+      "name": "higher-lower-everyone-calls-in-any-order",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p2",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 4000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "awaitingDraw",
+        "round": 1,
+        "scores": {
+          "p1": 1,
+          "p2": 1
+        },
+        "lives": {
+          "p1": 3,
+          "p2": 3
+        },
+        "eliminated": []
+      }
+    },
+    {
+      "name": "higher-lower-everyone-reveal-needs-every-call",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 3000
+          }
+        ]
+      },
+      "expect": {
+        "error": {
+          "at": 3
+        }
+      }
+    },
+    {
+      "name": "higher-lower-everyone-one-call-per-player",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p1",
+            "call": "earlier"
+          }
+        ]
+      },
+      "expect": {
+        "error": {
+          "at": 3
+        }
+      }
+    },
+    {
+      "name": "higher-lower-everyone-eliminated-player-cannot-call",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          },
+          {
+            "id": "p3",
+            "name": "Sam"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 4000,
+            "playerId": "p3",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 5000
+          },
+          {
+            "type": "draw",
+            "at": 6000,
+            "card": {
+              "cardId": "c2000",
+              "year": 2000,
+              "era": "chrome"
+            }
+          },
+          {
+            "type": "call",
+            "at": 7000,
+            "playerId": "p2",
+            "call": "later"
+          }
+        ]
+      },
+      "expect": {
+        "error": {
+          "at": 7
+        }
+      }
+    },
+    {
+      "name": "higher-lower-everyone-eliminated-player-not-awaited",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          },
+          {
+            "id": "p3",
+            "name": "Sam"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 4000,
+            "playerId": "p3",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 5000
+          },
+          {
+            "type": "draw",
+            "at": 6000,
+            "card": {
+              "cardId": "c2000",
+              "year": 2000,
+              "era": "chrome"
+            }
+          },
+          {
+            "type": "call",
+            "at": 7000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 8000,
+            "playerId": "p3",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 9000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "round": 2,
+        "streaks": {
+          "p1": 2,
+          "p2": 0,
+          "p3": 1
+        },
+        "eliminated": [
+          "p2",
+          "p3"
+        ],
+        "standings": [
+          [
+            "p1"
+          ],
+          [
+            "p3"
+          ],
+          [
+            "p2"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "higher-lower-everyone-same-reveal-eliminations-share-a-group",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 2
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          },
+          {
+            "id": "p3",
+            "name": "Sam"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 4000,
+            "playerId": "p3",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 5000
+          },
+          {
+            "type": "draw",
+            "at": 6000,
+            "card": {
+              "cardId": "c1970",
+              "year": 1970,
+              "era": "disco"
+            }
+          },
+          {
+            "type": "call",
+            "at": 7000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 8000,
+            "playerId": "p2",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 9000,
+            "playerId": "p3",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 10000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "round": 2,
+        "scores": {
+          "p1": 2,
+          "p2": 0,
+          "p3": 0
+        },
+        "lives": {
+          "p1": 2,
+          "p2": 0,
+          "p3": 0
+        },
+        "eliminated": [
+          "p2",
+          "p3"
+        ],
+        "standings": [
+          [
+            "p1"
+          ],
+          [
+            "p2",
+            "p3"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "higher-lower-everyone-miss-keeps-streak",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 2
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 4000
+          },
+          {
+            "type": "draw",
+            "at": 5000,
+            "card": {
+              "cardId": "c2000",
+              "year": 2000,
+              "era": "chrome"
+            }
+          },
+          {
+            "type": "call",
+            "at": 6000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 7000,
+            "playerId": "p2",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 8000
+          },
+          {
+            "type": "draw",
+            "at": 9000,
+            "card": {
+              "cardId": "c1995",
+              "year": 1995,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 10000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 11000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 12000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "awaitingDraw",
+        "round": 3,
+        "streaks": {
+          "p1": 2,
+          "p2": 3
+        },
+        "lives": {
+          "p1": 1,
+          "p2": 2
+        },
+        "standings": [
+          [
+            "p2"
+          ],
+          [
+            "p1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "higher-lower-everyone-ends-after-cards",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "cards": 2
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 4000
+          },
+          {
+            "type": "draw",
+            "at": 5000,
+            "card": {
+              "cardId": "c1985",
+              "year": 1985,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "call",
+            "at": 6000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 7000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 8000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "round": 2,
+        "scores": {
+          "p1": 2,
+          "p2": 1
+        },
+        "lives": {
+          "p1": 3,
+          "p2": 2
+        },
+        "eliminated": [],
+        "standings": [
+          [
+            "p1"
+          ],
+          [
+            "p2"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "higher-lower-everyone-equal-streaks-share-a-group",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "cards": 2
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 4000
+          },
+          {
+            "type": "draw",
+            "at": 5000,
+            "card": {
+              "cardId": "c1985",
+              "year": 1985,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "call",
+            "at": 6000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 7000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 8000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "standings": [
+          [
+            "p1",
+            "p2"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "higher-lower-everyone-solo-uses-lives",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 2
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 3000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "awaitingDraw",
+        "round": 1,
+        "scores": {
+          "p1": 0
+        },
+        "lives": {
+          "p1": 1
+        },
+        "eliminated": []
+      }
+    },
+    {
+      "name": "higher-lower-everyone-solo-ends-without-lives",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 2
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 3000
+          },
+          {
+            "type": "draw",
+            "at": 4000,
+            "card": {
+              "cardId": "c2000",
+              "year": 2000,
+              "era": "chrome"
+            }
+          },
+          {
+            "type": "call",
+            "at": 5000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          },
+          {
+            "type": "draw",
+            "at": 7000,
+            "card": {
+              "cardId": "c1950",
+              "year": 1950,
+              "era": "jukebox"
+            }
+          },
+          {
+            "type": "call",
+            "at": 8000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 9000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "round": 3,
+        "scores": {
+          "p1": 1
+        },
+        "streaks": {
+          "p1": 1
+        },
+        "lives": {
+          "p1": 0
+        },
+        "eliminated": [],
+        "standings": [
+          [
+            "p1"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "higher-lower-turns-explicit-matches-default",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "turns",
+          "closer": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 3000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "awaitingDraw",
+        "round": 1,
+        "scores": {
+          "p1": 1,
+          "p2": 0
+        },
+        "active": "p2",
+        "eliminated": []
+      }
+    },
+    {
+      "name": "higher-lower-turns-only-active-calls",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "turns"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p2",
+            "call": "later"
+          }
+        ]
+      },
+      "expect": {
+        "error": {
+          "at": 2
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-first-lock-gains-two",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "buzzer": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p2"
+          },
+          {
+            "type": "lock",
+            "at": 3000,
+            "playerId": "p1"
+          },
+          {
+            "type": "mark",
+            "at": 4000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "mark",
+            "at": 5000,
+            "playerId": "p2",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 10,
+          "p2": 12
+        },
+        "buzzers": {
+          "p1": 0,
+          "p2": 1
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-skips-a-first-lock-that-scored-nothing",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "buzzer": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p2"
+          },
+          {
+            "type": "step",
+            "at": 3000,
+            "index": 1
+          },
+          {
+            "type": "lock",
+            "at": 4000,
+            "playerId": "p1"
+          },
+          {
+            "type": "mark",
+            "at": 5000,
+            "playerId": "p2",
+            "titleOK": false,
+            "artistOK": false
+          },
+          {
+            "type": "mark",
+            "at": 6000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "reveal",
+            "at": 7000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 10,
+          "p2": 0
+        },
+        "buzzers": {
+          "p1": 1,
+          "p2": 0
+        },
+        "usedMs": {
+          "p1": 5000,
+          "p2": 1000
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-nobody-scores",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "buzzer": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p1"
+          },
+          {
+            "type": "lock",
+            "at": 3000,
+            "playerId": "p2"
+          },
+          {
+            "type": "mark",
+            "at": 4000,
+            "playerId": "p1",
+            "titleOK": false,
+            "artistOK": false
+          },
+          {
+            "type": "mark",
+            "at": 5000,
+            "playerId": "p2",
+            "titleOK": false,
+            "artistOK": false
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "suddenDeath",
+        "scores": {
+          "p1": 0,
+          "p2": 0
+        },
+        "buzzers": {
+          "p1": 0,
+          "p2": 0
+        },
+        "suddenDeath": {
+          "kind": "firstToName",
+          "players": [
+            "p1",
+            "p2"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-off-no-bonus",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p2"
+          },
+          {
+            "type": "lock",
+            "at": 3000,
+            "playerId": "p1"
+          },
+          {
+            "type": "mark",
+            "at": 4000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "mark",
+            "at": 5000,
+            "playerId": "p2",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "suddenDeath",
+        "scores": {
+          "p1": 10,
+          "p2": 10
+        },
+        "standings": [
+          [
+            "p1",
+            "p2"
+          ]
+        ],
+        "suddenDeath": {
+          "kind": "firstToName",
+          "players": [
+            "p1",
+            "p2"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-wager-settles-before-bonus",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "buzzer": true,
+          "stakes": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p1"
+          },
+          {
+            "type": "lock",
+            "at": 3000,
+            "playerId": "p2"
+          },
+          {
+            "type": "wager",
+            "at": 4000,
+            "playerId": "p1",
+            "chips": 2
+          },
+          {
+            "type": "wager",
+            "at": 5000,
+            "playerId": "p2",
+            "chips": 1
+          },
+          {
+            "type": "mark",
+            "at": 6000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "mark",
+            "at": 7000,
+            "playerId": "p2",
+            "titleOK": false,
+            "artistOK": false
+          },
+          {
+            "type": "reveal",
+            "at": 8000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 19,
+          "p2": 4
+        },
+        "chips": {
+          "p1": 7,
+          "p2": 4
+        },
+        "buzzers": {
+          "p1": 1,
+          "p2": 0
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-year-mode",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "buzzer": true,
+          "guess": "year"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p1",
+            "year": 1990
+          },
+          {
+            "type": "lock",
+            "at": 3000,
+            "playerId": "p2",
+            "year": 1984
+          },
+          {
+            "type": "reveal",
+            "at": 4000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 0,
+          "p2": 7
+        },
+        "buzzers": {
+          "p1": 0,
+          "p2": 1
+        },
+        "exactYears": {
+          "p1": 0,
+          "p2": 1
+        }
+      }
+    },
+    {
+      "name": "higher-lower-everyone-eliminated-in-turn-order-not-call-order",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          },
+          {
+            "id": "p3",
+            "name": "Sam"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p3",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 4000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 5000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "eliminated": [
+          "p2",
+          "p3"
+        ],
+        "lives": {
+          "p1": 1,
+          "p2": 0,
+          "p3": 0
+        },
+        "standings": [
+          [
+            "p1"
+          ],
+          [
+            "p2",
+            "p3"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "higher-lower-everyone-skip-clears-calls-and-costs-nothing",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "skip",
+            "at": 3000
+          },
+          {
+            "type": "draw",
+            "at": 4000,
+            "card": {
+              "cardId": "c1985",
+              "year": 1985,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "call",
+            "at": 5000,
+            "playerId": "p1",
+            "call": "later"
+          },
+          {
+            "type": "call",
+            "at": 6000,
+            "playerId": "p2",
+            "call": "later"
+          },
+          {
+            "type": "reveal",
+            "at": 7000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "awaitingDraw",
+        "round": 1,
+        "scores": {
+          "p1": 1,
+          "p2": 1
+        },
+        "lives": {
+          "p1": 1,
+          "p2": 1
+        },
+        "eliminated": [],
+        "reference": "c1985"
+      }
+    },
+    {
+      "name": "higher-lower-everyone-all-out-in-one-reveal",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "higherLower",
+        "options": {
+          "play": "everyone",
+          "lives": 1
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "reference",
+            "at": 0,
+            "card": {
+              "cardId": "c1980",
+              "year": 1980,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "draw",
+            "at": 1000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "call",
+            "at": 2000,
+            "playerId": "p1",
+            "call": "earlier"
+          },
+          {
+            "type": "call",
+            "at": 3000,
+            "playerId": "p2",
+            "call": "earlier"
+          },
+          {
+            "type": "reveal",
+            "at": 4000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "eliminated": [
+          "p1",
+          "p2"
+        ],
+        "standings": [
+          [
+            "p1",
+            "p2"
+          ]
+        ],
+        "lives": {
+          "p1": 0,
+          "p2": 0
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-skip-clears-lock-order",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "buzzer": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p1"
+          },
+          {
+            "type": "skip",
+            "at": 3000
+          },
+          {
+            "type": "draw",
+            "at": 4000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "step",
+            "at": 5000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 6000,
+            "playerId": "p2"
+          },
+          {
+            "type": "lock",
+            "at": 7000,
+            "playerId": "p1"
+          },
+          {
+            "type": "mark",
+            "at": 8000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "mark",
+            "at": 9000,
+            "playerId": "p2",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "reveal",
+            "at": 10000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 10,
+          "p2": 12
+        },
+        "buzzers": {
+          "p1": 0,
+          "p2": 1
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-counts-over-cards",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 2,
+          "buzzer": true
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p1"
+          },
+          {
+            "type": "lock",
+            "at": 3000,
+            "playerId": "p2"
+          },
+          {
+            "type": "mark",
+            "at": 4000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": false
+          },
+          {
+            "type": "mark",
+            "at": 5000,
+            "playerId": "p2",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          },
+          {
+            "type": "draw",
+            "at": 7000,
+            "card": {
+              "cardId": "c1990",
+              "year": 1990,
+              "era": "zine"
+            }
+          },
+          {
+            "type": "step",
+            "at": 8000,
+            "index": 0
+          },
+          {
+            "type": "step",
+            "at": 9000,
+            "index": 1
+          },
+          {
+            "type": "lock",
+            "at": 10000,
+            "playerId": "p1"
+          },
+          {
+            "type": "lock",
+            "at": 11000,
+            "playerId": "p2"
+          },
+          {
+            "type": "mark",
+            "at": 12000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "mark",
+            "at": 13000,
+            "playerId": "p2",
+            "titleOK": false,
+            "artistOK": false
+          },
+          {
+            "type": "reveal",
+            "at": 14000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 17,
+          "p2": 10
+        },
+        "buzzers": {
+          "p1": 2,
+          "p2": 0
+        }
+      }
+    },
+    {
+      "name": "ladder-buzzer-both-mode",
+      "session": {
+        "format": "eratic-session",
+        "sessionVersion": 2,
+        "id": "s-20261011-1",
+        "createdAt": "2026-10-11T19:30:00Z",
+        "deckId": "demo-deck",
+        "deckTitle": "Demo deck",
+        "mode": "ladder",
+        "options": {
+          "rounds": 1,
+          "buzzer": true,
+          "guess": "both"
+        },
+        "seed": 42,
+        "players": [
+          {
+            "id": "p1",
+            "name": "Ada"
+          },
+          {
+            "id": "p2",
+            "name": "Lin"
+          }
+        ],
+        "actions": [
+          {
+            "type": "draw",
+            "at": 0,
+            "card": {
+              "cardId": "c1984",
+              "year": 1984,
+              "era": "neon"
+            }
+          },
+          {
+            "type": "step",
+            "at": 1000,
+            "index": 0
+          },
+          {
+            "type": "lock",
+            "at": 2000,
+            "playerId": "p2",
+            "year": 1984
+          },
+          {
+            "type": "lock",
+            "at": 3000,
+            "playerId": "p1",
+            "year": 1984
+          },
+          {
+            "type": "mark",
+            "at": 4000,
+            "playerId": "p1",
+            "titleOK": true,
+            "artistOK": true
+          },
+          {
+            "type": "mark",
+            "at": 5000,
+            "playerId": "p2",
+            "titleOK": true,
+            "artistOK": false
+          },
+          {
+            "type": "reveal",
+            "at": 6000
+          }
+        ]
+      },
+      "expect": {
+        "phase": "finished",
+        "scores": {
+          "p1": 13,
+          "p2": 10
+        },
+        "buzzers": {
+          "p1": 0,
+          "p2": 1
+        },
+        "exactYears": {
+          "p1": 1,
+          "p2": 1
+        }
+      }
     }
   ]
 }
