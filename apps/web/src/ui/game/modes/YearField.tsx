@@ -4,10 +4,11 @@ export const MAX_YEAR = 2100;
 const START_YEAR = 1990;
 
 export function parseYear(value: string): number | undefined {
-  const year = Number(value);
-  return value.trim() !== "" && Number.isInteger(year) && year >= MIN_YEAR && year <= MAX_YEAR
-    ? year
-    : undefined;
+  // Four ASCII digits only: Number() would also take "1.99e3" or "0x7c6".
+  const text = value.trim();
+  if (!/^[0-9]{4}$/u.test(text)) return undefined;
+  const year = Number(text);
+  return year >= MIN_YEAR && year <= MAX_YEAR ? year : undefined;
 }
 export function YearField({
   id,

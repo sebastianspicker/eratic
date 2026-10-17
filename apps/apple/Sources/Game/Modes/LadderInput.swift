@@ -46,10 +46,15 @@ struct LadderInput: View {
     private var song: SongCard? { deck.card(card.cardId) }
     /// The card's Spotify or Apple Music link, the only source of a snippet without exact clips.
     private var snippetURL: URL? {
-        guard !playback.tier.exactClips, let song,
+        guard !cardExact, let song,
               let url = SongBackup.backupURL(for: song, provider: playback.provider),
               ScanRules.providerTrack(url.absoluteString) != nil else { return nil }
         return url
+    }
+    /// Exact clips are per card: a card with no link for the connected provider can't play one, so it falls back to a snippet or hand marking.
+    private var cardExact: Bool {
+        guard playback.tier.exactClips, let song else { return false }
+        return playback.track(for: song) != nil
     }
     /// Steps play from the hidden preview; otherwise (no link, or the preview is unavailable) the host marks them by hand.
     private var snippetMode: Bool { snippetURL != nil && !snippets.failed }
@@ -60,15 +65,17 @@ struct LadderInput: View {
             StepBar(steps: options.steps, current: step)
             stepControls
             if let snippetURL { SnippetPreview(controller: snippets, url: snippetURL) }
-            if let song { SongBackup(card: song, collapsed: snippetMode || (playback.tier.exactClips && playback.track(for: song) != nil), previewID: previewRevision) }
+            if let song { SongBackup(card: song, collapsed: snippetMode || cardExact, previewID: previewRevision) }
             if let message = playError ?? clip.error?.localizedDescription { Text(message).foregroundStyle(.red).font(.callout) }
-            if step >= 0, !showAnswer {
-                locks
+            if !showAnswer {
+                if step >= 0 { locks }
+                // Wagers are open from the draw (game-rules.md section 5.4), not only once a step has played.
                 if session.options.stakes { wagerRows }
             }
             if showAnswer {
                 answer
             } else if step >= 0 {
+                // Not GameState.canReveal: that also waits for the marks, which are only sent at Score card.
                 let ready = session.players.allSatisfy { state.locks[$0.id] != nil } || step == last
                 let owed = session.players.filter { state.owesWager($0.id) }
                 Button("Show answer") {
@@ -105,7 +112,7 @@ struct LadderInput: View {
         if snippetMode {
             Label("Snippets play from the song's preview and stop by themselves.", systemImage: "info.circle")
                 .font(.callout)
-        } else if !playback.tier.exactClips {
+        } else if !cardExact {
             if snippets.failed {
                 Text(snippets.status == "unavailable" ? "No hidden preview is available for this song." : "The preview could not play.")
                     .font(.callout)
@@ -121,7 +128,7 @@ struct LadderInput: View {
     private var stepControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             stepButtons
-            if playback.tier.exactClips, let song { nudgeControl(start: startMs(song)) }
+            if cardExact, let song { nudgeControl(start: startMs(song)) }
         }
     }
 
@@ -143,23 +150,31 @@ struct LadderInput: View {
         String(format: "%d:%02d", ms / 60_000, (ms % 60_000) / 1000)
     }
 
+    /// The buttons sit in a row, or stack on a narrow screen (a 375 pt phone).
     private var stepButtons: some View {
-        HStack(spacing: 12) {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { stepButtonItems }
+            VStack(alignment: .leading, spacing: 12) { stepButtonItems }
+        }
+    }
+
+    private var stepButtonItems: some View {
+        Group {
             if step < last {
                 Button(nextLabel) { play(step + 1) }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     // Only timed steps: a stray Space must not mark a step played by hand.
-                    .keyboardShortcut(playback.tier.exactClips || snippetMode ? KeyboardShortcut(.space, modifiers: []) : nil)
+                    .keyboardShortcut(cardExact || snippetMode ? KeyboardShortcut(.space, modifiers: []) : nil)
                     .disabled(showAnswer || busy)
             }
-            if step >= 0, playback.tier.exactClips || snippetMode {
+            if step >= 0, cardExact || snippetMode {
                 Button("Replay \(secondsText(options.steps[step]))") { play(step) }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                     .disabled(showAnswer || busy)
             }
-            if playback.tier.exactClips, ExactClip.isPlaying(clip) {
+            if cardExact, ExactClip.isPlaying(clip) {
                 Button("Stop") { clip.cancel() }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
@@ -184,7 +199,7 @@ struct LadderInput: View {
 
     private var nextLabel: String {
         let seconds = secondsText(options.steps[step + 1])
-        if playback.tier.exactClips || snippetMode { return step < 0 ? "Play \(seconds)" : "More time: \(seconds)" }
+        if cardExact || snippetMode { return step < 0 ? "Play \(seconds)" : "More time: \(seconds)" }
         return step < 0 ? "Mark \(seconds) played" : "Next: mark \(seconds) played"
     }
 
@@ -197,7 +212,7 @@ struct LadderInput: View {
     private func play(_ index: Int) {
         guard !showAnswer, !busy else { return }
         // Nothing to time or hear: the host played the step by hand.
-        guard playback.tier.exactClips else {
+        guard cardExact else {
             if snippetMode {
                 // The step is recorded once its sound starts, and only if the same card is still in play.
                 previewRevision = UUID()
@@ -248,17 +263,8 @@ struct LadderInput: View {
                         }
                     }
                     if options.guess != .name, current == player.id, state.locks[player.id] == nil {
-                        YearEntry(label: "\(player.name)'s year", text: $year, error: yearError)
-                        Button("Lock in at \(secondsText(options.steps[step]))") {
-                            guard let parsed = YearEntry.parse(year) else {
-                                yearError = YearEntry.errorText
-                                return
-                            }
-                            yearError = nil
-                            guard game.dispatch(.lock(playerId: player.id, year: parsed)) else { return }
-                            current = nil
-                            year = ""
-                        }
+                        YearEntry(label: "\(player.name)'s year", text: $year, error: yearError, onSubmit: { lockYear(player.id) })
+                        Button("Lock in at \(secondsText(options.steps[step]))") { lockYear(player.id) }
                         .buttonStyle(.borderedProminent)
                     }
                 }
@@ -278,7 +284,7 @@ struct LadderInput: View {
                     if let placed = state.wagers[player.id] {
                         Text("Wagered \(placed)").font(.callout)
                     } else {
-                        WagerControl(held: held, wager: Binding(get: { wagers[player.id] ?? 1 }, set: { wagers[player.id] = $0 }))
+                        WagerControl(held: held, wager: Binding(get: { wagers[player.id] ?? 1 }, set: { wagers[player.id] = $0 }), rule: WagerControl.ladderRule)
                         if state.owesWager(player.id) {
                             Button("Wager for \(player.name)") {
                                 game.dispatch(.wager(playerId: player.id, chips: min(wagers[player.id] ?? 1, min(3, held))))
@@ -323,6 +329,17 @@ struct LadderInput: View {
         }
         .padding(14)
         .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func lockYear(_ player: String) {
+        guard let parsed = YearEntry.parse(year) else {
+            yearError = YearEntry.errorText
+            return
+        }
+        yearError = nil
+        guard game.dispatch(.lock(playerId: player, year: parsed)) else { return }
+        current = nil
+        year = ""
     }
 
     private func score(_ locked: [SessionPlayer]) {

@@ -27,18 +27,20 @@ struct DailyInput: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(era == nil)
             } else {
-                YearEntry(label: "Your year", text: $year, error: yearError)
-                Button("Lock in") {
-                    guard let parsed = YearEntry.parse(year) else {
-                        yearError = YearEntry.errorText
-                        return
-                    }
-                    yearError = nil
-                    if game.dispatch(.guess(playerId: player, year: parsed)) { year = "" }
-                }
+                YearEntry(label: "Your year", text: $year, error: yearError, onSubmit: { lockYear(player) })
+                Button("Lock in") { lockYear(player) }
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+
+    private func lockYear(_ player: String) {
+        guard let parsed = YearEntry.parse(year) else {
+            yearError = YearEntry.errorText
+            return
+        }
+        yearError = nil
+        if game.dispatch(.guess(playerId: player, year: parsed)) { year = "" }
     }
 }
 

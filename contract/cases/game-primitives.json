@@ -1,5 +1,5 @@
 {
-  "description": "Deterministic primitives, eras, scoring, imposter pairs and the Eratic card URL (game-rules.md sections 1-3, 6.8, 8.2 and 8.3), shared by Apple and web. Each case calls `fn` with the named `args` and expects `expected`, or expects the call to fail when `error` is true. Expected values were computed by an independent reference implementation written from the pseudo-code. Sets of IDs and lists are compared exactly; compareCodePoints compares the sign. eraticCardURL expects the URL string, or null when the host or either ID is invalid. closerPick expects the picked card ID, or null for no candidates. suggestRelations takes cards as {id, title, artist, year, relatedTo?} with `year` standing for gameYear.value and `relatedTo` as in deck version 2.",
+  "description": "Deterministic primitives, eras, scoring, imposter pairs and the Eratic card URL (game-rules.md sections 1-3, 6.8, 8.2 and 8.3), shared by Apple and web. Each case calls `fn` with the named `args` and expects `expected`, or expects the call to fail when `error` is true. Expected values were computed by an independent reference implementation written from the pseudo-code. Sets of IDs and lists are compared exactly; compareCodePoints compares the sign. eraticCardURL expects the URL string, or null when the host or either ID is invalid. closerPick expects the picked card ID, or null for no candidates. nextImposterPair takes `pairs` as {a, b, original} and `drawn` as a list of [id, id], and expects the pair or null. suggestRelations takes cards as {id, title, artist, year, relatedTo?} with `year` standing for gameYear.value and `relatedTo` as in deck version 2.",
   "cases": [
     {
       "name": "mulberry32-seed-0",
@@ -7154,6 +7154,241 @@
           "relation": "coverOf"
         }
       ]
+    },
+    {
+      "name": "nextImposterPair-empty-pairs",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [],
+        "drawn": []
+      },
+      "expected": null
+    },
+    {
+      "name": "nextImposterPair-nothing-drawn-first-pair",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [
+          {
+            "a": "o",
+            "b": "c1",
+            "original": "o"
+          },
+          {
+            "a": "o",
+            "b": "c2",
+            "original": "o"
+          },
+          {
+            "a": "x",
+            "b": "y",
+            "original": "x"
+          }
+        ],
+        "drawn": []
+      },
+      "expected": {
+        "a": "o",
+        "b": "c1",
+        "original": "o"
+      }
+    },
+    {
+      "name": "nextImposterPair-skips-pair-sharing-a-card-with-last",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [
+          {
+            "a": "o",
+            "b": "c1",
+            "original": "o"
+          },
+          {
+            "a": "o",
+            "b": "c2",
+            "original": "o"
+          },
+          {
+            "a": "x",
+            "b": "y",
+            "original": "x"
+          }
+        ],
+        "drawn": [
+          [
+            "o",
+            "c1"
+          ]
+        ]
+      },
+      "expected": {
+        "a": "x",
+        "b": "y",
+        "original": "x"
+      }
+    },
+    {
+      "name": "nextImposterPair-falls-back-to-first-unplayed",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [
+          {
+            "a": "o",
+            "b": "c1",
+            "original": "o"
+          },
+          {
+            "a": "o",
+            "b": "c2",
+            "original": "o"
+          }
+        ],
+        "drawn": [
+          [
+            "o",
+            "c1"
+          ]
+        ]
+      },
+      "expected": {
+        "a": "o",
+        "b": "c2",
+        "original": "o"
+      }
+    },
+    {
+      "name": "nextImposterPair-swapped-order-counts-as-played",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [
+          {
+            "a": "o",
+            "b": "c1",
+            "original": "o"
+          },
+          {
+            "a": "x",
+            "b": "y",
+            "original": "x"
+          }
+        ],
+        "drawn": [
+          [
+            "y",
+            "x"
+          ]
+        ]
+      },
+      "expected": {
+        "a": "o",
+        "b": "c1",
+        "original": "o"
+      }
+    },
+    {
+      "name": "nextImposterPair-all-played",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [
+          {
+            "a": "o",
+            "b": "c1",
+            "original": "o"
+          },
+          {
+            "a": "o",
+            "b": "c2",
+            "original": "o"
+          },
+          {
+            "a": "x",
+            "b": "y",
+            "original": "x"
+          }
+        ],
+        "drawn": [
+          [
+            "o",
+            "c1"
+          ],
+          [
+            "x",
+            "y"
+          ],
+          [
+            "c2",
+            "o"
+          ]
+        ]
+      },
+      "expected": null
+    },
+    {
+      "name": "nextImposterPair-only-last-drawn-pair-matters",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [
+          {
+            "a": "o",
+            "b": "c1",
+            "original": "o"
+          },
+          {
+            "a": "o",
+            "b": "c2",
+            "original": "o"
+          },
+          {
+            "a": "c1",
+            "b": "z",
+            "original": "c1"
+          }
+        ],
+        "drawn": [
+          [
+            "o",
+            "c1"
+          ],
+          [
+            "x",
+            "y"
+          ]
+        ]
+      },
+      "expected": {
+        "a": "o",
+        "b": "c2",
+        "original": "o"
+      }
+    },
+    {
+      "name": "nextImposterPair-ids-compared-exactly",
+      "fn": "nextImposterPair",
+      "args": {
+        "pairs": [
+          {
+            "a": "a",
+            "b": "B",
+            "original": "a"
+          },
+          {
+            "a": "A",
+            "b": "b",
+            "original": "A"
+          }
+        ],
+        "drawn": [
+          [
+            "a",
+            "b"
+          ]
+        ]
+      },
+      "expected": {
+        "a": "a",
+        "b": "B",
+        "original": "a"
+      }
     }
   ]
 }

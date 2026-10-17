@@ -33,7 +33,12 @@ import { imposter } from "./imposter";
 import { ladder } from "./ladder";
 import { lineup } from "./lineup";
 import { relay, relayLine } from "./relay";
-import { timeline, timelineCards } from "./timeline";
+import {
+  timeline,
+  timelineCards,
+  timelineFinalRoundPlayers,
+  timelineOpenChallengeSlots,
+} from "./timeline";
 
 // The rules engine of contract/game-rules.md sections 5-7: pure functions over
 // plain data. Randomness and time enter only through the session's actions.
@@ -142,6 +147,24 @@ export function replay(session: Pick<Session, keyof GameSetup | "actions">): Gam
   return state;
 }
 
+// Actions whose playerId the session schema requires. sdName's is optional and
+// anchor's depends on the ownership, so the mode checks that one.
+const NEEDS_PLAYER: ReadonlySet<string> = new Set<GameAction["type"]>([
+  "wager",
+  "sdGuess",
+  "sdOrder",
+  "guess",
+  "pickEra",
+  "place",
+  "challenge",
+  "nameIt",
+  "lock",
+  "mark",
+  "call",
+  "order",
+  "choose",
+]);
+
 function step(state: GameState, action: GameAction): void {
   if (state.phase === "finished") fail("The game is finished.");
   if (typeof action !== "object" || action === null) fail("An action is an object.");
@@ -153,6 +176,8 @@ function step(state: GameState, action: GameAction): void {
     : undefined;
   if (playerId !== undefined && !state.players.some((player) => player.id === playerId))
     fail(`Unknown player: ${String(playerId)}.`);
+  if (playerId === undefined && NEEDS_PLAYER.has(action.type))
+    fail(`${action.type} needs a playerId.`);
   switch (action.type) {
     case "clip":
       requirePhase(state, "open", "suddenDeathOpen");
@@ -347,7 +372,8 @@ function suddenDeathInput(
 function suddenDeathPending(sd: SuddenDeath): string[] {
   if (sd.kind === "closestYear") return sd.players.filter((id) => !has(sd.guesses, id));
   if (sd.kind === "lineup") return sd.players.filter((id) => !has(sd.orders, id));
-  return [];
+  // firstToName: the tied players still to answer until one sdName is given.
+  return sd.named ? [] : sd.players;
 }
 const suddenDeathReady = (sd: SuddenDeath): boolean =>
   sd.kind === "firstToName" ? sd.named : suddenDeathPending(sd).length === 0;
@@ -422,6 +448,15 @@ export function timelineOf(state: GameState, playerId?: string): CardRef[] {
   if (state.mode === "timeline") return [...timelineCards(state, playerId)];
   if (state.mode === "relay") return [...relayLine(state)];
   return [];
+}
+// Timeline once the target was reached: the players still to play this round, in
+// turn order. Undefined otherwise.
+export function finalRoundPlayers(state: GameState): string[] | undefined {
+  return state.mode === "timeline" ? timelineFinalRoundPlayers(state) : undefined;
+}
+// Timeline after the placement: the slots a challenge may still take. Empty otherwise.
+export function openChallengeSlots(state: GameState): number[] {
+  return state.mode === "timeline" ? timelineOpenChallengeSlots(state) : [];
 }
 // Cards the current sudden death draws at once; 0 outside a sudden death.
 export function suddenDeathCards(state: GameState): number {

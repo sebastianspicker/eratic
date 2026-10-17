@@ -15,6 +15,8 @@ struct TimelineStrip: View {
     var selectedText = "Your slot"
     /// Slots already taken this turn, with the words shown in them; they can't be chosen.
     var taken: [Int: String] = [:]
+    /// A card to mark as new (a reveal's strip).
+    var newCardID: String?
     /// Nil: the slots are shown but aren't buttons.
     var onSelect: ((Int) -> Void)?
     var onSubmit: (() -> Void)?
@@ -27,15 +29,28 @@ struct TimelineStrip: View {
         return "Between \(String(years[slot - 1])) and \(String(years[slot]))"
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(alignment: .center, spacing: compact ? 6 : 8) {
-                ForEach(0...cards.count, id: \.self) { slot in
-                    if !compact { slotButton(slot) }
-                    if slot < cards.count { chip(cards[slot]) }
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(alignment: .center, spacing: compact ? 6 : 8) {
+                    ForEach(0...cards.count, id: \.self) { slot in
+                        if !compact { slotButton(slot).id("slot-\(slot)") }
+                        if slot < cards.count { chip(cards[slot]).id("chip-\(slot)") }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            // A long timeline brings the chosen slot into view, centred.
+            .onChange(of: selected) {
+                guard let selected else { return }
+                if reduceMotion {
+                    proxy.scrollTo("slot-\(selected)", anchor: .center)
+                } else {
+                    withAnimation { proxy.scrollTo("slot-\(selected)", anchor: .center) }
                 }
             }
-            .padding(.vertical, 4)
         }
         .focusable(onSelect != nil)
         .onKeyPress(.leftArrow) { move(-1) }
@@ -90,6 +105,7 @@ struct TimelineStrip: View {
     private func chip(_ card: CardRef) -> some View {
         let era = Eras.for(card.year)
         let title = deck.card(card.cardId)?.title ?? card.cardId
+        let isNew = newCardID.map { $0.utf8.elementsEqual(card.cardId.utf8) } ?? false
         return VStack(spacing: 4) {
             Text(String(card.year))
                 .font(.system(compact ? .caption : large ? .title2 : .headline, design: .rounded).weight(.heavy))
@@ -102,7 +118,9 @@ struct TimelineStrip: View {
                 Text(title).font(.caption2).lineLimit(2).multilineTextAlignment(.center).frame(width: large ? 110 : 84)
             }
         }
+        .overlay(isNew ? RoundedRectangle(cornerRadius: 10).strokeBorder(Stage.ink, lineWidth: 2).padding(-4) : nil)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(String(card.year))" + (era.map { ", \($0.label) \($0.name)" } ?? "") + (compact ? "" : ", \(title)"))
+        .accessibilityValue(isNew ? "new" : "")
     }
 }

@@ -34,12 +34,14 @@ struct LineupInput: View {
     @State private var current: String?
     @State private var order: [String] = []
     @State private var orderError: String?
+    /// Owned here, not by the tiles, so the order list can show the title of a tile whose preview failed.
+    @StateObject private var snippets = TileSnippets()
 
     private var mode: LineupPlayMode { LineupPlayMode.of(cards: cards, deck: deck, tier: playback.tier) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            LineupTiles(cards: cards, deck: deck, clipMs: clipMs, mode: mode, clip: clip)
+            LineupTiles(cards: cards, deck: deck, clipMs: clipMs, mode: mode, snippets: snippets, clip: clip)
             Text("Earliest first").font(.headline)
             LockedEntryList(players: players, isLocked: isLocked, current: $current) { player in
                 VStack(alignment: .leading, spacing: 10) {
@@ -100,7 +102,7 @@ struct LineupInput: View {
 
     /// "B", or "B · Title" when the tile shows its title.
     private func label(_ id: String) -> String {
-        let name = LineupTiles.showsTitle(mode: mode, song: deck.card(id)) ? deck.card(id).map { " · \($0.title)" } ?? "" : ""
+        let name = LineupTiles.showsTitle(mode: mode, song: deck.card(id), failed: snippets.failed.contains(index(id))) ? deck.card(id).map { " · \($0.title)" } ?? "" : ""
         return letter(id) + name
     }
 
@@ -136,10 +138,10 @@ struct LineupTiles: View {
     let deck: Deck
     let clipMs: Int
     let mode: LineupPlayMode
+    @ObservedObject var snippets: TileSnippets
     @ObservedObject var clip: ClipController
     @EnvironmentObject private var playback: PlaybackHub
     @EnvironmentObject private var game: GameController
-    @StateObject private var snippets = TileSnippets()
     @State private var playing: Int?
     @State private var playError: String?
     @State private var prepareTask: Task<Void, Never>?
@@ -148,12 +150,13 @@ struct LineupTiles: View {
     /// Snippets are at most 30 s, from the preview's start.
     static let snippetCapMs = 30_000
 
-    /// A tile shows its title and artist when the set is played by name, or (with snippets) when it has no preview.
-    static func showsTitle(mode: LineupPlayMode, song: SongCard?) -> Bool {
+    /// A tile shows its title and artist when the set is played by name, or (with snippets) when it has no preview
+    /// or its preview failed to load.
+    static func showsTitle(mode: LineupPlayMode, song: SongCard?, failed: Bool = false) -> Bool {
         switch mode {
         case .exact: return false
         case .byName: return true
-        case .snippets: return !(song.map(SongBackup.hasSnippet) ?? false)
+        case .snippets: return failed || !(song.map(SongBackup.hasSnippet) ?? false)
         }
     }
 
@@ -193,9 +196,10 @@ struct LineupTiles: View {
         let isPlaying = (playing == index && ExactClip.isPlaying(clip)) || snippets.isPlaying(index)
         return VStack(alignment: .leading, spacing: 6) {
             Text(letter).font(.system(.largeTitle, design: .rounded).weight(.heavy))
-            if Self.showsTitle(mode: mode, song: song) {
+            if Self.showsTitle(mode: mode, song: song, failed: snippets.failed.contains(index)) {
                 Text(song?.title ?? card.cardId).font(.headline)
                 if let song { Text(song.artist).font(.callout) }
+                if snippets.failed.contains(index) { Text("Preview unavailable").font(.caption) }
             } else if mode == .snippets {
                 SnippetTileButton(snippets: snippets, index: index)
             } else {
@@ -292,7 +296,7 @@ struct LineupReveal: View {
             var lines = info.players.map { player -> String in
                 guard let order = info.orders[player] else { return session.playerName(player) }
                 let points = (try? Scoring.lineupPoints(order: order, years: years)) ?? 0
-                return "\(session.playerName(player)): \(letters(order)) · \(points) points"
+                return "\(session.playerName(player)): \(letters(order)) · \(points) point\(points == 1 ? "" : "s")"
             }
             lines.append(suddenDeathOutcome(after, session))
             return lines

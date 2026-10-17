@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { bestKind, compareBest, loadBests, recordBest } from "../../bests";
 import type { Deck } from "../../core/deck";
 import type { CardRef, Session } from "../../core/session";
-import { cardTitle, listNames, places, playerName, reveals, type RevealInfo } from "./history";
+import { cardTitle, deltas, listNames, places, playerName, reveals, type RevealInfo } from "./history";
 import type { ModeUI } from "./modes/types";
 import type { Summary } from "./useGame";
 
@@ -10,11 +10,11 @@ const describe = (deck: Deck | undefined, ref: CardRef): string => {
   const { title, artist } = deck ? cardTitle(deck, ref.cardId) : { title: `Card ${ref.cardId}`, artist: "" };
   return `${ref.year} · ${title}${artist ? ` — ${artist}` : ""}`;
 };
-// Who gained the most on the card (engine scores before and after), or nobody.
+// Who gained the most points on the card (engine scores before and after, chips apart), or nobody.
 function scorers(info: RevealInfo, session: Session): string {
   const gains = session.players.map((player) => ({
     name: player.name,
-    gain: (info.after.scores[player.id] ?? 0) - (info.before.scores[player.id] ?? 0),
+    gain: deltas(info, player.id).points,
   }));
   const top = Math.max(0, ...gains.map((item) => item.gain));
   if (top <= 0) return "nobody scored";
@@ -90,24 +90,34 @@ export function Results({
   onDownload: () => void;
 }) {
   const Extra = ui?.ResultsExtra;
-  const unit = session.mode === "higherLower" ? "streak" : "points";
+  const relay = session.mode === "relay";
+  // Timeline counts cards and Higher or Lower a streak; chips are included when Stakes are on.
+  const scoreText = (id: string): string => {
+    const score = summary.scores[id] ?? 0;
+    if (session.mode === "higherLower") return `streak ${score}`;
+    if (session.mode === "timeline")
+      return summary.chips ? `${score} (cards + chips)` : `${score} ${score === 1 ? "card" : "cards"}`;
+    return `${score} points${summary.chips ? ` (incl. ${summary.chips[id]} chips)` : ""}`;
+  };
   const recap = useMemo(() => recapLines(session, deck), [session, deck]);
   return (
     <section className="results panel" aria-labelledby="results-title">
-      <h2 id="results-title">Final standings</h2>
-      <ol className="standings">
-        {places(summary.standings).map(({ id, place }) => (
-          <li key={id}>
-            <span className="place">{place}</span>
-            <span className="standing-name">{playerName(session, id)}</span>
-            <span className="standing-score">
-              {summary.scores[id] ?? 0} {unit}
-              {summary.chips ? ` (incl. ${summary.chips[id]} chips)` : ""}
-            </span>
-            <span className="muted">{(ui?.tieBreaks?.(summary, id) ?? []).join(" · ")}</span>
-          </li>
-        ))}
-      </ol>
+      <h2 id="results-title">{relay ? "Team result" : "Final standings"}</h2>
+      {relay ? null : (
+        <ol className="standings">
+          {places(summary.standings).map(({ id, place }) => (
+            <li key={id}>
+              <span className="place">
+                {place.startsWith("=") ? <span className="visually-hidden">shared </span> : null}
+                {place}
+              </span>
+              <span className="standing-name">{playerName(session, id)}</span>
+              <span className="standing-score">{scoreText(id)}</span>
+              <span className="muted">{(ui?.tieBreaks?.(summary, id, session) ?? []).join(" · ")}</span>
+            </li>
+          ))}
+        </ol>
+      )}
       {Extra ? <Extra session={session} summary={summary} /> : null}
       <PersonalBest session={session} summary={summary} />
       {recap.length > 0 ? (

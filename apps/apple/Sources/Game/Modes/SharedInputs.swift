@@ -6,6 +6,7 @@ struct YearField: View {
     let label: String
     @Binding var year: Int
     var large = false
+    @FocusState private var focused: Bool
     static let range = 1850...2100
 
     var body: some View {
@@ -21,8 +22,18 @@ struct YearField: View {
                 .font(large ? .title.weight(.semibold) : .title3.weight(.semibold))
                 .frame(width: large ? 110 : 80)
                 .textFieldStyle(.roundedBorder)
+                .focused($focused)
                 #if os(iOS)
                 .keyboardType(.numberPad)
+                .toolbar {
+                    // The number pad has no Return key; only the focused field adds Done, so the bar doesn't repeat it.
+                    ToolbarItemGroup(placement: .keyboard) {
+                        if focused {
+                            Spacer()
+                            Button("Done") { focused = false }
+                        }
+                    }
+                }
                 #endif
                 .accessibilityValue(String(year))
             Button { year = min(Self.range.upperBound, year + 1) } label: { Image(systemName: "plus") }
@@ -41,6 +52,9 @@ struct YearEntry: View {
     @Binding var text: String
     var error: String?
     var large = false
+    /// Return on a hardware keyboard: the caller's *Lock in*.
+    var onSubmit: (() -> Void)?
+    @FocusState private var focused: Bool
     static let startYear = 1990
     static let errorText = "Enter a year from 1850 to 2100."
 
@@ -68,8 +82,19 @@ struct YearEntry: View {
                     .font(large ? .title.weight(.semibold) : .title3.weight(.semibold))
                     .frame(width: large ? 110 : 80)
                     .textFieldStyle(.roundedBorder)
+                    .focused($focused)
+                    .onSubmit { onSubmit?() }
                     #if os(iOS)
                     .keyboardType(.numberPad)
+                    .toolbar {
+                        // The number pad has no Return key; only the focused field adds Done, so the bar doesn't repeat it.
+                        ToolbarItemGroup(placement: .keyboard) {
+                            if focused {
+                                Spacer()
+                                Button("Done") { focused = false }
+                            }
+                        }
+                    }
                     #endif
                     .accessibilityLabel(label)
                 Button { step(1) } label: { Image(systemName: "plus") }
@@ -77,9 +102,21 @@ struct YearEntry: View {
             }
             .buttonStyle(.bordered)
             .controlSize(large ? .extraLarge : .large)
-            if let error { Text(error).font(.callout).foregroundStyle(.red) }
+            if let error { ErrorText(error) }
         }
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// An error in words and a symbol (not colour alone), in the dark red `Stage.error`.
+struct ErrorText: View {
+    let message: String
+    init(_ message: String) { self.message = message }
+
+    var body: some View {
+        Label(message, systemImage: "exclamationmark.triangle")
+            .font(.callout)
+            .foregroundStyle(Stage.error)
     }
 }
 
@@ -112,6 +149,13 @@ struct LockedEntryList<Entry: View>: View {
                 .background(Color.secondary.opacity(current == player.id ? 0.12 : 0.05), in: RoundedRectangle(cornerRadius: 12))
             }
         }
+        // A lone player's entry is open at once; after a lock the next pending player's opens (as on the web).
+        // Undo, which lowers the count, opens nothing.
+        .onAppear { if players.count == 1, current == nil, !isLocked(players[0].id) { current = players[0].id } }
+        .onChange(of: players.filter { isLocked($0.id) }.count) { old, new in
+            guard new > old, current == nil, let next = players.first(where: { !isLocked($0.id) }) else { return }
+            current = next.id
+        }
     }
 }
 
@@ -134,17 +178,25 @@ struct EntryModePicker: View {
     }
 }
 
-/// Stakes: a 1–3 chip wager, disabled with the reason at 0 chips.
+/// Stakes: a 1–3 chip wager, disabled with the reason at 0 chips, with a line on what wins it (section 5.4).
 struct WagerControl: View {
     let held: Int
     @Binding var wager: Int
+    let rule: String
+
+    static let bullseyeRule = "Win the wager if your guess is within 3 years."
+    static let ladderRule = "Win the wager if you lock in and score on this card; not locking in loses it."
+    static let timelineRule = "Win the wager if your placement is right."
 
     var body: some View {
-        if held < 1 {
-            Text("No chips left, so no wager on this card.").font(.callout).foregroundStyle(.secondary)
-        } else {
-            let top = min(3, held)
-            Stepper("Wager: \(min(wager, top)) of \(held) chips", value: Binding(get: { min(wager, top) }, set: { wager = $0 }), in: 1...top)
+        VStack(alignment: .leading, spacing: 2) {
+            if held < 1 {
+                Text("No chips left, so no wager on this card.").font(.callout).foregroundStyle(.secondary)
+            } else {
+                let top = min(3, held)
+                Stepper("Wager: \(min(wager, top)) of \(held) chips", value: Binding(get: { min(wager, top) }, set: { wager = $0 }), in: 1...top)
+            }
+            Text(rule).font(.caption).foregroundStyle(.secondary)
         }
     }
 }

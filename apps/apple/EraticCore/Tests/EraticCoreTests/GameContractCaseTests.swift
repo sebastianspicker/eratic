@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import EraticCore
 
-/// Runners for the game-rules.md case files. Each skips while its file does not exist.
+/// Runners for the game-rules.md case files. A missing case file fails its test.
 final class GameContractCaseTests: XCTestCase {
     /// Named arguments with typed access; a missing or mistyped argument is a harness error.
     private struct Args {
@@ -130,6 +130,14 @@ final class GameContractCaseTests: XCTestCase {
                 return (id, RelatedCard(cardId: target, relation: relation))
             }
             return try GameRandom.imposterPairs(cards, seed: try args.seed()).map { ["a": $0.a, "b": $0.b, "original": $0.original] }
+        case "nextImposterPair":
+            let pairs = try args.objects("pairs").map { pair -> ImposterPair in
+                guard let a = pair["a"] as? String, let b = pair["b"] as? String, let original = pair["original"] as? String else { throw CaseError("\(name): pair needs a, b and original") }
+                return ImposterPair(a: a, b: b, original: original)
+            }
+            guard let rawDrawn = try args.raw("drawn") as? [[String]], rawDrawn.allSatisfy({ $0.count == 2 }) else { throw CaseError("\(name): drawn is not a list of ID pairs") }
+            let next = GameRandom.nextImposterPair(pairs, drawn: rawDrawn.map { ($0[0], $0[1]) })
+            return next.map { ["a": $0.a, "b": $0.b, "original": $0.original] } ?? NSNull()
         case "closerPick":
             let candidates = try args.objects("candidates").map { card -> AnchorCandidate in
                 guard let id = card["id"] as? String, let year = card["year"].flatMap(SessionCodec.integerValue) else { throw CaseError("\(name): candidate needs id and year") }
@@ -187,6 +195,8 @@ final class GameContractCaseTests: XCTestCase {
             let name = try XCTUnwrap(item["name"] as? String)
             let expect = try XCTUnwrap(item["expect"] as? [String: Any], name)
             let rawSession = try XCTUnwrap(item["session"], name)
+            // The session as file text, which the strict decoder must judge as the engine does.
+            let text = try JSONSerialization.data(withJSONObject: rawSession)
             if let error = expect["error"] as? [String: Any] {
                 let at = try XCTUnwrap(error["at"].flatMap(SessionCodec.integerValue), "\(name): error.at")
                 do {
@@ -197,10 +207,34 @@ final class GameContractCaseTests: XCTestCase {
                 } catch {
                     XCTFail("\(name): expected a rejection at \(at), got \(error)")
                 }
+                XCTAssertThrowsError(try SessionCodec.decode(text), "\(name): the session decoder must reject the session")
             } else {
+                // `absent` lists summary members that must not be present; the rest are compared exactly.
+                var members = expect
+                var absent = [String]()
+                if let raw = members.removeValue(forKey: "absent") {
+                    guard let list = raw as? [String] else { XCTFail("\(name): absent is not a list of strings"); continue }
+                    absent = list
+                }
+                func check(_ state: GameState, _ label: String) {
+                    let summary = GameEngine.summary(of: state)
+                    assertPartialEqual(summary, members, label)
+                    for member in absent {
+                        XCTAssertNil(members[member], "\(label): \(member) is both compared and absent")
+                        XCTAssertNil(summary[member], "\(label): \(member) must be absent")
+                    }
+                }
                 do {
-                    let state = try GameEngine.replay(SessionCodec.parse(rawSession))
-                    assertPartialEqual(GameEngine.summary(of: state), expect, name)
+                    check(try GameEngine.replay(SessionCodec.parse(rawSession)), name)
+                    // Export and import again, as the apps save and load a session.
+                    let session = try SessionCodec.decode(text)
+                    let reloaded = try SessionCodec.decode(SessionCodec.encode(session))
+                    // Like the web runner: the version and the action log survive; options may come back
+                    // normalised (an omitted `lives` with play everyone is written as its value, section 4),
+                    // so they are compared through the replayed summary below.
+                    XCTAssertEqual(reloaded.sessionVersion, session.sessionVersion, "\(name): round trip version")
+                    XCTAssertEqual(reloaded.actions, session.actions, "\(name): round trip actions")
+                    check(try GameEngine.replay(reloaded), "\(name) (round trip)")
                 } catch {
                     XCTFail("\(name): expected a valid replay, got \(error)")
                 }

@@ -61,7 +61,7 @@ function ImposterStage({ state, deck, session, playback, controller }: ModeInput
                     if (snippet !== "loading") snippets.press(ref.cardId);
                   }}
                 >
-                  {now ? "Stop" : snippet === "loading" ? `Loading ${letter}…` : `Play ${letter}`}
+                  {now ? `Stop ${letter}` : snippet === "loading" ? `Loading ${letter}…` : `Play ${letter}`}
                 </button>
               ) : card && exact ? (
                 <button

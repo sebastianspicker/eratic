@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { timelineOf } from "../../../core/game/engine";
+import { nameItAward } from "../../../core/scoring";
 import type { CardRef, RelayOptions, Session } from "../../../core/session";
 import { inputsSinceDraw, playerName, refById, type RevealInfo } from "../history";
 import { send } from "./LockedEntry";
@@ -51,6 +52,14 @@ function RelayInput({ controller, session, state, summary, deck }: ModeInputProp
   );
 }
 
+// Name It is judged before the placement (6.6): an award gives back a life, up to the start.
+function relayNameItText(info: RevealInfo, session: Session, titleOK: boolean, artistOK: boolean): string {
+  if (!nameItAward(titleOK, artistOK)) return nameItText(titleOK, artistOK);
+  const max = (session.options.lives as number | undefined) ?? 3;
+  return (info.before.lives ?? 0) >= max
+    ? "Named it, but lives were already full."
+    : "Named it: a life back before the placement.";
+}
 function teamOutcome(outcome: RevealInfo["after"]["outcome"]): string {
   if (outcome === "won") return "The line is complete. The team wins!";
   if (outcome === "lost") return "Out of lives. The team loses.";
@@ -79,10 +88,10 @@ function RelayReveal({ info, session, deck }: { info: RevealInfo; session: Sessi
 
 export const relayUI: ModeUI = {
   Input: RelayInput,
-  resultLines: (info) =>
+  resultLines: (info, session) =>
     info.inputs.flatMap((action) =>
       action.type === "nameIt"
-        ? [{ playerId: action.playerId, text: nameItText(action.titleOK, action.artistOK) }]
+        ? [{ playerId: action.playerId, text: relayNameItText(info, session, action.titleOK, action.artistOK) }]
         : [],
     ),
   RevealExtra: RelayReveal,

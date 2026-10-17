@@ -1,14 +1,16 @@
-import { useState, type FormEvent } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import type { Deck } from "../../core/deck";
 import { normalizeOptions, type GameMode, type SessionOptions } from "../../core/session";
 import {
+  capacityNote,
   cardsNeeded,
-  defaultOptions,
+  deckCapacity,
   hasDifficulty,
   isEasy,
   MODE_INFO,
   OPTION_FIELDS,
   sessionOptions,
+  startingOptions,
   type OptionField,
 } from "./modes";
 import { loadRoster } from "../../sessions";
@@ -23,11 +25,14 @@ function OptionControl({
   mode,
   field,
   options,
+  note,
   onChange,
 }: {
   mode: GameMode;
   field: OptionField;
   options: SessionOptions;
+  // Shown under a number field, muted (what the deck allows).
+  note?: string;
   onChange: (value: unknown) => void;
 }) {
   const id = `option-${mode}-${field.name}`;
@@ -96,6 +101,7 @@ function OptionControl({
           onChange(event.target.value === "" ? Number.NaN : Number(event.target.value) * scale)
         }
       />
+      {note ? <p className="muted">{note}</p> : null}
     </div>
   );
 }
@@ -107,6 +113,7 @@ export function Setup({
   hasCamera,
   error,
   previewMs,
+  exact = false,
   warning = "",
   onStart,
   onBack,
@@ -117,6 +124,8 @@ export function Setup({
   error: string;
   // How long previews play (a preview-only account, or no exact clips); Snippet Ladder leaves out longer steps.
   previewMs?: number;
+  // The connected tier plays exact clips; Snippet Ladder's Clip start only matters then.
+  exact?: boolean;
   // Shown, never blocking (Snippet Ladder's missing or failed calibration).
   warning?: string;
   onStart: (setup: StartSetup) => void;
@@ -133,7 +142,7 @@ export function Setup({
     while (kept.length < min) kept.push(`Player ${kept.length + 1}`);
     return kept;
   });
-  const [options, setOptions] = useState(() => defaultOptions(mode));
+  const [options, setOptions] = useState(() => startingOptions(mode, names.length, deck.cards));
   const [kids, setKids] = useState(false);
   const [easyOnly, setEasyOnly] = useState(false);
   const scanPossible =
@@ -144,8 +153,21 @@ export function Setup({
   const chosenSteps = mode === "ladder" ? ((options.steps as number[] | undefined) ?? []) : [];
   const dropped = previewMs === undefined ? [] : chosenSteps.filter((step) => step > previewMs);
   const easyChoice = hasDifficulty(deck) && mode !== "daily";
+  // What the deck (its easy cards when ticked) holds, for the length option.
+  const pool = easyChoice && easyOnly ? deck.cards.filter(isEasy) : deck.cards;
+  const capacity = deckCapacity(mode, options, names.length, pool);
+  const capacityValue = capacity && options[capacity.option];
+  const capacityText =
+    capacity && typeof capacityValue === "number" && capacityValue > capacity.max
+      ? capacityNote(mode, capacity, pool.length)
+      : "";
   function submit(event: FormEvent) {
     event.preventDefault();
+    const trimmed = names.map((name) => name.trim().toLowerCase());
+    if (new Set(trimmed.map((name, i) => name || `player ${i + 1}`)).size < names.length) {
+      setProblem("Names must differ.");
+      return;
+    }
     let chosen = sessionOptions(mode, options);
     if (dropped.length > 0) {
       const kept = chosenSteps.filter((step) => !dropped.includes(step));
@@ -155,11 +177,9 @@ export function Setup({
       }
       chosen = { ...chosen, steps: kept };
     }
-    // Timeline's Kids preset: Beginning anchor, no challenges.
-    if (mode === "timeline" && kids) {
-      const { anchorYear: _unused, ...rest } = chosen;
-      void _unused;
-      chosen = { ...rest, anchor: "beginning", challenges: false };
+    if (mode === "ladder" && chosenSteps.length === 0) {
+      setProblem("Choose at least one step.");
+      return;
     }
     if (mode !== "daily")
       try {
@@ -188,7 +208,9 @@ export function Setup({
       kids: mode === "timeline" ? kids : mode === "eraSort" && chosen.kids === true,
     });
   }
-  const fields = OPTION_FIELDS[mode].filter((field) => !field.when || field.when(options));
+  const fields = OPTION_FIELDS[mode].filter(
+    (field) => (!field.when || field.when(options)) && (field.name !== "clipStart" || exact),
+  );
   return (
     <form className="setup" onSubmit={submit} noValidate>
       <div className="deck-heading">
@@ -234,13 +256,20 @@ export function Setup({
         <fieldset className="panel setup-panel">
           <legend>Options</legend>
           {fields.map((field) => (
-            <OptionControl
-              key={field.name}
-              mode={mode}
-              field={field}
-              options={options}
-              onChange={(value) => setOptions((current) => ({ ...current, [field.name]: value }))}
-            />
+            <Fragment key={field.name}>
+              <OptionControl
+                mode={mode}
+                field={field}
+                options={options}
+                note={capacity?.option === field.name ? capacityText : undefined}
+                onChange={(value) => setOptions((current) => ({ ...current, [field.name]: value }))}
+              />
+              {field.name === "stakes" && options.stakes ? (
+                <p className="muted">
+                  Everyone starts with 5 chips; your score is your points plus the chips you hold.
+                </p>
+              ) : null}
+            </Fragment>
           ))}
           {mode === "daily" ? <p className="muted">Today's cards are chosen from this deck.</p> : null}
           {mode === "timeline" ? (
@@ -258,6 +287,9 @@ export function Setup({
               />
               Kids: start from the earliest songs, no challenges
             </label>
+          ) : null}
+          {mode === "timeline" && kids ? (
+            <p className="muted">You can still change the options below.</p>
           ) : null}
           {dropped.length > 0 ? (
             <p className="muted" role="status">

@@ -6,6 +6,7 @@ import {
   parseSession,
   usedCardIds,
   validateSession,
+  type GameAction,
   type Session,
 } from "./session";
 
@@ -195,5 +196,33 @@ describe("applyAction", () => {
       applyAction(state, { type: "guess", at: 5, playerId: "p1", year: 1849 }, 1),
     ).toThrow();
     expect(state).toEqual(before);
+  });
+  it("rejects an in-memory action that lacks the playerId its type requires", () => {
+    const state = startGame(bullseyeSession());
+    const types = [
+      "wager", "sdGuess", "sdOrder", "guess", "pickEra", "place", "challenge",
+      "nameIt", "lock", "mark", "call", "order", "choose",
+    ];
+    for (const type of types)
+      expect(() => applyAction(state, { type, at: 0 } as unknown as GameAction, 3), type).toThrow(
+        expect.objectContaining({ name: "GameError", actionIndex: 3 }),
+      );
+  });
+  it("rejects a Timeline challenge without a challenger instead of corrupting the tokens", () => {
+    let state = startGame({
+      mode: "timeline",
+      options: { ownership: "shared" },
+      players: [{ id: "p1", name: "Ada" }, { id: "p2", name: "Lin" }],
+      seed: 1,
+    });
+    for (const action of [
+      { type: "anchor", at: 0, card: card("a", 1980, "neon") },
+      { type: "draw", at: 1, card: card("c1", 1990, "zine") },
+      { type: "place", at: 2, playerId: "p1", slot: 1 },
+    ] as GameAction[])
+      state = applyAction(state, action, 0);
+    expect(() => applyAction(state, { type: "challenge", at: 3, slot: 0 } as unknown as GameAction, 3)).toThrow(
+      /needs a playerId/,
+    );
   });
 });

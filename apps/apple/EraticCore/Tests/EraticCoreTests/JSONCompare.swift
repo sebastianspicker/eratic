@@ -21,10 +21,10 @@ struct CaseError: Error, CustomStringConvertible {
 }
 
 extension ContractFixtures {
-    /// The cases of a file that may not exist yet: skipped when absent.
+    /// The cases of a contract file; a missing file is a failure, not a skip.
     static func optionalCases(_ name: String) throws -> [[String: Any]] {
         let url = try directory.appendingPathComponent(name)
-        guard FileManager.default.fileExists(atPath: url.path) else { throw XCTSkip("\(name) does not exist yet.") }
+        guard FileManager.default.fileExists(atPath: url.path) else { throw CaseError("\(name) does not exist.") }
         return try cases(name)
     }
 }

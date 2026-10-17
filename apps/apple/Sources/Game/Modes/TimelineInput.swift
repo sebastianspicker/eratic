@@ -50,10 +50,16 @@ struct TimelineInput: View {
                 } else {
                     Text(personal ? "Where does this song go in \(name)'s timeline?" : "Where does this song go in the line?").font(.headline)
                     TimelineStrip(cards: line, deck: deck, large: large, selected: slot, onSelect: { slot = $0 }, onSubmit: { place(active) })
-                    Button(slot.map { "Place: \(TimelineStrip.slotLabel(line.map(\.year), $0))" } ?? "Choose a slot") { place(active) }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(large ? .extraLarge : .large)
-                        .disabled(slot == nil)
+                    HStack {
+                        Button(slot.map { "Place: \(TimelineStrip.slotLabel(line.map(\.year), $0))" } ?? "Choose a slot") { place(active) }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(slot == nil)
+                        if slot != nil {
+                            Button("Cancel") { slot = nil }
+                                .buttonStyle(.bordered)
+                        }
+                    }
+                    .controlSize(large ? .extraLarge : .large)
                 }
                 if personal { otherTimelines(active) }
             }
@@ -116,16 +122,17 @@ struct TimelineInput: View {
                         Text("Claims \(TimelineStrip.slotLabel(years, claim.slot))").font(.callout)
                     } else if challenger == player.id {
                         Button("Cancel") { challenger = nil; challengeSlot = nil }
-                    } else if tokens >= 1 {
+                    } else if tokens >= 1 && !state.openChallengeSlots.isEmpty {
                         Button("Challenge") { challenger = player.id; challengeSlot = nil }
                             .accessibilityLabel("Challenge as \(player.name)")
                     } else {
-                        Text("No tokens").font(.callout).foregroundStyle(.secondary)
+                        Text(tokens < 1 ? "No tokens" : "No free slot").font(.callout).foregroundStyle(.secondary)
                     }
                 }
             }
             if let challenger {
-                Button(challengeSlot.map { "Claim for \(session.playerName(challenger)): \(TimelineStrip.slotLabel(years, $0))" } ?? "Choose a free slot") {
+                Text("\(session.playerName(challenger)) is challenging").font(.callout.weight(.semibold))
+                Button(challengeSlot.map { "Challenge: \(TimelineStrip.slotLabel(years, $0))" } ?? "Choose a free slot") {
                     challenge(challenger)
                 }
                 .buttonStyle(.borderedProminent)
@@ -159,7 +166,7 @@ struct TimelineInput: View {
                 Text("\(session.playerName(active)) wagered \(placed).").font(.callout)
             } else {
                 let held = state.chips(for: active) ?? 0
-                WagerControl(held: held, wager: $wager)
+                WagerControl(held: held, wager: $wager, rule: WagerControl.timelineRule)
                 if state.owesWager(active) {
                     Button("Lock wager") { game.dispatch(.wager(playerId: active, chips: min(wager, min(3, held)))) }
                         .buttonStyle(.bordered)

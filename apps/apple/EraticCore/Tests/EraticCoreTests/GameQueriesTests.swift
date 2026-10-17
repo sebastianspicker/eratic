@@ -127,6 +127,53 @@ final class GameQueriesTests: XCTestCase {
         XCTAssertNil(relay.activePlayerID)
     }
 
+    func testTimelineFinalRoundPlayers() throws {
+        var options = TimelineOptions()
+        options.ownership = .shared
+        options.target = 2
+        let timeline = GameOptions.timeline(options)
+        let start: [GameAction] = [.anchor(playerId: nil, card: card("a", 1980)), .draw(card: card("c1", 1990))]
+        XCTAssertNil(try play(timeline, players: 3, start).finalRoundPlayers)
+        XCTAssertNil(try play(.bullseye(BullseyeOptions(rounds: 1)), players: 2, []).finalRoundPlayers)
+
+        // p1 places right and reaches the target: p2 and p3 still play the round.
+        var actions = start + [.place(playerId: "p1", slot: 1), .reveal, .draw(card: card("c2", 1995))]
+        var state = try play(timeline, players: 3, actions)
+        XCTAssertEqual(state.finalRoundPlayers, ["p2", "p3"])
+
+        actions += [.place(playerId: "p2", slot: 0), .reveal, .draw(card: card("c3", 1996))]
+        state = try play(timeline, players: 3, actions)
+        XCTAssertEqual(state.finalRoundPlayers, ["p3"])
+
+        actions += [.place(playerId: "p3", slot: 0), .reveal]
+        state = try play(timeline, players: 3, actions)
+        XCTAssertNotEqual(state.phase, .open)
+        XCTAssertNil(state.finalRoundPlayers)
+    }
+
+    func testTimelineOpenChallengeSlots() throws {
+        var options = TimelineOptions()
+        options.ownership = .shared
+        let start: [GameAction] = [.anchor(playerId: nil, card: card("a", 1980)), .draw(card: card("c1", 1990))]
+        let timeline = GameOptions.timeline(options)
+        XCTAssertEqual(try play(timeline, players: 3, start).openChallengeSlots, [])
+
+        var state = try play(timeline, players: 3, start + [.place(playerId: "p1", slot: 1)])
+        XCTAssertEqual(state.openChallengeSlots, [0])
+
+        state = try play(timeline, players: 3, start + [.place(playerId: "p1", slot: 1), .challenge(playerId: "p2", slot: 0)])
+        XCTAssertEqual(state.openChallengeSlots, [])
+
+        options.challenges = false
+        XCTAssertEqual(try play(.timeline(options), players: 3, start + [.place(playerId: "p1", slot: 1)]).openChallengeSlots, [])
+
+        // Personal lines have the anchor and the active player's own cards only.
+        let personal = GameOptions.timeline(TimelineOptions())
+        let anchors: [GameAction] = [.anchor(playerId: "p1", card: card("a1", 1980)), .anchor(playerId: "p2", card: card("a2", 2000)), .draw(card: card("c1", 1990))]
+        state = try play(personal, players: 2, anchors + [.place(playerId: "p1", slot: 0)])
+        XCTAssertEqual(state.openChallengeSlots, [1])
+    }
+
     func testLadderLocksMarksAndStep() throws {
         var ladder = LadderOptions()
         ladder.steps = [1000, 5000]
@@ -165,6 +212,31 @@ final class GameQueriesTests: XCTestCase {
         XCTAssertTrue(state.wasPaired("b", "a"))
         XCTAssertFalse(state.wasPaired("a", "c"))
         XCTAssertEqual(state.phase, .awaitingDraw)
+    }
+
+    func testImposterUsedCardIDsListDrawnPairs() throws {
+        var state = try play(.imposter(ImposterOptions()), players: 2, [.drawPair(a: card("a", 1960), b: card("b", 1990), original: .a)])
+        XCTAssertEqual(state.usedCardIDs, ["a", "b"])
+        // A card may appear in several pairs; the query lists it once.
+        state = try GameEngine.apply(SessionAction(at: 5000, .skip), to: state)
+        state = try GameEngine.apply(SessionAction(at: 6000, .drawPair(a: card("a", 1960), b: card("c", 1975), original: .a)), to: state)
+        XCTAssertEqual(state.usedCardIDs, ["a", "b", "c"])
+    }
+
+    func testFirstToNameSuddenDeathPendingUntilNamed() throws {
+        var ladder = LadderOptions()
+        ladder.rounds = 1
+        ladder.steps = [1000]
+        var state = try play(.ladder(ladder), players: 2, [
+            .draw(card: card("c1", 1984)), .step(index: 0),
+            .lock(playerId: "p1", year: nil), .lock(playerId: "p2", year: nil),
+            .mark(playerId: "p1", titleOK: true, artistOK: true), .mark(playerId: "p2", titleOK: true, artistOK: true),
+            .reveal, .sdDraw(cards: [card("c2", 1990)]),
+        ])
+        XCTAssertEqual(state.phase, .suddenDeathOpen)
+        XCTAssertEqual(state.pendingInputs, ["p1", "p2"])
+        state = try GameEngine.apply(SessionAction(at: 9000, .sdName(playerId: nil)), to: state)
+        XCTAssertEqual(state.pendingInputs, [])
     }
 
     func testPlayerRanges() {

@@ -46,12 +46,13 @@ struct HostView: View {
     private func content(_ session: GameSession, _ state: GameState, _ deck: Deck) -> some View {
         VStack(spacing: 0) {
             topBar(session, state, deck)
-            ScoreboardStrip(session: session, state: state)
+            // A reveal keeps the scoreboard at the start of the round; it catches up with *Next card*.
+            ScoreboardStrip(session: session, state: game.showingReveal && state.phase != .finished ? (game.lastReveal?.before ?? state) : state)
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         if let error = game.lastError {
-                            Text(error).foregroundStyle(.red).font(.callout)
+                            ErrorText(error)
                         }
                         if let notice = game.deckNotice {
                             HStack(alignment: .top) {
@@ -71,11 +72,11 @@ struct HostView: View {
                         }
                         if game.showingReveal, let reveal = game.lastReveal {
                             RevealView(reveal: reveal, session: session, deck: deck)
-                            Button(state.phase == .finished ? "See results" : "Next card") {
+                            Button(state.phase == .finished ? "See results" : nextLabel(session, reveal)) {
                                 nextCard(state, deck)
                             }
                             .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
+                            .controlSize(hostControlSize(session))
                             .keyboardShortcut(.defaultAction)
                         } else if state.phase == .finished {
                             ResultsView(session: session, state: state, deck: deck, clip: clip)
@@ -87,9 +88,15 @@ struct HostView: View {
                                     .id(inputKey(state))
                                 // Snippet Ladder reports its answer and playing steps through `ladderBusy`, which
                                 // hides Undo (a step is logged once audible, so a lock could be undone and redone after hearing more).
+                                if game.canUndoBatch {
+                                    Button("Undo all entries") { game.undoBatch() }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(hostControlSize(session))
+                                }
                                 if !game.ladderBusy, let undoable = game.undoable {
                                     Button(undoable.label) { game.undo() }
                                         .buttonStyle(.bordered)
+                                        .controlSize(hostControlSize(session))
                                 }
                                 // Snippet Ladder scores the card with its own *Score card*; Higher or Lower with turns reveals with its call.
                                 if !(session.mode == .ladder && state.phase == .open),
@@ -105,6 +112,9 @@ struct HostView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .background(Stage.paper)
+                #if os(iOS)
+                .scrollDismissesKeyboard(.interactively)
+                #endif
                 // Reveal, next card and results each start with their heading visible.
                 // Entry edits and undo keep the current scroll position.
                 .onChange(of: game.showingReveal) { proxy.scrollTo("host-content-top", anchor: .top) }
@@ -128,11 +138,24 @@ struct HostView: View {
             guard game.showingReveal, let reveal = game.lastReveal else { return }
             AccessibilityNotification.Announcement(revealSummary(reveal, session, deck)).post()
         }
+        .onChange(of: game.lastError) {
+            if let error = game.lastError { AccessibilityNotification.Announcement(error).post() }
+        }
         .onAppear { game.noteDeckDifference(loaded: deckStore.deck) }
-        .confirmationDialog("End this game?", isPresented: $confirmEnd, titleVisibility: .visible) {
+        .confirmationDialog("End this game now?", isPresented: $confirmEnd, titleVisibility: .visible) {
             Button("End game", role: .destructive) { game.dispatch(.end) }
         } message: {
-            Text("A card in play is not scored. A tie for first place goes to sudden death.")
+            Text(game.endGameMessage)
+        }
+    }
+
+    /// What the button brings next: a card, or a whole pair or lineup.
+    private func nextLabel(_ session: GameSession, _ reveal: RevealSnapshot) -> String {
+        if reveal.before.phase == .suddenDeathOpen { return "Next card" }
+        switch session.mode {
+        case .imposter: return "Next pair"
+        case .lineup: return "Next lineup"
+        default: return "Next card"
         }
     }
 
@@ -147,7 +170,7 @@ struct HostView: View {
         }
     }
 
-    /// One line for VoiceOver: "1984 · Neon. Ada +7, 1 year off. Lin 0."
+    /// One line for VoiceOver: "1984 · Neon. Ada +7, 1 year off. Lin 0."; Relay says what happened to the team, Higher or Lower who was right.
     private func revealSummary(_ reveal: RevealSnapshot, _ session: GameSession, _ deck: Deck) -> String {
         let before = reveal.before
         var parts: [String] = []
@@ -155,14 +178,36 @@ struct HostView: View {
             let song = deck.card(card.cardId)?.title ?? card.cardId
             parts.append([String(card.year), Eras.for(card.year)?.name, song].compactMap { $0 }.joined(separator: " · ") + ".")
         }
+        let after = reveal.after
         let scoresBefore = GameEngine.scores(of: before)
-        let scoresAfter = GameEngine.scores(of: reveal.after)
-        for player in session.players {
-            var text = "\(player.name) " + signedPoints((scoresAfter[player.id] ?? 0) - (scoresBefore[player.id] ?? 0))
-            if let card = before.currentCard, let guess = before.guesses[player.id] {
-                text += ", " + yearsOffText(Scoring.distance(guess, card.year))
+        let scoresAfter = GameEngine.scores(of: after)
+        switch session.mode {
+        case .relay:
+            // The line belongs to the team: say whether the card was placed, then the team's state.
+            let line = after.timeline(for: nil).count
+            parts.append(line > before.timeline(for: nil).count ? "Card placed." : "Wrong, a life is lost.")
+            if case let .relay(options) = session.options {
+                parts.append("Lives \(after.lives) of \(options.lives), line \(line) of \(options.target).")
             }
-            parts.append(text + ".")
+            if after.outcome == "won" { parts.append("The line is complete. The team wins!") }
+            if after.outcome == "lost" { parts.append("Out of lives. The team loses.") }
+        case .higherLower:
+            // The score is the streak: a caller who gained on it was right.
+            let callers = before.isEveryonePlay ? session.players.filter { before.calls[$0.id] != nil } : session.players.filter { $0.id == before.activePlayerID }
+            for player in callers {
+                let streak = scoresAfter[player.id] ?? 0
+                let out = after.eliminated.contains(player.id) && !before.eliminated.contains(player.id)
+                let result = streak > (scoresBefore[player.id] ?? 0) ? "right, streak \(streak)" : out ? "missed, out" : "missed"
+                parts.append("\(player.name) \(result).")
+            }
+        default:
+            for player in session.players {
+                var text = "\(player.name) " + signedPoints((scoresAfter[player.id] ?? 0) - (scoresBefore[player.id] ?? 0))
+                if let card = before.currentCard, let guess = before.guesses[player.id] {
+                    text += ", " + yearsOffText(Scoring.distance(guess, card.year))
+                }
+                parts.append(text + ".")
+            }
         }
         return parts.joined(separator: " ")
     }
@@ -215,6 +260,12 @@ struct HostView: View {
         return "\(state.phase.rawValue):" + (ids + sd).joined(separator: ",")
     }
 
+    /// Kids (Era Sort's option, Timeline's preset) enlarges the host's action buttons as well as the mode's own controls.
+    private func hostControlSize(_ session: GameSession) -> ControlSize {
+        if case let .eraSort(options) = session.options, options.kids { return .extraLarge }
+        return game.kids ? .extraLarge : .large
+    }
+
     private func revealControls(_ session: GameSession, _ state: GameState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             let pending = state.pendingInputs
@@ -226,7 +277,7 @@ struct HostView: View {
                 game.dispatch(.reveal)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .controlSize(hostControlSize(session))
             .disabled(!state.canReveal)
         }
     }
@@ -234,19 +285,36 @@ struct HostView: View {
     // MARK: Top bar
 
     private func topBar(_ session: GameSession, _ state: GameState, _ deck: Deck) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.mode == .lineup && LineupPlayMode.byName(deck: deck, tier: playback.tier) ? "Lineup by name" : session.mode.name).font(.headline)
-                // A reveal names the round just played, not the next one.
-                Text(roundText(session, game.showingReveal ? (game.lastReveal?.before ?? state) : state)).font(.subheadline)
+        let title = VStack(alignment: .leading, spacing: 2) {
+            Text(session.mode == .lineup && LineupPlayMode.byName(deck: deck, tier: playback.tier) ? "Lineup by name" : session.mode.name).font(.headline)
+            // A reveal names the round just played, not the next one.
+            Text(roundText(session, game.showingReveal ? (game.lastReveal?.before ?? state) : state)).font(.subheadline)
+            if let finalRound = state.finalRoundPlayers, !finalRound.isEmpty {
+                Text("Final round: \(namesList(finalRound.map(session.playerName))) still to play.").font(.subheadline.weight(.semibold))
             }
-            Spacer()
-            Button("Play home") {
-                clip.cancel()
-                game.leave()
+        }
+        let finished = state.phase == .finished
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                title
+                Spacer()
+                Button("Play home") { playHome() }
+                if !finished {
+                    Button("End game", role: .destructive) { confirmEnd = true }
+                }
             }
-            if state.phase != .finished {
-                Button("End game", role: .destructive) { confirmEnd = true }
+            // Narrow phones: the two actions share one menu.
+            HStack(spacing: 12) {
+                title
+                Spacer()
+                Menu {
+                    Button("Play home") { playHome() }
+                    if !finished {
+                        Button("End game", role: .destructive) { confirmEnd = true }
+                    }
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
             }
         }
         .foregroundStyle(Stage.paper)
@@ -255,6 +323,11 @@ struct HostView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .background(Stage.ink)
+    }
+
+    private func playHome() {
+        clip.cancel()
+        game.leave()
     }
 
     private func roundText(_ session: GameSession, _ state: GameState) -> String {
@@ -268,9 +341,10 @@ struct HostView: View {
         case let .lineup(o): return "Round \(min(next, o.rounds)) of \(o.rounds)"
         case let .imposter(o): return "Round \(min(next, o.rounds)) of \(o.rounds)"
         case let .daily(o): return "Round \(min(next, o.cards.count)) of \(o.cards.count)"
-        case let .timeline(o): return "First to \(o.target) cards"
+        case let .timeline(o):
+            return o.ownership == .shared ? "Shared line \(state.timeline(for: nil).count) of \(o.target)" : "First to \(o.target) cards"
         case let .relay(o): return "Line of \(o.target) cards · lives \(state.lives) of \(o.lives)"
-        case let .higherLower(o): return session.players.count == 1 ? "Solo: until the first miss" : "Card \(min(next, o.cards)) of \(o.cards)"
+        case let .higherLower(o): return session.players.count == 1 ? (o.play == .everyone ? "Solo: until the last life" : "Solo: until the first miss") : "Card \(min(next, o.cards)) of \(o.cards)"
         }
     }
 }
@@ -282,41 +356,47 @@ private struct ScoreboardStrip: View {
 
     var body: some View {
         let scores = GameEngine.scores(of: state)
-        ScrollView(.horizontal) {
-            HStack(spacing: 10) {
-                if session.mode == .relay, case let .relay(options) = session.options {
-                    cell(title: "Team", lines: ["Lives \(state.lives) of \(options.lives)", "Line \(state.timeline(for: nil).count) of \(options.target)"], highlighted: false)
-                }
-                ForEach(session.players, id: \.id) { player in
-                    let active = state.activePlayerID == player.id
-                    var lines: [String] = []
-                    if session.mode == .higherLower {
-                        lines.append("Streak \(scores[player.id] ?? 0)")
-                        if let lives = state.higherLowerLives(for: player.id), case let .higherLower(options) = session.options, !state.eliminated.contains(player.id) {
-                            lines.append("Lives \(lives) of \(options.startingLives)")
-                        }
-                    } else if session.mode != .relay {
-                        lines.append(scoreText(scores[player.id] ?? 0, mode: session.mode, stakes: session.options.stakes))
-                    }
-                    if let chips = state.chips(for: player.id) { lines.append("Chips \(chips)") }
-                    if case let .timeline(options) = session.options, options.challenges, let tokens = state.tokens(for: player.id) { lines.append("Tokens \(tokens)") }
-                    if state.eliminated.contains(player.id) { lines.append("Out") }
-                    if active { lines.append(session.mode == .relay ? "Voice: \(player.name)" : "\(player.name)'s turn") }
-                    return cell(title: player.name, lines: lines, highlighted: active)
-                }
+        // Wraps so every player is visible, at TV distance too; the score is the large line.
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 10, alignment: .topLeading)], alignment: .leading, spacing: 10) {
+            if session.mode == .relay, case let .relay(options) = session.options {
+                cell(title: "Team", lines: ["Lives \(state.lives) of \(options.lives)", "Line \(state.timeline(for: nil).count) of \(options.target)"], highlighted: false, scoreLine: false)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
+            ForEach(session.players, id: \.id) { player in
+                let active = state.activePlayerID == player.id
+                var lines: [String] = []
+                if session.mode == .higherLower {
+                    lines.append("Streak \(scores[player.id] ?? 0)")
+                    if let lives = state.higherLowerLives(for: player.id), case let .higherLower(options) = session.options, !state.eliminated.contains(player.id) {
+                        lines.append("Lives \(lives) of \(options.startingLives)")
+                    }
+                } else if session.mode != .relay {
+                    lines.append(scoreText(scores[player.id] ?? 0, mode: session.mode, stakes: session.options.stakes))
+                }
+                if let chips = state.chips(for: player.id) { lines.append("Chips \(chips)") }
+                if case let .timeline(options) = session.options, options.challenges, let tokens = state.tokens(for: player.id) { lines.append("Tokens \(tokens)") }
+                if state.eliminated.contains(player.id) { lines.append("Out") }
+                return cell(title: player.name, lines: lines, highlighted: active, scoreLine: session.mode != .relay, active: active ? (session.mode == .relay ? "Voice: \(player.name)" : "\(player.name)'s turn") : nil)
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
         .background(Stage.ink.opacity(0.92))
     }
 
-    private func cell(title: String, lines: [String], highlighted: Bool) -> some View {
+    private func cell(title: String, lines: [String], highlighted: Bool, scoreLine: Bool, active: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.subheadline.weight(.bold))
-            ForEach(lines, id: \.self) { Text($0).font(.caption) }
+            Text(title).font(.headline)
+            ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                if index == 0, scoreLine {
+                    Text(line).font(.title2.weight(.bold)).monospacedDigit()
+                } else {
+                    Text(line).font(.callout)
+                }
+            }
+            if let active { Text(active).font(.callout.weight(.semibold)) }
         }
         .foregroundStyle(Stage.paper)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 10).strokeBorder(highlighted ? Stage.paper : Color(hex: "#7A7085"), lineWidth: highlighted ? 2.5 : 1))

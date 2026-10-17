@@ -9,6 +9,7 @@ struct ResultsView: View {
     let deck: Deck
     @ObservedObject var clip: ClipController
     @EnvironmentObject private var game: GameController
+    @EnvironmentObject private var deckStore: DeckStore
     @State private var exporting = false
     @State private var exportError: String?
     /// The personal best for a one-player game or Relay, recorded once when the results appear.
@@ -33,6 +34,10 @@ struct ResultsView: View {
                             Text(session.playerName(entry.player)).font(.headline)
                             let extra = tieBreaks(entry.player, summary)
                             Text(([score(entry.player, scores)] + extra).joined(separator: " · ")).font(.callout)
+                            // Snippet Ladder's buzzer bonus is its own line, not a tie-break.
+                            if session.mode == .ladder, let buzzers = (summary["buzzers"] as? [String: Int])?[entry.player] {
+                                Text("\(buzzers) buzzer\(buzzers == 1 ? "" : "s")").font(.callout).foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .accessibilityElement(children: .combine)
@@ -64,7 +69,8 @@ struct ResultsView: View {
                 if session.mode != .daily {
                     Button("Play again") {
                         clip.cancel()
-                        game.playAgain(deck: deck)
+                        // A new game plays the loaded deck when it is the game's deck, else the game's own copy.
+                        game.playAgain(deck: deckStore.deck.flatMap { $0.id == session.deckId ? $0 : nil } ?? deck)
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -123,9 +129,9 @@ struct ResultsView: View {
         case .eraSort: if let right = value("rightEras") { out.append("\(right) right eras") }
         case .timeline: if let wrong = value("wrong") { out.append("\(wrong) wrong placements") }
         case .ladder:
-            if let used = value("usedMs") { out.append("\(used / 1000) s listened") }
-            if let exact = value("exactYears") { out.append("\(exact) exact years") }
-            if let buzzers = value("buzzers") { out.append("\(buzzers) buzzer\(buzzers == 1 ? "" : "s")") }
+            if let used = value("usedMs") { out.append("\(secondsText(used)) listened") }
+            // Exact years only exist when players guess a year.
+            if case let .ladder(options) = session.options, options.guess != .name, let exact = value("exactYears") { out.append("\(exact) exact years") }
         case .higherLower: break // The score is the streak.
         case .lineup: if let perfect = value("perfect") { out.append("\(perfect) perfect lines") }
         case .imposter: if let bonuses = value("bonuses") { out.append("\(bonuses) year bonuses") }
@@ -186,11 +192,10 @@ enum Recap {
         return ordered.map { deck.card($0.element.cardId)?.title ?? $0.element.cardId }.joined(separator: ", ")
     }
 
-    /// The player(s) with the highest positive score change ("Ada +10", "Ada and Lin +5"), or "nobody scored".
+    /// The player(s) with the highest positive points change, chips apart ("Ada +10", "Ada and Lin +5"), or "nobody scored".
     private static func scorers(before: GameState, after: GameState, session: GameSession) -> String {
-        let scoresBefore = GameEngine.scores(of: before)
-        let scoresAfter = GameEngine.scores(of: after)
-        let deltas = session.players.map { (player: $0, delta: (scoresAfter[$0.id] ?? 0) - (scoresBefore[$0.id] ?? 0)) }
+        let reveal = RevealSnapshot(before: before, after: after)
+        let deltas = session.players.map { (player: $0, delta: RevealDeltas.points(reveal, $0.id)) }
         guard let top = deltas.map(\.delta).max(), top > 0 else { return "nobody scored" }
         return "\(namesList(deltas.filter { $0.delta == top }.map(\.player.name))) \(signedPoints(top))"
     }

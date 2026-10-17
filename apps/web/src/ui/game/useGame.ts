@@ -10,9 +10,9 @@ import {
   summarize,
   type GameState,
 } from "../../core/game/engine";
-import { closerPick, compareCodePoints, dailySelection, drawOrder, pickAnchors } from "../../core/random";
+import { closerPick, dailySelection, drawOrder, pickAnchors } from "../../core/random";
 import { resolveScan } from "../../core/scan";
-import { imposterPairs } from "../../core/scoring";
+import { imposterPairs, nextImposterPair } from "../../core/scoring";
 import {
   usedCardIds,
   type CardRef,
@@ -107,7 +107,13 @@ export interface GameView {
   unreadable: boolean;
   notice: string;
   storageNotice: string;
-  announcement: string;
+  // The entries a Lock in all just sent, while nothing else has happened: the log length before
+  // them and how many players they were for. Offers Undo all entries.
+  batch?: { from: number; players: number };
+  // Notes that last until the game closes (refused settings, a deck edited since the start).
+  gameNotices: string[];
+  // One line per anchor given at the start; empty once the first card is in play.
+  announcement: string[];
   source: CardSource;
   easyOnly: boolean;
   kids: boolean;
@@ -139,8 +145,6 @@ export function friendlyError(message: string, session: Session): string {
   if (message === "A challenge needs a token.") return "No tokens left for a challenge.";
   return message;
 }
-// The pair key the engine uses: the two card IDs in code-point order.
-const pairKey = (a: string, b: string): string => [a, b].sort(compareCodePoints).join("/");
 // Today's date in UTC, as Daily Eratic uses it.
 export const utcDate = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 // Comma-separated Eratic card hosts of this build; none until a card domain is chosen.
@@ -202,7 +206,8 @@ export class GameController {
       unreadable: loaded.unreadable,
       notice: loaded.notice,
       storageNotice: "",
-      announcement: "",
+      gameNotices: [],
+      announcement: [],
       source: "draw",
       easyOnly: false,
       kids: false,
@@ -341,10 +346,11 @@ export class GameController {
     }
     this.last = setup;
     if (setup.mode !== "daily") saveRoster(setup.players.map((player) => player.name), this.storage);
-    let storageNotice = this.persist(session);
+    const storageNotice = this.persist(session);
+    const gameNotices: string[] = [];
     if (!storageNotice) {
       if (!savePlayPrefs(session.id, { easyOnly: setup.easyOnly, source: setup.source, ...(setup.kids && { kids: true }) }, this.storage) && setup.easyOnly)
-        storageNotice = "Browser storage refused the game's settings, so Easy cards only won't survive a reload.";
+        gameNotices.push("Browser storage refused the game's settings, so Easy cards only won't survive a reload.");
       persistSessionDeck(deck, this.storage);
     }
     markUnseen(null, this.storage);
@@ -356,7 +362,9 @@ export class GameController {
       waiting: undefined,
       notice: "",
       storageNotice,
-      announcement: lines.join(" "),
+      gameNotices,
+      announcement: lines,
+      batch: undefined,
       source: setup.source,
       easyOnly: setup.easyOnly,
       kids: setup.kids === true,
@@ -403,10 +411,13 @@ export class GameController {
       saved: undefined,
       waiting: undefined,
       notice: "",
-      announcement: "",
+      gameNotices: [],
+      announcement: [],
+      batch: undefined,
       source: prefs?.source ?? "draw",
       easyOnly: prefs?.easyOnly ?? false,
-      kids: prefs?.kids ?? false,
+      // Era Sort's Kids is an option of the game; Timeline's is a preset kept in prefs.
+      kids: saved.mode === "eraSort" ? saved.options.kids === true : (prefs?.kids ?? false),
       deckSnapshot: snapshot?.id === saved.deckId ? snapshot : undefined,
       run: this.view.run + 1,
     });
@@ -434,7 +445,9 @@ export class GameController {
       summary: undefined,
       saved: session && state && state.phase !== "finished" ? session : undefined,
       notice: "",
-      announcement: "",
+      gameNotices: [],
+      announcement: [],
+      batch: undefined,
       deckSnapshot: undefined,
     });
   }
@@ -484,24 +497,27 @@ export class GameController {
       state: next,
       summary,
       notice: "",
+      batch: undefined,
       storageNotice: this.persist(updated),
       // The anchor announcement is for the start; it goes once the first card is in play.
-      ...(DRAWS.has(action.type) && { announcement: "" }),
+      ...(DRAWS.has(action.type) && { announcement: [] }),
     });
     return true;
   }
   // Log indexes of the last entry and the entries just before it by the same
-  // player (Bullseye's wager and guess), newest first. Clip records between
-  // them are skipped and stay. Empty once anything but an entry came last.
+  // player (Bullseye's wager and guess), newest first. Clip and step records
+  // are never undone: they are skipped, stay in the log, and don't hide an
+  // earlier entry (a ladder step doesn't depend on locks). Empty once anything
+  // but an entry came last.
   private undoIndexes(): number[] {
     const { session, state } = this.view;
     if (!session || !state || (state.phase !== "open" && state.phase !== "suddenDeathOpen")) return [];
     // The last entry; a guess takes the same player's wager directly before it along (Bullseye
-    // sends wager then guess as one entry). Interleaved clip records stay in the log.
+    // sends wager then guess as one entry). Interleaved clip and step records stay in the log.
     const found: number[] = [];
     for (let index = session.actions.length - 1; index >= 0; index--) {
       const action = session.actions[index];
-      if (action.type === "clip") continue;
+      if (action.type === "clip" || action.type === "step") continue;
       if (found.length === 0) {
         if (!ENTRIES.has(action.type)) break;
         found.push(index);
@@ -528,7 +544,23 @@ export class GameController {
     const indexes = this.undoIndexes();
     if (!session || indexes.length === 0) return false;
     const removed = new Set(indexes);
-    const updated = { ...session, actions: session.actions.filter((_, index) => !removed.has(index)) };
+    return this.replaced(session, session.actions.filter((_, index) => !removed.has(index)));
+  }
+  // Notes that actions after log length `from` were one Lock in all for `players` players.
+  markBatch(from: number, players: number) {
+    if (players > 1) this.set({ batch: { from, players } });
+  }
+  // Takes back every action after log length `to` at once, but only while the card is open
+  // and each of them is an entry or a clip; otherwise nothing changes.
+  undoBatch(to: number): boolean {
+    const { session, state } = this.view;
+    if (!session || !state || (state.phase !== "open" && state.phase !== "suddenDeathOpen")) return false;
+    const tail = session.actions.slice(to);
+    if (to < 0 || tail.length === 0 || !tail.every((action) => ENTRIES.has(action.type) || action.type === "clip")) return false;
+    return this.replaced(session, session.actions.slice(0, to));
+  }
+  private replaced(session: Session, actions: GameAction[]): boolean {
+    const updated = { ...session, actions };
     let next: GameState;
     try {
       next = replay(updated);
@@ -542,6 +574,7 @@ export class GameController {
       state: next,
       summary: summaryOf(next),
       notice: "",
+      batch: undefined,
       storageNotice: this.persist(updated),
     });
     return true;
@@ -602,23 +635,31 @@ export class GameController {
     );
     return candidates.find((card) => card.id === id);
   }
-  // The deck the host plays from: the open deck, or the game's own snapshot when
-  // another deck is open.
+  // The deck the host plays from: the game's own snapshot (the deck as it was when the
+  // game started), or the open deck when there is none.
   deckFor(open: Deck): Deck {
     const { session, deckSnapshot } = this.view;
-    return session && open.id !== session.deckId && deckSnapshot?.id === session.deckId ? deckSnapshot : open;
+    return session && deckSnapshot?.id === session.deckId ? deckSnapshot : open;
   }
-  // Original or Imposter: the next pair of imposterPairs not yet played, in either order.
+  // The open deck was edited since this game started: say that the game plays the old one.
+  noteDeckDifference(open: Deck) {
+    const { session, deckSnapshot, gameNotices } = this.view;
+    const note = "Playing with the deck as it was when this game started.";
+    if (!session || deckSnapshot?.id !== session.deckId || open.id !== session.deckId) return;
+    // Cheap check first: the note is shown once per game, so the decks are compared only until then.
+    if (gameNotices.includes(note) || JSON.stringify(open) === JSON.stringify(deckSnapshot)) return;
+    this.set({ gameNotices: [...gameNotices, note] });
+  }
+  // Original or Imposter: the next pair by nextImposterPair (section 1.5), which avoids
+  // repeating a card of the last pair while another pair is left.
   private nextPair(deck: Deck): { a: Card; b: Card; original: "a" | "b" } | undefined {
     const session = this.view.session;
     if (!session) return undefined;
-    const played = new Set(
-      session.actions.flatMap((action) =>
-        action.type === "drawPair" ? [pairKey(action.a.cardId, action.b.cardId)] : [],
-      ),
+    const drawn = session.actions.flatMap((action): [string, string][] =>
+      action.type === "drawPair" ? [[action.a.cardId, action.b.cardId]] : [],
     );
     const byId = new Map(deck.cards.map((card) => [card.id, card]));
-    const pair = imposterPairs(this.pool(deck), session.seed).find((item) => !played.has(pairKey(item.a, item.b)));
+    const pair = nextImposterPair(imposterPairs(this.pool(deck), session.seed), drawn);
     return pair && { a: byId.get(pair.a)!, b: byId.get(pair.b)!, original: pair.original === pair.a ? "a" : "b" };
   }
   // Whether the next card (lineup, pair, sudden-death set) can still be drawn.

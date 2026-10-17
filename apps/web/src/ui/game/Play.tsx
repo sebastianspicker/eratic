@@ -31,14 +31,16 @@ export function Play({
   const view = useGame(controller);
   const hubState = useHub(hub);
   const [setup, setSetup] = useState<GameMode>();
-  // The host already agreed to replace the saved game (from Play today's round).
-  const [agreed, setAgreed] = useState(false);
   const hasCamera = cameraAvailable();
   // A game never runs unconnected: with no provider chosen it is Play it yourself.
   const inGame = Boolean(view.session);
   useEffect(() => {
     if (inGame && !hubState.provider && !hubState.connecting) void hub.connect("manual");
   }, [inGame, hub, hubState.provider, hubState.connecting]);
+  // A game keeps playing the deck it started with; say so when the open deck was edited since.
+  useEffect(() => {
+    if (inGame) controller.noteDeckDifference(deck);
+  }, [inGame, view.run, controller, deck]);
   if (view.session && view.state && view.summary)
     return (
       <Host
@@ -46,6 +48,7 @@ export function Play({
         controller={controller}
         view={view}
         deck={controller.deckFor(deck)}
+        openDeck={deck}
         hub={hub}
         hasCamera={hasCamera}
       />
@@ -59,6 +62,7 @@ export function Play({
         hasCamera={hasCamera}
         error={view.notice}
         previewMs={hubState.tier?.kind === "previewOnly" ? hubState.tier.maxMs : undefined}
+        exact={Boolean(hubState.tier && exactClips(hubState.tier))}
         warning={
           setup === "ladder"
             ? calibrationWarning(hubState.provider, Boolean(hubState.tier && exactClips(hubState.tier)))
@@ -66,15 +70,11 @@ export function Play({
         }
         onBack={() => {
           controller.setNotice("");
-          setAgreed(false);
           setSetup(undefined);
         }}
         onStart={(chosen) => {
-          if (view.saved && !agreed && !window.confirm(REPLACE_SAVED)) return;
-          if (controller.start(chosen, deck)) {
-            setAgreed(false);
-            setSetup(undefined);
-          }
+          if (view.saved && !window.confirm(REPLACE_SAVED)) return;
+          if (controller.start(chosen, deck)) setSetup(undefined);
         }}
       />
     );
@@ -93,8 +93,11 @@ export function Play({
       onDaily={() => {
         if (view.saved && !window.confirm(REPLACE_SAVED)) return;
         controller.setNotice("");
-        setAgreed(view.saved !== undefined);
-        setSetup("daily");
+        // Daily is one seat, so it starts at once as "You" (the native app does the same).
+        controller.start(
+          { mode: "daily", options: {}, players: [{ id: "p1", name: "You" }], source: "draw", easyOnly: false },
+          deck,
+        );
       }}
     />
   );

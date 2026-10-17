@@ -100,6 +100,74 @@ export function cardsNeeded(mode: GameMode, options: SessionOptions, players: nu
   }
 }
 
+// The most the deck allows for the mode's length option, or undefined when the deck
+// never limits it. Setup uses it to warn and to pick a starting value; the engine
+// itself accepts the full range and the game ends when the cards run out.
+export interface DeckCapacity {
+  option: "rounds" | "cards" | "target";
+  max: number;
+}
+export function deckCapacity(
+  mode: GameMode,
+  options: SessionOptions,
+  players: number,
+  pool: Card[],
+): DeckCapacity | undefined {
+  const n = pool.length;
+  switch (mode) {
+    case "ladder":
+    case "bullseye":
+    case "eraSort":
+      return { option: "rounds", max: n };
+    case "lineup":
+      return { option: "rounds", max: Math.floor(n / (options.k ?? 4)) };
+    case "higherLower":
+      return players > 1 ? { option: "cards", max: n - 1 } : undefined;
+    case "imposter":
+      return { option: "rounds", max: imposterPairs(pool, 0).length };
+    case "timeline":
+      return { option: "target", max: (options.ownership ?? "personal") === "personal" ? 1 + n - players : n };
+    case "relay":
+      return { option: "target", max: n };
+    default:
+      return undefined;
+  }
+}
+const plural = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
+// "This deck has 3 cards: enough for 3 rounds."
+export function capacityNote(mode: GameMode, capacity: DeckCapacity, cards: number): string {
+  const enough =
+    mode === "lineup"
+      ? plural(capacity.max, "lineup", "lineups")
+      : mode === "imposter"
+        ? plural(capacity.max, "pair", "pairs")
+        : mode === "higherLower"
+          ? plural(capacity.max, "card", "cards")
+          : capacity.option === "target"
+            ? `a line of ${plural(capacity.max, "card", "cards")}`
+            : plural(capacity.max, "round", "rounds");
+  return `This deck has ${plural(cards, "card", "cards")}: enough for ${enough}.`;
+}
+// Setup's first values: the contract defaults, pulled down to what the deck holds
+// (Lineup to three songs when it cannot hold four) so a small deck starts a game that fits.
+export function startingOptions(mode: GameMode, players: number, pool: Card[]): SessionOptions {
+  const options = defaultOptions(mode) as Record<string, unknown>;
+  const field = (name: string) => OPTION_FIELDS[mode].find((item) => item.name === name);
+  const k = field("k");
+  if (mode === "lineup" && k?.kind === "int" && pool.length < (options.k as number) && pool.length >= k.min)
+    options.k = pool.length;
+  // A custom anchor year starts at the deck's median curated year.
+  if ("anchorYear" in options && pool.length > 0) {
+    const years = pool.map((card) => card.gameYear.value).sort((a, b) => a - b);
+    options.anchorYear = Math.min(2100, Math.max(1850, years[Math.floor(years.length / 2)]));
+  }
+  const capacity = deckCapacity(mode, options as SessionOptions, players, pool);
+  const target = capacity && field(capacity.option);
+  if (capacity && target?.kind === "int" && capacity.max >= target.min && (options[capacity.option] as number) > capacity.max)
+    options[capacity.option] = capacity.max;
+  return options as SessionOptions;
+}
+
 // Whether a mode can start with this deck and playback, and why not, in words.
 // The gallery checks the smallest game the mode allows; Start checks the chosen one.
 export function modeAvailability(
@@ -139,12 +207,13 @@ const rounds = (max: number, label = "Rounds", fallback = 10): OptionField => ({
   max,
   fallback,
 });
-const stakes: OptionField = {
+const stakesOn = (unit: string): OptionField => ({
   name: "stakes",
-  label: "Stakes: wager 1 to 3 chips on each card",
+  label: `Stakes: wager 1 to 3 chips on each ${unit}`,
   kind: "bool",
   fallback: false,
-};
+});
+const stakes = stakesOn("card");
 const anchor: OptionField[] = [
   {
     name: "anchor",
@@ -168,12 +237,15 @@ const anchor: OptionField[] = [
     when: (options) => options.anchor === "custom",
   },
 ];
-const nameIt: OptionField = {
+// Timeline's Name It earns a token (6.3), so it only matters with Challenges; Relay's gives back a life (6.6).
+const nameIt = (label: string, when?: OptionField["when"]): OptionField => ({
   name: "nameIt",
-  label: "Name It: title and artist right earns a bonus",
+  label,
   kind: "bool",
   fallback: false,
-};
+  when,
+});
+const challengesOn = (options: SessionOptions) => options.challenges !== false;
 export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
   ladder: [
     rounds(100, "Cards"),
@@ -197,7 +269,7 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
     },
     {
       name: "clipStart",
-      label: "Clip start",
+      label: "Clip start for cards without their own",
       kind: "choice",
       fallback: "card",
       choices: [
@@ -209,7 +281,7 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
     stakes,
     {
       name: "buzzer",
-      label: "Buzzer: +2 for the first right lock-in",
+      label: "Buzzer: +2 for the first lock-in that scores",
       kind: "bool",
       fallback: false,
       sparse: true,
@@ -229,9 +301,9 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
     ...anchor,
     { name: "target", label: "Cards to win", kind: "int", min: 2, max: 30, fallback: 10 },
     { name: "challenges", label: "Challenges", kind: "bool", fallback: true },
-    { name: "tokens", label: "Tokens per player", kind: "int", min: 0, max: 5, fallback: 2 },
-    nameIt,
-    stakes,
+    { name: "tokens", label: "Tokens per player", kind: "int", min: 0, max: 5, fallback: 2, when: challengesOn },
+    nameIt("Name It: title and artist right earns a token", challengesOn),
+    stakesOn("placement"),
     {
       name: "clip",
       label: "Clip length",
@@ -249,7 +321,7 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
     rounds(100),
     {
       name: "kids",
-      label: "Kids: a neighbouring era scores in full",
+      label: "Kids: a neighbouring era scores in full, with larger buttons",
       kind: "bool",
       fallback: false,
     },
@@ -295,7 +367,7 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
     { name: "target", label: "Cards to win", kind: "int", min: 2, max: 30, fallback: 12 },
     { name: "lives", label: "Lives", kind: "int", min: 1, max: 10, fallback: 3 },
     ...anchor,
-    nameIt,
+    nameIt("Name It: title and artist right gives back a life (up to the start)"),
   ],
   lineup: [
     { name: "k", label: "Songs per lineup", kind: "int", min: 3, max: 5, fallback: 4 },
@@ -311,7 +383,7 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
     },
   ],
   daily: [],
-  imposter: [rounds(50, "Pairs", 5)],
+  imposter: [rounds(50, "Rounds (one pair each)", 5)],
 };
 export function defaultOptions(mode: GameMode): SessionOptions {
   const options: Record<string, unknown> = {};

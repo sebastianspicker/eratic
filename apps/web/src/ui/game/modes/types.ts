@@ -41,6 +41,6 @@ export interface ModeUI {
   resultLines(info: RevealInfo, session: Session): ResultLine[];
   RevealExtra?: ComponentType<{ info: RevealInfo; session: Session; deck: Deck }>;
   // The mode's tie-break numbers for the results, in words.
-  tieBreaks?(summary: Summary, playerId: string): string[];
+  tieBreaks?(summary: Summary, playerId: string, session: Session): string[];
   ResultsExtra?: ComponentType<{ session: Session; summary: Summary }>;
 }

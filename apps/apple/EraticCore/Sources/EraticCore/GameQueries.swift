@@ -79,6 +79,24 @@ extension GameState {
         return exactPlayerID(playerID).flatMap { timelines[$0] } ?? []
     }
 
+    /// Timeline once the target is reached: the players still to play this round, in turn order
+    /// (the round ends at the reveal of the last player, section 6.3). nil before the target,
+    /// in sudden death, once finished and in other modes.
+    public var finalRoundPlayers: [String]? {
+        guard case let .timeline(timeline) = options, phase == .awaitingDraw || phase == .open else { return nil }
+        let reached = timeline.ownership == .personal ? timelines.values.contains { $0.count >= timeline.target } : line.count >= timeline.target
+        return reached ? players[activeIndex...].map(\.id) : nil
+    }
+
+    /// Timeline after the placement: the slots a challenge may still take, that is, neither the
+    /// placement nor an earlier challenge this turn (section 6.3 step 3). Empty otherwise.
+    public var openChallengeSlots: [Int] {
+        guard case let .timeline(timeline) = options, timeline.challenges, phase == .open, let placed = inputs.placement else { return [] }
+        let count = timeline.ownership == .personal ? timelines[activePlayer]?.count ?? 0 : line.count
+        let taken = Set([placed] + inputs.challenges.map(\.slot))
+        return (0...count).filter { !taken.contains($0) }
+    }
+
     /// The Snippet Ladder step played for the card in play, −1 before the first.
     public var ladderStep: Int { step }
 
@@ -112,8 +130,8 @@ extension GameState {
         usedPairs.contains([Array(first.utf8), Array(second.utf8)].sorted { $0.lexicographicallyPrecedes($1) })
     }
 
-    /// Every card ID that has entered the session.
-    public var usedCardIDs: Set<String> { Set(used.map { String(decoding: $0, as: UTF8.self) }) }
+    /// Every card ID that has entered the session, including the cards of drawn pairs (Original or Imposter).
+    public var usedCardIDs: Set<String> { Set(used.union(pairedCards).map { String(decoding: $0, as: UTF8.self) }) }
 
     /// True once the active player has placed the card in play (Timeline, Relay).
     public var hasPlaced: Bool { inputs.placement != nil }

@@ -63,6 +63,7 @@ const primitives: Record<string, (args: Args) => unknown> = {
     scoring.imposterPoints(pickedOriginal, yearGuess, originalYear),
   nameItAward: ({ titleOK, artistOK }) => scoring.nameItAward(titleOK, artistOK),
   imposterPairs: ({ cards, seed }) => scoring.imposterPairs(cards, seed),
+  nextImposterPair: ({ pairs, drawn }) => scoring.nextImposterPair(pairs, drawn) ?? null,
   eraticCardURL: ({ host, deckId, cardId }) => eraticCardURL(host, deckId, cardId) ?? null,
   closerPick: ({ candidates, referenceYear, revealed }) =>
     closerPick(candidates, referenceYear, revealed) ?? null,

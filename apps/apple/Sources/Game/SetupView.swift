@@ -15,6 +15,7 @@ struct SetupView: View {
     @State private var cardSource: CardSource
     @State private var confirmReplace = false
     @State private var problem: String?
+    @State private var seeded = false
     private let hasCamera = AVCaptureDevice.default(for: .video) != nil
 
     private struct PlayerEntry: Identifiable {
@@ -75,6 +76,24 @@ struct SetupView: View {
         }
     }
 
+    /// The contract defaults, pulled down to what the deck holds (Lineup to three songs when it can't hold four).
+    static func startingOptions(_ mode: GameMode, players: Int, deck: Deck?) -> GameOptions {
+        var options = defaults(mode)
+        guard let pool = deck?.cards else { return options }
+        if case var .lineup(lineup) = options, pool.count < lineup.k, pool.count >= 3 {
+            lineup.k = pool.count
+            options = .lineup(lineup)
+        }
+        return deckCapacity(options, players: players, pool: pool)?.clamped(options) ?? options
+    }
+
+    /// What the deck holds for the chosen length, when that is less than chosen.
+    private var capacityNote: String? {
+        guard let deck = deckStore.deck else { return nil }
+        let pool = easyOnly && mode != .daily ? deck.cards.filter { ($0.difficulty ?? 0) >= 1 && ($0.difficulty ?? 0) <= 2 } : deck.cards
+        return deckCapacity(options, players: players.count, pool: pool)?.note(for: options, deckCards: pool.count)
+    }
+
     var body: some View {
         let range = mode.playerRange
         Form {
@@ -120,7 +139,10 @@ struct SetupView: View {
                 }
             }
             Section("Options") {
-                ModeOptionsEditor(options: $options, defaultYear: medianYear)
+                ModeOptionsEditor(options: $options, defaultYear: medianYear, exactClips: playback.tier.exactClips)
+                if let note = capacityNote {
+                    Text(note).font(.callout).foregroundStyle(.secondary)
+                }
                 if let maxMs = previewMs, !droppedSteps.isEmpty {
                     let steps = namesList(droppedSteps.map(SetupView.seconds))
                     Text("Previews play up to \(SetupView.seconds(maxMs)), so the \(steps) step\(droppedSteps.count == 1 ? " is" : "s are") left out.")
@@ -163,6 +185,11 @@ struct SetupView: View {
         .onAppear {
             game.lastError = nil
             problem = nil
+            // Once, with the deck known: start at what the deck holds when the contract default is more.
+            if !seeded {
+                seeded = true
+                options = SetupView.startingOptions(mode, players: players.count, deck: deckStore.deck)
+            }
         }
         .confirmationDialog("Replace the unfinished game?", isPresented: $confirmReplace, titleVisibility: .visible) {
             Button("Replace", role: .destructive) { start() }
@@ -178,7 +205,22 @@ struct SetupView: View {
         let sessionPlayers = players.enumerated().map { index, entry in
             SessionPlayer(id: "p\(index + 1)", name: SetupView.cleanName(entry.name, fallback: "Player \(index + 1)"))
         }
+        let keys = sessionPlayers.map { $0.name.lowercased() }
+        guard Set(keys).count == keys.count else {
+            problem = "Names must differ."
+            return
+        }
         var chosen = options
+        // Timeline's tokens and Name It only matter with Challenges (Name It earns a token): hidden, they stay at the defaults.
+        if case var .timeline(timeline) = chosen, !timeline.challenges {
+            timeline.tokens = TimelineOptions().tokens
+            timeline.nameIt = false
+            chosen = .timeline(timeline)
+        }
+        if case let .ladder(ladder) = chosen, ladder.steps.isEmpty {
+            problem = "Choose at least one step."
+            return
+        }
         // A preview-only account drops the steps longer than its preview (game-rules.md 6.4).
         if case var .ladder(ladder) = chosen, let maxMs = previewMs {
             let kept = ladder.steps.filter { $0 <= maxMs }
@@ -230,6 +272,11 @@ struct ModeOptionsEditor: View {
     @Binding var options: GameOptions
     /// The year a custom anchor starts at.
     var defaultYear = 1980
+    /// The connected tier plays exact clips; Snippet Ladder's *Clip start* only matters then.
+    var exactClips = true
+
+    /// The clip lengths a Snippet Ladder step can have (the web setup offers the same five).
+    private static let ladderStepChoices = [1000, 5000, 10000, 20000, 30000]
 
     var body: some View {
         switch options {
@@ -237,10 +284,11 @@ struct ModeOptionsEditor: View {
             let o = bind(value) { .bullseye($0) }
             Stepper("Rounds: \(value.rounds)", value: o.rounds, in: 1...100)
             Toggle("Stakes: wager chips on each guess", isOn: o.stakes)
+            stakesHint(value.stakes)
         case let .eraSort(value):
             let o = bind(value) { .eraSort($0) }
             Stepper("Rounds: \(value.rounds)", value: o.rounds, in: 1...100)
-            Toggle("Kids: neighbouring eras score full points", isOn: o.kids)
+            Toggle("Kids: a neighbouring era scores in full, with larger buttons", isOn: o.kids)
         case let .timeline(value):
             let o = bind(value) { .timeline($0) }
             Picker("Timelines", selection: o.ownership) {
@@ -253,9 +301,12 @@ struct ModeOptionsEditor: View {
             }, defaultYear: defaultYear)
             Stepper("First to \(value.target) cards", value: o.target, in: 2...30)
             Toggle("Challenges", isOn: o.challenges)
-            Stepper("Tokens per player: \(value.tokens)", value: o.tokens, in: 0...5)
-            Toggle("Name It: name the song to earn a token", isOn: o.nameIt)
+            if value.challenges {
+                Stepper("Tokens per player: \(value.tokens)", value: o.tokens, in: 0...5)
+                Toggle("Name It: name the song to earn a token", isOn: o.nameIt)
+            }
             Toggle("Stakes: wager chips on each placement", isOn: o.stakes)
+            stakesHint(value.stakes)
             Picker("Clip", selection: o.clip) {
                 Text("Full song").tag(TimelineClip.full)
                 Text("30 seconds").tag(TimelineClip.thirtySeconds)
@@ -269,18 +320,37 @@ struct ModeOptionsEditor: View {
                 Text("Year").tag(LadderGuess.year)
                 Text("Both").tag(LadderGuess.both)
             }
-            Picker("Clip start", selection: o.clipStart) {
-                Text("The card's start").tag(LadderClipStart.card)
-                Text("Skip the intro").tag(LadderClipStart.skipIntro)
-                Text("From the beginning").tag(LadderClipStart.zero)
+            if exactClips {
+                Picker("Clip start for cards without their own", selection: o.clipStart) {
+                    Text("The card's start").tag(LadderClipStart.card)
+                    Text("Skip the intro").tag(LadderClipStart.skipIntro)
+                    Text("From the beginning").tag(LadderClipStart.zero)
+                }
             }
-            Text("Steps: " + value.steps.map { "\($0 / 1000) s" }.joined(separator: " · ")).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Clip steps")
+                HStack {
+                    ForEach(Self.ladderStepChoices, id: \.self) { step in
+                        Toggle("\(step / 1000) s", isOn: Binding(
+                            get: { value.steps.contains(step) },
+                            set: { on in
+                                var ladder = value
+                                // Kept strictly increasing by sorting; the toggles can't repeat a step.
+                                ladder.steps = (on ? value.steps + [step] : value.steps.filter { $0 != step }).sorted()
+                                options = .ladder(ladder)
+                            }
+                        ))
+                        .toggleStyle(.button)
+                    }
+                }
+            }
             Toggle("Stakes: wager chips on each song", isOn: o.stakes)
-            Toggle("Buzzer: +2 for the first right lock-in", isOn: o.buzzer)
+            stakesHint(value.stakes)
+            Toggle("Buzzer: +2 for the first lock-in that scores", isOn: o.buzzer)
         case let .higherLower(value):
             let o = bind(value) { .higherLower($0) }
             Stepper("Versus ends after \(value.cards) cards", value: o.cards, in: 2...100)
-            Text("Solo play goes on until the first miss.").font(.caption).foregroundStyle(.secondary)
+            Text(value.play == .everyone ? "Solo play goes on until your last life is gone." : "Solo play goes on until the first miss.").font(.caption).foregroundStyle(.secondary)
             Picker("Who calls each card", selection: Binding(get: { value.play }, set: { play in
                 var next = value
                 next.play = play
@@ -307,17 +377,24 @@ struct ModeOptionsEditor: View {
                 if case let .relay(current) = $0 { return current }
                 return nil
             }, defaultYear: defaultYear)
-            Toggle("Name It: name the song to win back a life", isOn: o.nameIt)
+            Toggle("Name It: title and artist right gives back a life (up to the start)", isOn: o.nameIt)
         case let .lineup(value):
             let o = bind(value) { .lineup($0) }
             Stepper("Songs per lineup: \(value.k)", value: o.k, in: 3...5)
             Stepper("Rounds: \(value.rounds)", value: o.rounds, in: 1...20)
             Stepper("Clip length: \(value.clipMs / 1000) s", value: o.clipMs, in: 1000...60_000, step: 1000)
         case .daily:
-            Text("Five songs: three eras, then two years. Everyone gets the same songs today.").foregroundStyle(.secondary)
+            Text("Up to five songs: three eras, then years. Everyone gets the same songs today.").foregroundStyle(.secondary)
         case let .imposter(value):
             let o = bind(value) { .imposter($0) }
-            Stepper("Rounds: \(value.rounds)", value: o.rounds, in: 1...50)
+            Stepper("Rounds (one pair each): \(value.rounds)", value: o.rounds, in: 1...50)
+        }
+    }
+
+    /// What Stakes does to the score, under the switch when it is on.
+    @ViewBuilder private func stakesHint(_ on: Bool) -> some View {
+        if on {
+            Text("Everyone starts with 5 chips; your score is your points plus the chips you hold.").font(.caption).foregroundStyle(.secondary)
         }
     }
 

@@ -107,6 +107,30 @@ final class SessionStore {
         try data.write(to: url, options: .atomic)
     }
 
+    /// The file for an unreadable game's name, only inside the Sessions folder: `current.unreadable-<stamp>.json`, or
+    /// `current.json` itself while it is the unreadable file that couldn't be moved aside (saving is then blocked).
+    private func unreadableURL(_ fileName: String) -> URL? {
+        guard let directory, fileName == (fileName as NSString).lastPathComponent else { return nil }
+        let kept = fileName.hasPrefix("current.unreadable-") && fileName.hasSuffix(".json")
+        guard kept || (fileName == "current.json" && blocked != nil) else { return nil }
+        let url = directory.appendingPathComponent(fileName)
+        guard url.deletingLastPathComponent().standardizedFileURL.path == directory.standardizedFileURL.path else { return nil }
+        return url
+    }
+
+    /// The raw bytes of a kept unreadable game, for export.
+    func readUnreadable(_ fileName: String) -> Data? {
+        guard let url = unreadableURL(fileName) else { return nil }
+        return try? Data(contentsOf: url)
+    }
+
+    /// Removes exactly that one unreadable game file; the UI asks first. Nothing else in the folder is touched.
+    func discardUnreadable(_ fileName: String) throws {
+        guard let url = unreadableURL(fileName) else { throw DeckError("That file is not an unreadable saved game.") }
+        if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+        if fileName == "current.json" { blocked = nil }
+    }
+
     /// Removes `current.json` only; the UI asks first. Call `discardDeck()` afterwards.
     func discardSession() throws {
         if let url = currentURL, FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
@@ -136,5 +160,21 @@ struct SessionDocument: FileDocument {
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: try SessionCodec.encode(session))
+    }
+}
+
+/// An unreadable saved game's raw bytes for *Export unreadable saved game* (they may not decode as a session).
+struct UnreadableSessionDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var data: Data
+
+    init(data: Data) { self.data = data }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }

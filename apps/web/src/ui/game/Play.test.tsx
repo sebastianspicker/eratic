@@ -20,12 +20,13 @@ import {
   SESSION_KEY,
   SESSION_UNREADABLE_KEY,
 } from "../../sessions";
-import { friendlyError, GameController } from "./useGame";
+import { friendlyError, GameController, type Summary } from "./useGame";
 import { STORAGE_KEY } from "../../storage";
 import { BESTS_KEY } from "../../bests";
 import { parseDeck } from "../../core/deck";
-import { parseSession } from "../../core/session";
-import { recapLines } from "./Results";
+import { parseSession, type Session } from "../../core/session";
+import { recapLines, Results } from "./Results";
+import { relayUI } from "./modes/Relay";
 import { SCAN_HINT } from "./Setup";
 import App from "../App";
 
@@ -101,6 +102,7 @@ async function connectManual() {
 }
 async function setUp(mode: string, names: string[], options: Record<string, string> = {}) {
   await click(button(`Play ${mode}`));
+  while ($$(".player-row").length < names.length && hasButton("Add player")) await click(button("Add player"));
   while ($$(".player-row").length > names.length)
     await click($$(".player-row button").at(-1)!);
   for (const [i, name] of names.entries()) await type(`#player-${i}`, name);
@@ -259,16 +261,18 @@ describe("Bullseye", () => {
     expect($(".round-text")?.textContent).toBe("Round 1 of 2");
     expect($(".reveal .era-year")?.textContent).toBe(String(first));
     expect(resultLines()).toEqual([`Ada +10, exact (guessed ${first})`, `Lin +7, 1 year off (guessed ${first + 1})`]);
-    expect(scores()).toEqual(["10", "7"]);
+    // The scoreboard keeps the round's start while its reveal shows, then catches up.
+    expect(scores()).toEqual(["0", "0"]);
     expect($(".ruler-list")?.textContent).toContain(`Answer: ${first}`);
 
     await click(button("Next card"));
+    expect(scores()).toEqual(["10", "7"]);
     expect($(".round-text")?.textContent).toBe("Round 2 of 2");
     const second = yearOf(order[1]);
     await submit("#guess-p1", String(second + 20));
     await submit("#guess-p2", String(second));
     await click(button("Reveal"));
-    expect($(".round-text")?.textContent).toBe("Final results");
+    expect($(".round-text")?.textContent).toBe("Round 2 of 2");
     const standings = $$(".standings li");
     expect(standings[0].textContent).toContain("1Lin17 points");
     expect(standings[1].textContent).toContain("2Ada10 points");
@@ -424,13 +428,16 @@ describe("Era Sort and Higher or Lower", () => {
     const year = yearOf(order[1]);
     expect(text()).toContain("Ada's turn");
     await click(button("Draw card"));
-    expect($(".hl-reference .row-year")?.textContent).toBe(String(reference));
+    expect($(".hl-reference .hl-year")?.textContent).toBe(String(reference));
+    const referenceCard = demo.cards.find((card) => card.id === order[0])!;
+    expect($(".hl-reference")?.textContent).toContain(referenceCard.title);
+    expect($(".hl-reference")?.textContent).toContain(referenceCard.artist);
     // One decision: the call reveals at once, with no separate Reveal button.
     expect(hasButton("Reveal")).toBe(false);
     await click(button(year > reference ? "Earlier" : "Later"));
     expect(resultLines()[0]).toContain("missed");
-    expect($(".round-text")?.textContent).toBe("Final results");
-    expect($(".standings")?.textContent).toContain("0 streak");
+    expect($(".round-text")?.textContent).toBe("Card 1");
+    expect($(".standings")?.textContent).toContain("streak 0");
   });
 });
 
@@ -463,7 +470,8 @@ describe("Higher or Lower for everyone", () => {
     expect($("#option-higherLower-lives")).toBeNull();
     expect(text()).toContain("Closer years as the game goes on");
     await click(button("Start"));
-    expect(savedSession().options).toEqual({ cards: 10 });
+    // The big deck holds ten cards, one of them the reference.
+    expect(savedSession().options).toEqual({ cards: 9 });
     expect(savedSession().sessionVersion).toBe(2);
     await click(button("End game"));
     await click(button("New game"));
@@ -473,7 +481,7 @@ describe("Higher or Lower for everyone", () => {
     await type("#option-higherLower-lives", "2");
     await click($("#option-higherLower-closer")!);
     await click(button("Start"));
-    expect(savedSession().options).toEqual({ cards: 10, play: "everyone", lives: 2, closer: true });
+    expect(savedSession().options).toEqual({ cards: 9, play: "everyone", lives: 2, closer: true });
   });
 
   it("has every player call with lives, shows Out, and reveals from the host", async () => {
@@ -487,10 +495,11 @@ describe("Higher or Lower for everyone", () => {
     await type("#option-higherLower-lives", "1");
     await click(button("Start"));
     expect(text()).not.toContain("Ada's turn");
+    // The streak is the big number once; its word follows it.
     expect($$(".scoreboard .score-extra").map((item) => item.textContent)).toEqual([
-      "Streak 0",
+      "streak",
       "Lives 1 of 1",
-      "Streak 0",
+      "streak",
       "Lives 1 of 1",
     ]);
     await click(button("Draw card"));
@@ -508,16 +517,35 @@ describe("Higher or Lower for everyone", () => {
     expect(button("Reveal").disabled).toBe(false);
     await click(button("Reveal"));
     expect(resultLines()).toEqual([`Ada called ${right}: right, streak 1`, `Lin called ${wrong}: missed, out`]);
+    // An Out player's cell has no lives line.
     expect($$(".scoreboard .score-extra").map((item) => item.textContent)).toEqual([
-      "Streak 1",
+      "streak",
       "Lives 1 of 1",
-      "Streak 0",
-      "Lives 0 of 1",
+      "streak",
       "Out",
     ]);
+    expect($$(".scoreboard li")[1].textContent).not.toContain("Lives");
     // The game ends with one player left.
-    expect($(".round-text")?.textContent).toBe("Final results");
+    expect($(".round-text")?.textContent).toBe("Card 1 of 9");
     expect(savedSession().actions.filter((action: { type: string }) => action.type === "call")).toHaveLength(2);
+  });
+
+  it("shows the chosen call in a segmented group", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    await render();
+    await toPlay();
+    await click(button("Play Higher or Lower"));
+    await type("#player-0", "Ada");
+    await type("#player-1", "Lin");
+    await choose("#option-higherLower-play", "everyone");
+    await click(button("Start"));
+    await click(button("Draw card"));
+    const group = $(".entry-form .segmented");
+    expect(group?.getAttribute("role")).toBe("group");
+    const pressed = () => [...group!.querySelectorAll("button")].map((item) => item.getAttribute("aria-pressed"));
+    expect(pressed()).toEqual(["false", "false"]);
+    await click(group!.querySelectorAll("button")[1]);
+    expect(pressed()).toEqual(["false", "true"]);
   });
 
   it("keeps the one-decision reveal for turns", async () => {
@@ -570,7 +598,6 @@ describe("Daily Eratic", () => {
     await render();
     await toPlay();
     await click(button("Play today's round"));
-    await click(button("Start"));
     expect($(".round-text")?.textContent).toBe("Round 1 of 5");
     for (const [i, id] of cards.entries()) {
       if (i > 0) await click(button("Next card"));
@@ -661,10 +688,10 @@ describe("Timeline and Relay", () => {
       "#option-timeline-target": "3",
       "#option-timeline-nameIt": "",
     });
-    expect($(".announcement")?.textContent).toBe(
-      `Give Ada ${bigTitle(anchors[0])} (${bigYear(anchors[0])}) as their first card. ` +
-        `Give Lin ${bigTitle(anchors[1])} (${bigYear(anchors[1])}) as their first card.`,
-    );
+    expect([...document.querySelectorAll(".announcement li")].map((item) => item.textContent)).toEqual([
+      `Give Ada ${bigTitle(anchors[0])} (${bigYear(anchors[0])}) as their first card.`,
+      `Give Lin ${bigTitle(anchors[1])} (${bigYear(anchors[1])}) as their first card.`,
+    ]);
     expect($(".round-text")?.textContent).toBe("First to 3 cards");
     expect(text()).toContain("Ada's turn");
     expect($$(".scoreboard .score-extra").map((item) => item.textContent)).toEqual(["Tokens 2", "Tokens 2"]);
@@ -693,7 +720,7 @@ describe("Timeline and Relay", () => {
     expect(text()).toContain("Lin takes the card.");
     expect(text()).toContain("Ada named it and gains a token.");
     expect(resultLines()).toEqual(["Ada no card, +1 token", "Lin +1 card from the challenge"]);
-    expect(scores()).toEqual(["1", "2"]);
+    expect(scores()).toEqual(["1", "1"]);
     expect(savedSession().actions.slice(-5).map((action: { type: string }) => action.type)).toEqual([
       "draw",
       "place",
@@ -709,10 +736,10 @@ describe("Timeline and Relay", () => {
     await pick(slotFor([bigYear(anchors[1]), first], second, true));
     await click(button("Reveal"));
     expect(text()).toContain("Correct! Lin keeps it.");
-    expect($(".round-text")?.textContent).toBe("Final results");
+    expect($(".round-text")?.textContent).toBe("First to 3 cards");
     const standings = $$(".standings li");
-    expect(standings[0].textContent).toContain("1Lin3 points");
-    expect(standings[1].textContent).toContain("2Ada1 points");
+    expect(standings[0].textContent).toContain("1Lin3 cards");
+    expect(standings[1].textContent).toContain("2Ada1 card");
     expect(standings[1].textContent).toContain("0 wrong placements"); // a challenger took the card
   });
 
@@ -745,6 +772,88 @@ describe("Timeline and Relay", () => {
     expect(text()).toContain("Wrong. The card is discarded and the team loses a life.");
     expect(text()).toContain("Out of lives. The team loses.");
     expect($(".relay-results")?.textContent).toContain("Team score 1,");
+  });
+});
+
+describe("Timeline host reading aids", () => {
+  const anchorsFor = (count: number) =>
+    pickAnchors(big.cards.map((card) => ({ id: card.id, year: card.gameYear.value })), "random", SEED, count);
+  async function chooseShared() {
+    const select = $("#option-timeline-ownership") as HTMLSelectElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!;
+    await act(async () => {
+      setter.call(select, "shared");
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
+  async function startShared(names: string[], target: string) {
+    await render();
+    await toPlay();
+    await click(button("Play Timeline"));
+    await chooseShared();
+    while ($$(".player-row").length < names.length) await click(button("Add player"));
+    for (const [i, name] of names.entries()) await type(`#player-${i}`, name);
+    await type("#option-timeline-target", target);
+    await click(button("Start"));
+  }
+
+  it("counts the shared line, names the final round and offers no challenge without a free slot", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    const anchor = anchorsFor(1)[0];
+    const draws = bigOrder.filter((id) => id !== anchor);
+    await startShared(["Ada", "Lin", "Kit"], "2");
+    expect($(".round-text")?.textContent).toBe("Shared line 1 of 2");
+    expect($(".final-round")).toBeNull();
+    await click(button("Draw card"));
+    await pick(slotFor([bigYear(anchor)], bigYear(draws[0]), true));
+    expect(hasButton("Challenge as Kit")).toBe(true);
+    await click(button("Challenge as Lin"));
+    await pick(slotFor([bigYear(anchor)], bigYear(draws[0]), false), "Challenge");
+    // The line has two slots and both are taken: Kit can't challenge.
+    expect(hasButton("Challenge as Kit")).toBe(false);
+    expect(text()).toContain("No free slot");
+    await click(button("Reveal"));
+    expect($(".final-round")?.textContent).toBe("Final round: Lin and Kit still to play.");
+    await click(button("Next card"));
+    expect($(".round-text")?.textContent).toBe("Shared line 2 of 2");
+    expect($(".final-round")?.textContent).toBe("Final round: Lin and Kit still to play.");
+  });
+
+  it("jumps to the last and first open slot with End and Home", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    await startShared(["Ada", "Lin"], "5");
+    await click(button("Draw card"));
+    const slots = $$(".tl-slot button");
+    expect(slots).toHaveLength(2);
+    await act(async () => {
+      slots[0].dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
+    });
+    expect(document.activeElement).toBe(slots[1]);
+    await act(async () => {
+      slots[1].dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true }));
+    });
+    expect(document.activeElement).toBe(slots[0]);
+  });
+
+  it("shows the challenger's line with the new card marked after a challenge takes the card", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    const anchors = anchorsFor(2);
+    const draws = bigOrder.filter((id) => !anchors.includes(id));
+    await render();
+    await toPlay();
+    await setUp("Timeline", ["Ada", "Lin"], { "#option-timeline-target": "3" });
+    await click(button("Draw card"));
+    await pick(slotFor([bigYear(anchors[0])], bigYear(draws[0]), false));
+    await click(button("Challenge as Lin"));
+    await pick(slotFor([bigYear(anchors[0])], bigYear(draws[0]), true), "Challenge");
+    await click(button("Reveal"));
+    expect(text()).toContain("Lin takes the card.");
+    const strip = $(".timeline-reveal .tl-strip");
+    expect(strip?.getAttribute("aria-label")).toBe("Lin's timeline");
+    const marked = strip!.querySelectorAll(".tl-chip.new");
+    expect(marked).toHaveLength(1);
+    expect(marked[0].textContent).toContain(bigTitle(draws[0]));
+    expect(marked[0].textContent).toContain("(new)");
   });
 });
 
@@ -788,7 +897,7 @@ describe("Lineup", () => {
     await click(button("Reveal"));
     expect($(".sudden-death-banner")?.textContent).toBe("Sudden death: Ada and Lin. Order 3 songs. The best order wins.");
     expect($(".leader-line")).toBeNull();
-    await click(button("Next card"));
+    await click(button("Next lineup"));
     expect(savedSession().actions.at(-1)).toMatchObject({
       type: "sdDraw",
       cards: sudden.map((id) => ({ cardId: id })),
@@ -801,6 +910,11 @@ describe("Lineup", () => {
     for (const id of [...want].reverse()) await tapSong(bigTitle(id));
     await click(button("Lock in"));
     await click(button("Reveal"));
+    const lettersOf = (ids: string[]) => ids.map((id) => "ABC"[sudden.indexOf(id)]).join(", ");
+    expect(resultLines()).toEqual([
+      `Ada ordered ${lettersOf(want)} · 5 points`,
+      `Lin ordered ${lettersOf([...want].reverse())} · 0 points`,
+    ]);
     expect(text()).toContain("Ada wins the sudden death.");
     expect($$(".right-order .tl-year").map((item) => item.textContent)).toEqual(want.map((id) => String(bigYear(id))));
     expect($$(".standings li")[0].textContent).toContain("1Ada");
@@ -885,7 +999,7 @@ describe("Review fixes", () => {
     expect(localStorage.getItem(SESSION_KEY)).toBe(saved);
     confirm.mockReturnValue(true);
     await click(button("Start"));
-    expect($(".round-text")?.textContent).toBe("Round 1 of 10");
+    expect($(".round-text")?.textContent).toBe("Round 1 of 3");
     expect(savedSession().mode).toBe("eraSort");
   });
 
@@ -898,7 +1012,6 @@ describe("Review fixes", () => {
     const confirm = vi.mocked(window.confirm);
     confirm.mockClear();
     await click(button("Play today's round"));
-    await click(button("Start"));
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(savedSession().mode).toBe("daily");
     await rerender();
@@ -980,10 +1093,24 @@ describe("Daily Eratic review fixes", () => {
     await toPlay();
     await click(button("Play today's round"));
     expect($("#option-easy")).toBeNull();
-    await click(button("Start"));
     expect(savedSession().options.cards).toEqual(cards);
     await click(button("Draw card"));
     expect(hasButton("Skip card")).toBe(false);
+  });
+
+  it("warns on the Daily card when some of today's songs have no link", async () => {
+    const linkless = structuredClone(deck);
+    await render();
+    await toPlay();
+    expect($("#daily-title")?.parentElement?.textContent).not.toContain("no song link");
+    await rerender();
+    for (const card of linkless.cards) if (cards.slice(0, 2).includes(card.id)) Object.assign(card, { links: [] });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(linkless));
+    await rerender();
+    await toPlay();
+    expect($("#daily-title")?.parentElement?.textContent).toContain(
+      "2 of today's songs have no song link; you'll guess those without hearing them.",
+    );
   });
 
   it("after a skipped card, only End game finishes the round", async () => {
@@ -1041,7 +1168,10 @@ describe("Play surface polish", () => {
     expect($(".tl-slot.selected")).not.toBeNull();
     expect(actionTypes()).not.toContain("place");
     expect(document.activeElement).toBe(button(`Place: ${before}`));
+    // The confirm bar sticks to the bottom of the screen while a slot is selected.
+    expect($(".tl-confirm.sticky")).not.toBeNull();
     await click(button("Cancel"));
+    expect($(".tl-confirm")).toBeNull();
     expect(hasButton(`Place: ${before}`)).toBe(false);
     expect(button(before).getAttribute("aria-pressed")).toBe("false");
     await click(button(before));
@@ -1091,7 +1221,7 @@ describe("Play surface polish", () => {
     await submit("#guess-p1", String(answer));
     await submit("#guess-p2", String(answer + 1));
     await click(button("Reveal"));
-    expect($$(".ruler-mark").map((item) => item.textContent)).toEqual(["1", "2", "★"]);
+    expect($$(".ruler-mark").map((item) => item.textContent)).toEqual(["★", "1", "2"]);
     expect($$(".ruler-list li").map((item) => item.textContent)).toEqual([
       `Answer: ${answer}`,
       "1 · Ada: " + answer + " (exact)",
@@ -1125,7 +1255,6 @@ describe("Play surface polish", () => {
     await render();
     await toPlay();
     await click(button("Play today's round"));
-    await click(button("Start"));
     await click(button("Draw card"));
     expect($(".lock-list")).toBeNull();
     expect($(".entry-form")).not.toBeNull();
@@ -1176,10 +1305,6 @@ describe("Undo and the remembered roster", () => {
     // Higher or Lower holds 1-6 players: all three names come back.
     await click(button("Play Higher or Lower"));
     expect($$(".player-input input").map((item) => (item as HTMLInputElement).value)).toEqual(["Ada", "Lin", "Kim"]);
-    await click(button("Back"));
-    // Daily has one seat: the first name.
-    await click(button("Play Daily Eratic"));
-    expect($$(".player-input input").map((item) => (item as HTMLInputElement).value)).toEqual(["Ada"]);
   });
 
   it("defaults to Player 1, Player 2 without a remembered roster", async () => {
@@ -1341,6 +1466,64 @@ describe("All-at-once entry", () => {
       { type: "pickEra", playerId: "p2", era: ERA_IDS[1] },
     ]);
   });
+
+  it("gives the list its own card-style class, not the pill lock list", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    await toAll();
+    expect($$("ul.all-at-once li")).toHaveLength(2);
+    expect($("ul.all-at-once")?.classList.contains("lock-list")).toBe(false);
+  });
+
+  it("offers Undo all entries right after Lock in all, taking the whole batch back", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin", "Kai"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    await toAll();
+    expect(hasButton("Undo all entries")).toBe(false);
+    for (const [i, value] of ["1990", "1991", "1992"].entries()) await fill(`#guess-all-p${i + 1}`, value);
+    await click(button("Lock in all"));
+    expect(savedSession().actions).toHaveLength(4);
+    await click(button("Undo all entries"));
+    expect(savedSession().actions.map((action: { type: string }) => action.type)).toEqual(["draw"]);
+    expect(years()).toHaveLength(3);
+    expect(hasButton("Undo all entries")).toBe(false);
+  });
+
+  it("drops the offer once any other action happens", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    await toAll();
+    await fill("#guess-all-p1", "1990");
+    await fill("#guess-all-p2", "1991");
+    await click(button("Lock in all"));
+    expect(hasButton("Undo all entries")).toBe(true);
+    await click(button("Undo Lin's entry"));
+    expect(hasButton("Undo all entries")).toBe(false);
+  });
+});
+
+describe("Bullseye ruler", () => {
+  it("stacks markers that share a year in rows, and draws the answer behind them", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"], { "#option-bullseye-rounds": "1" });
+    const answer = yearOf(order[0]);
+    await click(button("Draw card"));
+    await submit("#guess-p1", String(answer));
+    await submit("#guess-p2", String(answer));
+    await click(button("Reveal"));
+    const marks = $$(".ruler-mark:not(.answer)") as HTMLElement[];
+    expect(marks.map((mark) => mark.textContent)).toEqual(["1", "2"]);
+    expect(new Set(marks.map((mark) => mark.style.top)).size).toBe(2);
+    const all = $$(".ruler-mark");
+    expect(all[0].classList.contains("answer")).toBe(true);
+  });
 });
 
 describe("Leader, recap and personal bests", () => {
@@ -1496,5 +1679,468 @@ describe("Review fixes", () => {
     expect(hasButton("Reveal")).toBe(true);
     await click(button("Reveal"));
     expect(text()).toContain("Ada called Earlier: right, streak 1");
+  });
+});
+
+describe("Host dead ends", () => {
+  const ask = () => vi.mocked(window.confirm);
+  // One Bullseye round on the 3-card demo deck: draw (first round only), everyone guesses, reveal.
+  async function playRound(guesses: string[], draw = true) {
+    if (draw) await click(button("Draw card"));
+    for (const [i, guess] of guesses.entries()) await submit(`#guess-p${i + 1}`, guess);
+    await click(button("Reveal"));
+  }
+
+  it("starts rounds at the deck's capacity and says what the deck holds", async () => {
+    await render();
+    await toPlay();
+    await click(button("Play Bullseye"));
+    expect(($("#option-bullseye-rounds") as HTMLInputElement).value).toBe("3");
+    expect(text()).not.toContain("This deck has");
+    await type("#option-bullseye-rounds", "10");
+    expect(text()).toContain("This deck has 3 cards: enough for 3 rounds.");
+    await type("#option-bullseye-rounds", "2");
+    expect(text()).not.toContain("This deck has");
+  });
+
+  it("says the deck is used up after the last card and shows results without asking", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "10" });
+    await playRound(["1990"]);
+    await click(button("Next card"));
+    await playRound(["1990"], false);
+    await click(button("Next card"));
+    await playRound(["1990"], false);
+    await click(button("Next card"));
+    expect(text()).toContain("The deck is used up after 3 rounds.");
+    expect(text()).not.toContain("No cards left");
+    expect($("[role=alert]")).toBeNull();
+    ask().mockClear();
+    await click(button("Show results"));
+    expect(ask()).not.toHaveBeenCalled();
+    expect(text()).toContain("Final standings");
+  });
+
+  it("keeps a tie when sudden death has no cards to draw", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"], { "#option-bullseye-rounds": "10" });
+    await playRound(["1990", "1990"]);
+    await click(button("Next card"));
+    await playRound(["1990", "1990"], false);
+    await click(button("Next card"));
+    await playRound(["1990", "1990"], false);
+    await click(button("Next card"));
+    ask().mockClear();
+    await click(button("Show results"));
+    expect(text()).toContain("Not enough cards left for sudden death (it needs 1). The tie stands.");
+    await click(button("Show results"));
+    expect(text()).toContain("Final standings");
+    expect(ask()).not.toHaveBeenCalled();
+  });
+
+  it("words the End game question for the state of the game", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"], { "#option-bullseye-rounds": "3" });
+    await playRound(["1990", "1990"]);
+    await click(button("Next card"));
+    ask().mockClear();
+    ask().mockReturnValue(false);
+    await click(button("End game"));
+    expect(ask()).toHaveBeenLastCalledWith(
+      "End this game now? Players tied for first go to sudden death. The card in play isn't scored.",
+    );
+    await submit("#guess-p1", "1990");
+    await submit("#guess-p2", "1900");
+    await click(button("Reveal"));
+    await click(button("End game"));
+    expect(ask()).toHaveBeenLastCalledWith("End this game now? The standings so far become final.");
+  });
+
+  it("asks before skipping a card with entries, not one without", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"]);
+    await click(button("Draw card"));
+    ask().mockClear();
+    await click(button("Skip card"));
+    expect(ask()).not.toHaveBeenCalled();
+    expect(actionTypes()).toEqual(["draw", "skip"]);
+    await click(button("Draw card"));
+    await submit("#guess-p1", "1990");
+    ask().mockReturnValue(false);
+    await click(button("Skip card"));
+    expect(ask()).toHaveBeenLastCalledWith("Skip this card? The entries for it are discarded.");
+    expect(actionTypes()).toEqual(["draw", "skip", "draw", "guess"]);
+    ask().mockReturnValue(true);
+    await click(button("Skip card"));
+    expect(actionTypes().at(-1)).toBe("skip");
+  });
+
+  it("leaves a running game for Play home and resumes the same round", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"], { "#option-bullseye-rounds": "3" });
+    await playRound(["1990", "1991"]);
+    await click(button("Next card"));
+    expect($(".round-text")?.textContent).toBe("Round 2 of 3");
+    await click(button("Play home"));
+    expect($("h1")?.textContent).toBe("Play");
+    expect($(".resume")).not.toBeNull();
+    await click(button("Resume"));
+    expect($("h1")?.textContent).toBe("Bullseye");
+    expect($(".round-text")?.textContent).toBe("Round 2 of 3");
+  });
+
+  it("plays the deck as it was at the start, and Play again uses the edited deck", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    await submit("#guess-p1", "1990");
+    const edited = {
+      ...demo,
+      cards: demo.cards.map((card) => (card.id === order[0] ? { ...card, title: "Edited title" } : card)),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(edited));
+    await rerender();
+    await toPlay();
+    await click(button("Resume"));
+    await click(button("Reveal"));
+    const original = demo.cards.find((card) => card.id === order[0])!.title;
+    expect($(".reveal")?.textContent).toContain(original);
+    expect(text()).not.toContain("Edited title");
+    expect(text()).toContain("Playing with the deck as it was when this game started.");
+    await click(button("Play again"));
+    await playRound(["1990"]);
+    expect($(".reveal")?.textContent).toContain("Edited title");
+    expect(text()).not.toContain("Playing with the deck as it was");
+  });
+
+  it("starts Lineup at three songs when the deck cannot hold four", async () => {
+    await render();
+    await toPlay();
+    await click(button("Play Lineup by name"));
+    expect(($("#option-lineup-k") as HTMLInputElement).value).toBe("3");
+    expect(($("#option-lineup-rounds") as HTMLInputElement).value).toBe("1");
+  });
+
+  it("asks for a Ladder step instead of quoting the engine", async () => {
+    await render();
+    await toPlay();
+    await click(button("Play Snippet Ladder"));
+    for (const step of $$(".step-choices input:checked")) await click(step);
+    await click(button("Start"));
+    expect($(".error[role=alert]")?.textContent).toBe("Choose at least one step.");
+  });
+
+  it("keeps the scoreboard at the start of the round while its reveal shows", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "2" });
+    await playRound([String(yearOf(order[0]))]);
+    expect(resultLines()[0]).toContain("+10");
+    expect(scores()).toEqual(["0"]);
+    await click(button("Next card"));
+    expect(scores()).toEqual(["10"]);
+  });
+
+  it("shows the round just played on the final reveal", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "2" });
+    await playRound(["1990"]);
+    await click(button("Next card"));
+    await playRound(["1990"], false);
+    expect($(".round-text")?.textContent).toBe("Round 2 of 2");
+  });
+});
+
+describe("Input, focus and reveal fixes", () => {
+  const sameYear = {
+    ...big,
+    cards: big.cards.map((card) => ({ ...card, gameYear: { ...card.gameYear, value: 1990 } })),
+  };
+
+  it("focuses Reveal once everyone has locked in, not the entry-style toggle", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"], { "#option-bullseye-rounds": "2" });
+    await click(button("Draw card"));
+    await submit("#guess-p1", "1990");
+    await submit("#guess-p2", "1991");
+    expect(document.activeElement).toBe(button("Reveal"));
+  });
+
+  it("offers the entry style only to two or more players", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    expect(hasButton("One at a time")).toBe(false);
+    expect(hasButton("All at once")).toBe(false);
+    expect($("#guess-p1")).not.toBeNull();
+  });
+
+  it("words a solo game's lock and undo for one player", async () => {
+    localStorage.setItem(ENTRY_KEY, JSON.stringify("all"));
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["You"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    await submit("#guess-p1", "1990");
+    expect(text()).toContain("Locked in. Reveal when ready.");
+    expect(text()).not.toContain("Everyone is locked in");
+    expect(hasButton("Undo your entry")).toBe(true);
+    expect(hasButton("Undo You's entry")).toBe(false);
+  });
+
+  it("keeps focus on the moved Lineup item, and moves it on after Remove", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    await render();
+    await toPlay();
+    await setUp("Lineup by name", ["Ada"], { "#option-lineup-k": "3", "#option-lineup-rounds": "1" });
+    await click(button("Draw lineup"));
+    const set = bigOrder.slice(0, 3);
+    for (const id of set) await tapSong(bigTitle(id));
+    // B moves to the top, where Move B up is disabled: focus goes to its other button.
+    await click(button("Move B up"));
+    expect($$(".order-item .tile-letter").map((item) => item.textContent)).toEqual(["B", "A", "C"]);
+    expect(document.activeElement).toBe(button("Move B down"));
+    // Move B down stays enabled in the middle, so focus stays on it.
+    await click(button("Move B down"));
+    expect(document.activeElement).toBe(button("Move B down"));
+    // Removing an item focuses the next item's Remove; the last one, the pool's first song.
+    await click(button("Remove A"));
+    expect(document.activeElement).toBe(button("Remove B"));
+    await click(button("Remove B"));
+    expect(document.activeElement).toBe(button("Remove C"));
+    await click(button("Remove C"));
+    expect(document.activeElement).toBe($('[aria-label$="songs left to place"] button'));
+    expect(document.activeElement?.textContent).toContain(bigTitle(set[0]));
+  });
+
+  it("says either call is right when the drawn year equals the reference year", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sameYear));
+    await render();
+    await toPlay();
+    await setUp("Higher or Lower", ["Ada"]);
+    await click(button("Draw card"));
+    await click(button("Earlier"));
+    expect(resultLines()[0]).toContain("right");
+    expect($(".reveal")?.textContent).toContain("Same year: either call is right.");
+  });
+});
+
+describe("Setup, Results and Play home review fixes", () => {
+  const sessionOf = (mode: string, names: string[]) =>
+    ({
+      format: "eratic-session",
+      sessionVersion: 2,
+      id: "s-results",
+      createdAt: "2026-10-11T12:00:00Z",
+      deckId: "d",
+      deckTitle: "D",
+      mode,
+      options: {},
+      seed: 1,
+      players: names.map((name, i) => ({ id: `p${i + 1}`, name })),
+      actions: [],
+    }) as unknown as Session;
+  async function showResults(session: Session, summary: object, ui = undefined as Parameters<typeof Results>[0]["ui"]) {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () =>
+      root.render(
+        <Results
+          session={session}
+          summary={summary as Summary}
+          ui={ui}
+          onPlayAgain={() => {}}
+          onNewGame={() => {}}
+          onDownload={() => {}}
+        />,
+      ),
+    );
+  }
+
+  it("gives each wager a one-line rule and explains Stakes in Setup", async () => {
+    await render();
+    await toPlay();
+    await click(button("Play Bullseye"));
+    expect(text()).not.toContain("Everyone starts with 5 chips");
+    await click($("#option-bullseye-stakes")!);
+    expect(text()).toContain("Everyone starts with 5 chips; your score is your points plus the chips you hold.");
+    await click(button("Back"));
+    await click(button("Play Timeline"));
+    expect($("label[for=option-timeline-stakes]")?.textContent).toBe("Stakes: wager 1 to 3 chips on each placement");
+    await click(button("Back"));
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1", "#option-bullseye-stakes": "" });
+    await click(button("Draw card"));
+    expect($(".wager .wager-rule")?.textContent).toBe("Win the wager if your guess is within 3 years.");
+  });
+
+  it("shows Timeline's wager rule", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    await render();
+    await toPlay();
+    await setUp("Timeline", ["Ada", "Lin"], { "#option-timeline-target": "3", "#option-timeline-stakes": "" });
+    await click(button("Draw card"));
+    await click($$(".tl-slot button")[0]);
+    await click($$("button").find((item) => item.textContent?.startsWith("Place:"))!);
+    expect($(".wager .wager-rule")?.textContent).toBe("Win the wager if your placement is right.");
+  });
+
+  it("makes Timeline Kids a preset the host can change", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    await render();
+    await toPlay();
+    await click(button("Play Timeline"));
+    await click($("#option-kids-preset")!);
+    expect(text()).toContain("You can still change the options below.");
+    expect(($("#option-timeline-anchor") as HTMLSelectElement).value).toBe("beginning");
+    const select = $("#option-timeline-anchor") as HTMLSelectElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, "random");
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await click($("#option-timeline-challenges")!);
+    await click(button("Start"));
+    expect(savedSession().options).toMatchObject({ anchor: "random", challenges: true });
+  });
+
+  it("rejects duplicate player names", async () => {
+    await render();
+    await toPlay();
+    await click(button("Play Bullseye"));
+    await type("#player-0", "Ada");
+    await type("#player-1", " ada ");
+    await click(button("Start"));
+    expect($("[role=alert]")?.textContent).toBe("Names must differ.");
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+    await type("#player-1", "Lin");
+    await click(button("Start"));
+    expect(savedSession().players.map((player: { name: string }) => player.name)).toEqual(["Ada", "Lin"]);
+  });
+
+  it("shows Timeline's tokens and Name It only with Challenges, and anchors a custom year at the deck's median", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
+    await render();
+    await toPlay();
+    await click(button("Play Timeline"));
+    await type("#option-timeline-tokens", "4");
+    expect($("#option-timeline-tokens")).not.toBeNull();
+    expect($("#option-timeline-nameIt")).not.toBeNull();
+    await click($("#option-timeline-challenges")!);
+    expect($("#option-timeline-tokens")).toBeNull();
+    expect($("#option-timeline-nameIt")).toBeNull();
+    const select = $("#option-timeline-anchor") as HTMLSelectElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(select, "custom");
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(($("#option-timeline-anchorYear") as HTMLInputElement).value).toBe("1990");
+    await click(button("Start"));
+    // Hidden options send nothing, so the contract defaults apply rather than the stale 4 tokens.
+    expect(savedSession().options).toMatchObject({ challenges: false, tokens: 2, nameIt: false });
+  });
+
+  it("says a shared place to screen readers and keeps the visual =1", async () => {
+    await showResults(sessionOf("bullseye", ["Ada", "Lin"]), {
+      scores: { p1: 10, p2: 10 },
+      standings: [["p1", "p2"]],
+    });
+    const place = $(".standings .place")!;
+    expect(place.textContent).toBe("shared =1");
+    expect(place.querySelector(".visually-hidden")?.textContent).toBe("shared ");
+  });
+
+  it("words scores with their units", async () => {
+    const cards = async (mode: string, summary: object) => {
+      await showResults(sessionOf(mode, ["Ada", "Lin"]), { standings: [["p1"], ["p2"]], ...summary });
+      const score = $(".standing-score")?.textContent;
+      await act(async () => root.unmount());
+      container.remove();
+      return score;
+    };
+    expect(await cards("timeline", { scores: { p1: 7, p2: 0 } })).toBe("7 cards");
+    expect(await cards("timeline", { scores: { p1: 1, p2: 0 } })).toBe("1 card");
+    expect(await cards("timeline", { scores: { p1: 7, p2: 0 }, chips: { p1: 2, p2: 5 } })).toBe("7 (cards + chips)");
+    expect(await cards("higherLower", { scores: { p1: 5, p2: 0 } })).toBe("streak 5");
+    expect(await cards("bullseye", { scores: { p1: 16, p2: 0 }, chips: { p1: 6, p2: 5 } })).toBe("16 points (incl. 6 chips)");
+  });
+
+  it("shows a Relay as a team result without empty standings", async () => {
+    await showResults(
+      sessionOf("relay", ["Ada", "Lin"]),
+      { scores: {}, standings: [], outcome: "won", teamScore: 12, timeline: ["a", "b"], lives: 2 },
+      relayUI,
+    );
+    expect($("#results-title")?.textContent).toBe("Team result");
+    expect($(".standings")).toBeNull();
+    expect($(".relay-results")?.textContent).toContain("Team score 12");
+  });
+
+  it("credits the card-by-card best scorer with points, not chips", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1", "#option-bullseye-stakes": "" });
+    await click(button("Draw card"));
+    await submit("#guess-p1", String(yearOf(order[0])));
+    await click(button("Reveal"));
+    expect($("details.recap li")?.textContent).toMatch(/: Ada \+10$/);
+  });
+
+  it("asks before discarding an unreadable saved game", async () => {
+    localStorage.setItem(SESSION_KEY, "{bad");
+    await render();
+    await toPlay();
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+    await click(button("Discard unreadable game"));
+    expect(hasButton("Discard unreadable game")).toBe(true);
+    expect(localStorage.getItem(SESSION_UNREADABLE_KEY)).toBe("{bad");
+    await click(button("Discard unreadable game"));
+    expect(hasButton("Discard unreadable game")).toBe(false);
+  });
+
+  it("names the deck on the Resume banner", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"]);
+    await rerender();
+    await toPlay();
+    expect($(".resume")?.textContent).toContain(`Bullseye with Ada, round 1 · ${demo.title}`);
+  });
+
+  it("takes Era Sort's Kids controls from the game on resume, not from preferences", async () => {
+    await render();
+    await toPlay();
+    await setUp("Era Sort", ["Ada"], { "#option-eraSort-kids": "" });
+    localStorage.removeItem(PLAY_PREFS_KEY);
+    await rerender();
+    await toPlay();
+    await click(button("Resume"));
+    expect($(".host")?.classList.contains("kids")).toBe(true);
+  });
+
+  it("labels Kids with its larger buttons", async () => {
+    await render();
+    await toPlay();
+    await click(button("Play Era Sort"));
+    expect($("label[for=option-eraSort-kids]")?.textContent).toBe(
+      "Kids: a neighbouring era scores in full, with larger buttons",
+    );
+  });
+
+  it("starts Daily directly with a player named You", async () => {
+    await render();
+    await toPlay();
+    await click(button("Play today's round"));
+    expect($("form.setup")).toBeNull();
+    expect(savedSession().mode).toBe("daily");
+    expect(savedSession().players.map((player: { name: string }) => player.name)).toEqual(["You"]);
   });
 });

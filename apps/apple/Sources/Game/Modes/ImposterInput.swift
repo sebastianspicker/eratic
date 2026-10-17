@@ -56,19 +56,9 @@ struct ImposterInput: View {
                         sideButton(.a)
                         sideButton(.b)
                     }
-                    YearEntry(label: "\(player.name)'s year for the original (optional)", text: $year, error: yearError)
-                    Button("Lock in") {
-                        let trimmed = year.trimmingCharacters(in: .whitespaces)
-                        let parsed = YearEntry.parse(trimmed)
-                        if !trimmed.isEmpty, parsed == nil {
-                            yearError = "Enter a year from 1850 to 2100, or leave it empty."
-                            return
-                        }
-                        yearError = nil
-                        guard let pick, game.dispatch(.choose(playerId: player.id, pick: pick, year: parsed)) else { return }
-                        current = nil
-                        resetEntry()
-                    }
+                    YearEntry(label: "\(player.name)'s year for the original (optional)", text: $year, error: yearError,
+                              onSubmit: { lockIn(player.id) })
+                    Button("Lock in") { lockIn(player.id) }
                     .buttonStyle(.borderedProminent)
                     .disabled(pick == nil)
                 }
@@ -159,6 +149,20 @@ struct ImposterInput: View {
         .buttonStyle(.plain)
         .accessibilityLabel("\(label) is the original")
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func lockIn(_ player: String) {
+        guard let pick else { return }
+        let trimmed = year.trimmingCharacters(in: .whitespaces)
+        let parsed = YearEntry.parse(trimmed)
+        if !trimmed.isEmpty, parsed == nil {
+            yearError = "Enter a year from 1850 to 2100, or leave it empty."
+            return
+        }
+        yearError = nil
+        guard game.dispatch(.choose(playerId: player, pick: pick, year: parsed)) else { return }
+        current = nil
+        resetEntry()
     }
 
     private func resetEntry() {

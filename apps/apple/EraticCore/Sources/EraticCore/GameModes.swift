@@ -80,6 +80,8 @@ extension GameState {
             // The same two cards in either order; a skipped pair stays used.
             let key = [Array(a.cardId.utf8), Array(b.cardId.utf8)].sorted { $0.lexicographicallyPrecedes($1) }
             try require(usedPairs.insert(key).inserted, "These two cards were already paired.")
+            pairedCards.insert(Array(a.cardId.utf8))
+            pairedCards.insert(Array(b.cardId.utf8))
             pair = DrawnPair(a: a, b: b, original: original)
             phase = .open
 

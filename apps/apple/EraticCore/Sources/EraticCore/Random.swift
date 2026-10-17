@@ -144,6 +144,19 @@ public enum GameRandom {
         return chosen
     }
 
+    /// Section 1.5. The first pair not yet drawn (in either order) that shares no card with the last drawn pair, else the first not yet drawn.
+    public static func nextImposterPair(_ pairs: [ImposterPair], drawn: [(String, String)]) -> ImposterPair? {
+        func same(_ x: String, _ y: String) -> Bool { x.utf8.elementsEqual(y.utf8) }
+        let open = pairs.filter { pair in
+            !drawn.contains { (same($0.0, pair.a) && same($0.1, pair.b)) || (same($0.0, pair.b) && same($0.1, pair.a)) }
+        }
+        if let last = drawn.last,
+           let apart = open.first(where: { ![$0.a, $0.b].contains { id in same(id, last.0) || same(id, last.1) } }) {
+            return apart
+        }
+        return open.first
+    }
+
     /// Section 8.3. `relatedTo` is the card's own relation, if any. Throws on duplicate card IDs.
     public static func imposterPairs(_ cards: [(id: String, relatedTo: RelatedCard?)], seed: UInt32) throws -> [ImposterPair] {
         func isDerived(_ relation: Relation?) -> Bool { relation == .coverOf || relation == .remasterOf }

@@ -99,13 +99,17 @@ describe("Undo before the reveal", () => {
     expect(saved().map((action: { type: string }) => action.type)).toEqual(["draw", "clip"]);
   });
 
-  it("is not undoable after a Ladder step following a lock", () => {
+  it("undoes a Ladder lock after a later step, keeping both steps", () => {
     const controller = game("ladder", ["Ada", "Lin"], { rounds: 1 });
     controller.dispatch({ type: "draw", card });
     controller.dispatch({ type: "step", index: 0 });
     controller.dispatch({ type: "lock", playerId: "p1" });
     expect(controller.undoable()).toEqual({ playerId: "p1" });
     controller.dispatch({ type: "step", index: 1 });
+    expect(controller.undoable()).toEqual({ playerId: "p1" });
+    expect(controller.undo()).toBe(true);
+    expect(types(controller)).toEqual(["draw", "step", "step"]);
+    expect(controller.getSnapshot().summary?.step).toBe(1);
     expect(controller.undoable()).toBeUndefined();
     expect(controller.undo()).toBe(false);
   });

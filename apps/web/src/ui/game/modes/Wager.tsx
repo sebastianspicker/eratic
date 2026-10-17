@@ -3,22 +3,30 @@ export function Wager({
   held,
   value,
   onChange,
+  playerName,
+  rule,
 }: {
   held: number;
   value: number;
   onChange: (chips: number) => void;
+  // The player this wager is for, named for screen readers.
+  playerName?: string;
+  // What wins the wager in this mode, one muted line under the legend.
+  rule?: string;
 }) {
   const max = Math.min(3, held);
   return (
     <fieldset className="wager">
       <legend>
-        Wager (holding {held} chip{held === 1 ? "" : "s"})
+        Wager{playerName ? ` for ${playerName}` : ""} (holding {held} chip{held === 1 ? "" : "s"})
       </legend>
+      {rule ? <p className="muted wager-rule">{rule}</p> : null}
       <div className="segmented">
         {[1, 2, 3].map((chips) => (
           <button
             key={chips}
             type="button"
+            aria-label={`${chips} chip${chips === 1 ? "" : "s"}`}
             aria-pressed={held > 0 && value === chips}
             disabled={chips > max}
             onClick={() => onChange(chips)}

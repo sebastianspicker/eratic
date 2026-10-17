@@ -66,9 +66,11 @@ struct EraSortInput: View {
         let pending = session.players.filter { state.picks[$0.id] == nil }
         missing = Set(pending.filter { picks[$0.id] == nil }.map(\.id))
         guard missing.isEmpty else { return }
+        let from = game.session?.actions.count ?? 0
         for player in pending {
             guard let era = picks[player.id], game.dispatch(.pickEra(playerId: player.id, era: era)) else { return }
         }
+        game.markBatch(from: from, players: pending.count)
         picks = [:]
     }
 

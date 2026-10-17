@@ -52,6 +52,82 @@ func cardsNeeded(_ options: GameOptions, players: Int) -> Int {
     }
 }
 
+/// The most the deck allows for a mode's length option. Setup warns about it and starts the field there; the engine
+/// accepts the full range, and the game ends when the cards run out.
+struct DeckCapacity {
+    enum Option { case rounds, cards, target }
+    let option: Option
+    let max: Int
+    let mode: GameMode
+
+    /// The smallest value the option's control accepts.
+    private var minimum: Int { option == .rounds ? 1 : 2 }
+
+    /// The chosen value of the length option.
+    func value(in options: GameOptions) -> Int? {
+        switch options {
+        case let .bullseye(o): return o.rounds
+        case let .eraSort(o): return o.rounds
+        case let .ladder(o): return o.rounds
+        case let .lineup(o): return o.rounds
+        case let .imposter(o): return o.rounds
+        case let .higherLower(o): return o.cards
+        case let .timeline(o): return o.target
+        case let .relay(o): return o.target
+        case .daily: return nil
+        }
+    }
+
+    /// The options with the length option brought down to the capacity, unless the deck can't hold the smallest game.
+    func clamped(_ options: GameOptions) -> GameOptions {
+        guard max >= minimum, let chosen = value(in: options), chosen > max else { return options }
+        switch options {
+        case var .bullseye(o): o.rounds = max; return .bullseye(o)
+        case var .eraSort(o): o.rounds = max; return .eraSort(o)
+        case var .ladder(o): o.rounds = max; return .ladder(o)
+        case var .lineup(o): o.rounds = max; return .lineup(o)
+        case var .imposter(o): o.rounds = max; return .imposter(o)
+        case var .higherLower(o): o.cards = max; return .higherLower(o)
+        case var .timeline(o): o.target = max; return .timeline(o)
+        case var .relay(o): o.target = max; return .relay(o)
+        case .daily: return options
+        }
+    }
+
+    /// "This deck has 3 cards: enough for 3 rounds." when the chosen value is more than the deck holds.
+    func note(for options: GameOptions, deckCards: Int) -> String? {
+        guard let chosen = value(in: options), chosen > max else { return nil }
+        func count(_ one: String, _ many: String) -> String { "\(max) " + (max == 1 ? one : many) }
+        let enough: String
+        switch mode {
+        case .lineup: enough = count("lineup", "lineups")
+        case .imposter: enough = count("pair", "pairs")
+        case .higherLower: enough = count("card", "cards")
+        case .timeline, .relay: enough = "a line of " + count("card", "cards")
+        default: enough = count("round", "rounds")
+        }
+        return "This deck has \(deckCards) card\(deckCards == 1 ? "" : "s"): enough for \(enough)."
+    }
+}
+
+/// The capacity of `pool` (the easy cards when that is ticked) for the mode's length option, nil when the deck never limits it.
+func deckCapacity(_ options: GameOptions, players: Int, pool: [SongCard]) -> DeckCapacity? {
+    let n = pool.count
+    switch options {
+    case .bullseye: return DeckCapacity(option: .rounds, max: n, mode: .bullseye)
+    case .eraSort: return DeckCapacity(option: .rounds, max: n, mode: .eraSort)
+    case .ladder: return DeckCapacity(option: .rounds, max: n, mode: .ladder)
+    case let .lineup(o): return DeckCapacity(option: .rounds, max: n / o.k, mode: .lineup)
+    case .higherLower: return players > 1 ? DeckCapacity(option: .cards, max: n - 1, mode: .higherLower) : nil
+    case .imposter:
+        let pairs = (try? GameRandom.imposterPairs(pool.map { (id: $0.id, relatedTo: $0.relatedTo) }, seed: 0))?.count ?? 0
+        return DeckCapacity(option: .rounds, max: pairs, mode: .imposter)
+    case let .timeline(o): return DeckCapacity(option: .target, max: o.ownership == .personal ? 1 + n - players : n, mode: .timeline)
+    case .relay: return DeckCapacity(option: .target, max: n, mode: .relay)
+    case .daily: return nil
+    }
+}
+
 /// Whether a mode can start, and why not, in words.
 struct ModeAvailability {
     let title: String
@@ -65,7 +141,13 @@ struct ModeAvailability {
             if mode == .imposter, (try? GameRandom.imposterPairs(deck.cards.map { (id: $0.id, relatedTo: $0.relatedTo) }, seed: 0))?.isEmpty ?? true {
                 reasons.append("Needs linked recordings")
             }
-            if deck.cards.count < cardsNeeded(SetupView.defaults(mode), players: mode.playerRange.lowerBound) { reasons.append("Deck too small") }
+            // The smallest game the mode allows: Lineup with three songs.
+            var smallest = SetupView.defaults(mode)
+            if case var .lineup(lineup) = smallest {
+                lineup.k = 3
+                smallest = .lineup(lineup)
+            }
+            if deck.cards.count < cardsNeeded(smallest, players: mode.playerRange.lowerBound) { reasons.append("Deck too small") }
         } else {
             reasons.append("Load a deck in the Deck tab first")
         }
@@ -108,11 +190,15 @@ func signedPoints(_ value: Int) -> String {
     value > 0 ? "+\(value)" : value < 0 ? "−\(-value)" : "0"
 }
 
-/// The core score in words: "12 points"; Higher or Lower scores the streak ("streak 4"); with Stakes the score
-/// already includes held chips, so it says so ("12 points (incl. chips)").
+/// The core score in words: "12 points"; Higher or Lower scores the streak ("streak 4"); Timeline counts cards
+/// ("7 cards"). With Stakes the score already includes held chips, so it says so ("12 points (incl. chips)",
+/// "7 (cards + chips)").
 func scoreText(_ score: Int, mode: GameMode, stakes: Bool) -> String {
-    let base = mode == .higherLower ? "streak \(score)" : "\(score) points"
-    return stakes ? base + " (incl. chips)" : base
+    switch mode {
+    case .higherLower: return stakes ? "streak \(score) (incl. chips)" : "streak \(score)"
+    case .timeline: return stakes ? "\(score) (cards + chips)" : "\(score) card\(score == 1 ? "" : "s")"
+    default: return stakes ? "\(score) points (incl. chips)" : "\(score) points"
+    }
 }
 
 /// "Ada", "Ada and Lin", "Ada, Lin and Sam".

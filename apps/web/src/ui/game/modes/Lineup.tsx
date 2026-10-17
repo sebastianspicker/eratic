@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Deck } from "../../../core/deck";
 import { currentCards, pendingInputs } from "../../../core/game/engine";
 import type { CardRef, Session } from "../../../core/session";
@@ -106,7 +106,7 @@ export function LineupTiles({
                     if (snippet !== "loading") snippets.press(ref.cardId);
                   }}
                 >
-                  {now ? "Stop" : snippet === "loading" ? `Loading ${letter}…` : `Play ${letter}`}
+                  {now ? `Stop ${letter}` : snippet === "loading" ? `Loading ${letter}…` : `Play ${letter}`}
                 </button>
               ) : card ? (
                 <button
@@ -175,12 +175,37 @@ export function OrderEntry({
 }) {
   const [order, setOrder] = useState<string[]>([]);
   const pool = cards.filter((card) => !order.includes(card.cardId));
+  const listRef = useRef<HTMLOListElement>(null);
+  const poolRef = useRef<HTMLDivElement>(null);
+  // Where focus goes once the next order renders: the pressed button disables or unmounts.
+  const refocus = useRef<{ id: string; control: "up" | "down" | "remove" } | undefined>(undefined);
+  useEffect(() => {
+    const wanted = refocus.current;
+    refocus.current = undefined;
+    if (!wanted) return;
+    const find = (id: string, control: string) =>
+      [...(listRef.current?.querySelectorAll<HTMLButtonElement>("button[data-order-control]") ?? [])].find(
+        (item) => item.dataset.orderId === id && item.dataset.orderControl === control && !item.disabled,
+      );
+    const target =
+      wanted.control === "remove"
+        ? find(wanted.id, "remove")
+        : (find(wanted.id, wanted.control) ?? find(wanted.id, wanted.control === "up" ? "down" : "up"));
+    (target ?? poolRef.current?.querySelector<HTMLButtonElement>("button"))?.focus();
+  }, [order]);
   function move(index: number, by: number) {
+    refocus.current = { id: order[index], control: by < 0 ? "up" : "down" };
     setOrder((current) => {
       const next = [...current];
       [next[index], next[index + by]] = [next[index + by], next[index]];
       return next;
     });
+  }
+  // Focus passes to the next item's Remove, or (as the removed song joins the pool) the pool.
+  function remove(index: number) {
+    const next = order[index + 1];
+    refocus.current = { id: next ?? "", control: "remove" };
+    setOrder((current) => current.filter((_, at) => at !== index));
   }
   return (
     <EntryForm
@@ -188,7 +213,7 @@ export function OrderEntry({
       onLock={() => (order.length < cards.length ? "Place every song first." : onLock(order))}
     >
       <p className="muted">Earliest first.</p>
-      <div className="action-row" role="group" aria-label={`${heading}, songs left to place`}>
+      <div className="action-row" role="group" aria-label={`${heading}, songs left to place`} ref={poolRef}>
         {pool.map((card) => (
           <button
             key={card.cardId}
@@ -205,7 +230,7 @@ export function OrderEntry({
           </button>
         ) : null}
       </div>
-      <ol className="order-list" aria-label={`${heading}, earliest first`}>
+      <ol className="order-list" aria-label={`${heading}, earliest first`} ref={listRef}>
         {order.map((id, index) => {
           const letter = letterOf(cards, id);
           return (
@@ -213,13 +238,30 @@ export function OrderEntry({
               <span className="order-position">{index + 1}.</span>
               <span className="tile-letter">{letter}</span>
               {byName ? <span className="order-name">{cardTitle(deck, id).title}</span> : null}
-              <button type="button" disabled={index === 0} onClick={() => move(index, -1)}>
+              <button
+                type="button"
+                data-order-id={id}
+                data-order-control="up"
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+              >
                 Move {letter} up
               </button>
-              <button type="button" disabled={index === order.length - 1} onClick={() => move(index, 1)}>
+              <button
+                type="button"
+                data-order-id={id}
+                data-order-control="down"
+                disabled={index === order.length - 1}
+                onClick={() => move(index, 1)}
+              >
                 Move {letter} down
               </button>
-              <button type="button" onClick={() => setOrder((current) => current.filter((item) => item !== id))}>
+              <button
+                type="button"
+                data-order-id={id}
+                data-order-control="remove"
+                onClick={() => remove(index)}
+              >
                 Remove {letter}
               </button>
             </li>

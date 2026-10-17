@@ -5,7 +5,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { drawOrder } from "../../core/random";
+import { drawOrder, pickAnchors } from "../../core/random";
 import { imposterPairs } from "../../core/scoring";
 import { renderQR } from "../../qrSvg";
 import type { PlaybackTier } from "../../playback/player";
@@ -268,6 +268,31 @@ describe("Snippet Ladder", () => {
     expect(standings[1].textContent).toContain("5 s used");
   });
 
+  it("marks steps by hand when the tier is exact but the card has no link for the provider", async () => {
+    const other = { links: [{ provider: "other", url: "https://example.com/song" }] };
+    await openPlay(deck({}, Object.fromEntries(YEARS.map((_, i) => [i, other]))));
+    await setUp("Snippet Ladder", ["Ada"], { "#option-ladder-rounds": "1" });
+    await click(button("Draw card"));
+    expect(text()).toContain("Without exact clips, play each step by hand");
+    expect(text()).not.toContain("This card has no Spotify link.");
+    await click(button("Mark 1 s played"));
+    expect(actions().at(-1)).toEqual({ type: "step", index: 0 });
+    expect(fake.plays).toEqual([]);
+    expect(button("Lock in Ada").disabled).toBe(false);
+    await click(button("Lock in Ada"));
+    expect(button("Show answer").disabled).toBe(false);
+  });
+
+  it("moves focus to the next step after a lock, so Space plays it instead of locking the next player", async () => {
+    await openPlay(deck());
+    await setUp("Snippet Ladder", ["Ada", "Lin"], { "#option-ladder-rounds": "1" });
+    await click(button("Draw card"));
+    await click(button("Play 1 s"));
+    await click(button("Lock in Ada"));
+    expect(document.activeElement).toBe(button("More time: 5 s"));
+    expect(button("Lock in Lin").disabled).toBe(false);
+  });
+
   it("hides Undo while a step is preparing, until it has been heard", async () => {
     await openPlay(deck());
     await setUp("Snippet Ladder", ["Ada", "Lin"], { "#option-ladder-rounds": "1" });
@@ -309,9 +334,8 @@ describe("Snippet Ladder", () => {
       "Ada +12, locked at 1 s, title and artist right, +2 buzzer",
       "Lin +4, locked at 5 s, title right",
     ]);
-    const standings = $$(".standings li");
-    expect(standings[0].textContent).toContain("1 buzzer");
-    expect(standings[1].textContent).toContain("0 buzzers");
+    expect($$(".standings li").every((item) => !item.textContent?.includes("buzzer"))).toBe(true);
+    expect(text()).toContain("Buzzer bonuses: Ada 1 · Lin 0");
   });
 
   it("sends no buzzer option by default, and no buzzers in the results", async () => {
@@ -739,7 +763,6 @@ describe("Song backup in every mode", () => {
   it("Daily shows the QR and preview without a connected provider", async () => {
     await toPlayHome(backupDeck());
     await click(button("Play today's round"));
-    await click(button("Start"));
     await click(button("Draw card"));
     await expectBackup();
   });
@@ -822,6 +845,26 @@ describe("Song backup in every mode", () => {
     expect(preview.disposals).toBeGreaterThan(disposals);
     expect(text()).toContain("Playback stopped. Score the card to continue.");
     expect(hasButtonNamed("Replay 30 s")).toBe(false);
+  });
+
+  it("Snippet Ladder's first-to-name sudden death plays a 5 s preview snippet without exact clips", async () => {
+    await toPlayHome(backupDeck());
+    await setUp("Snippet Ladder", ["Ada", "Lin"], { "#option-ladder-rounds": "1" });
+    await click(button("Draw card"));
+    await click(button("Play 1 s"));
+    await act(async () => preview.audible.at(-1)!());
+    await click(button("Lock in Ada"));
+    await click(button("Lock in Lin"));
+    await click(button("Show answer"));
+    await click(button("Score card"));
+    await click(button("Next card"));
+    await click(button("Play 5 s"));
+    expect(preview.snippets.at(-1)).toEqual([0, 5000]);
+    await act(async () => preview.audible.at(-1)!());
+    expect(actions().at(-1)).toMatchObject({ type: "clip", fromMs: 0, lengthMs: 5000 });
+    expect(button("Replay 5 s")).toBeTruthy();
+    await click(button("Lin named it first"));
+    expect(text()).toContain("Lin named it first. Reveal when ready.");
   });
 
   it("Snippet Ladder cancels a starting snippet without recording a step, then can replay", async () => {
@@ -908,7 +951,7 @@ describe("Song backup in every mode", () => {
     expect(preview.snippets).toEqual([[0, 10000], [0, 10000]]);
     await act(async () => preview.audible.at(-1)!());
     expect(text()).not.toMatch(/Tune \d|Band \d/);
-    await click(button("Stop"));
+    await click(button("Stop B"));
     expect(preview.pauses).toBe(1);
     const pick = (side: string) =>
       click($$('[aria-label="Which is the original?"] button').find((item) => item.textContent === side)!);
@@ -947,11 +990,11 @@ describe("Song backup in every mode", () => {
     await click(button("Play A"));
     // Snippets are capped at 30 s, the length of a provider preview.
     expect(preview.snippets).toEqual([[0, 30000]]);
-    expect(button("Stop")).toBeTruthy();
+    expect(button("Stop A")).toBeTruthy();
     await act(async () => preview.audible.at(-1)!());
     expect($$(".lineup-tile")[0].className).toBe("lineup-tile playing");
     expect($$(".lineup-tile")[0].textContent).toContain("Playing");
-    await click(button("Stop"));
+    await click(button("Stop A"));
     expect(preview.pauses).toBe(1);
     // Stopped by hand: A stays loaded and replays at once.
     expect(preview.sessions).toHaveLength(1);
@@ -1083,3 +1126,153 @@ describe("Song backup in every mode", () => {
 function hasButtonNamed(name: string): boolean {
   return $$("button").some((item) => item.textContent === name);
 }
+
+describe("Setup copy and reveal wording", () => {
+  it("words Snippet Ladder's Stakes rule, Buzzer and Clip start, hiding Clip start without exact clips", async () => {
+    await openPlay(deck());
+    await click(button("Play Snippet Ladder"));
+    expect($("label[for=option-ladder-buzzer]")?.textContent).toBe("Buzzer: +2 for the first lock-in that scores");
+    expect($("label[for=option-ladder-clipStart]")?.textContent).toBe("Clip start for cards without their own");
+    await type("#option-ladder-rounds", "1");
+    await click($("#option-ladder-stakes")!);
+    await click(button("Start"));
+    await click(button("Draw card"));
+    await click(button("Play 1 s"));
+    await click(button("Lock in Player 1"));
+    expect($(".wager-rule")?.textContent).toBe(
+      "Win the wager if you lock in and score on this card; not locking in loses it.",
+    );
+  });
+
+  it("hides Clip start when the connected tier has no exact clips", async () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deck()));
+    await render();
+    await act(async () => {
+      await import("./Play");
+    });
+    await click(button("Play"));
+    await click(button("Play Snippet Ladder"));
+    expect($("#option-ladder-clipStart")).toBeNull();
+  });
+
+  it("calls Original or Imposter rounds one pair each and advances by pair", async () => {
+    const stored = deck(
+      {},
+      { 4: { relatedTo: { cardId: "clip-1", relation: "coverOf" } }, 5: { relatedTo: { cardId: "clip-2", relation: "coverOf" } } },
+    );
+    await openPlay(stored);
+    await click(button("Play Original or Imposter"));
+    expect($("label[for=option-imposter-rounds]")?.textContent).toBe("Rounds (one pair each) (1–50)");
+    await click(button("Back"));
+    await setUp("Original or Imposter", ["Ada", "Lin"], { "#option-imposter-rounds": "2" });
+    await click(button("Draw pair"));
+    const pick = (side: string) =>
+      click($$('[aria-label="Which is the original?"] button').find((item) => item.textContent === side)!);
+    await pick("A");
+    await click(button("Lock in"));
+    await pick("A");
+    await click(button("Lock in"));
+    await click(button("Reveal"));
+    expect(button("Next pair")).toBeTruthy();
+  });
+
+  it("doesn't draw a card shared by several pairs in consecutive rounds while another pair is left", async () => {
+    // clip-1 is the original of two covers (a hub); clip-2 and clip-3 are an unrelated pair.
+    const stored = deck(
+      {},
+      {
+        4: { relatedTo: { cardId: "clip-1", relation: "coverOf" } },
+        5: { relatedTo: { cardId: "clip-1", relation: "coverOf" } },
+        3: { relatedTo: { cardId: "clip-2", relation: "coverOf" } },
+      },
+    );
+    const pairs = imposterPairs(stored.cards, SEED);
+    expect(pairs).toHaveLength(3);
+    await openPlay(stored);
+    await setUp("Original or Imposter", ["Ada", "Lin"], { "#option-imposter-rounds": "2" });
+    await click(button("Draw pair"));
+    const pick = (side: string) =>
+      click($$('[aria-label="Which is the original?"] button').find((item) => item.textContent === side)!);
+    await pick("A");
+    await click(button("Lock in"));
+    await pick("A");
+    await click(button("Lock in"));
+    await click(button("Reveal"));
+    await click(button("Next pair"));
+    const drawn = session().actions.filter((action: { type: string }) => action.type === "drawPair");
+    expect(drawn).toHaveLength(2);
+    const ids = (action: { a: { cardId: string }; b: { cardId: string } }) => [action.a.cardId, action.b.cardId];
+    expect(ids(drawn[1]).filter((id) => ids(drawn[0]).includes(id))).toEqual([]);
+  });
+
+  it("advances Lineup by lineup", async () => {
+    await openPlay(deck());
+    await setUp("Lineup", ["Ada"], { "#option-lineup-k": "3", "#option-lineup-rounds": "2" });
+    await click(button("Draw lineup"));
+    for (const letter of ["A", "B", "C"]) {
+      const tile = $$('[aria-label$="songs left to place"] button').find((item) => item.textContent === letter);
+      await click(tile!);
+    }
+    await click(button("Lock in"));
+    await click(button("Reveal"));
+    expect(button("Next lineup")).toBeTruthy();
+  });
+});
+
+describe("Relay's Name It", () => {
+  // The slot label for placing a year into a line of years, right or wrong.
+  function slotFor(years: number[], target: number, right: boolean): string {
+    const sorted = [...years].sort((a, b) => a - b);
+    const index = sorted.filter((value) => value <= target).length;
+    const slot = right ? index : index === 0 ? 1 : index - 1;
+    if (slot === 0) return `Before ${sorted[0]}`;
+    if (slot === sorted.length) return `After ${sorted[sorted.length - 1]}`;
+    return `Between ${sorted[slot - 1]} and ${sorted[slot]}`;
+  }
+
+  it("says a life came back before the placement, or that lives were already full", async () => {
+    const stored = deck();
+    const anchor = pickAnchors(
+      stored.cards.map((card) => ({ id: card.id, year: year(card.id) })),
+      "random",
+      SEED,
+      1,
+    )[0];
+    const draws = drawOrder(stored.cards.map((card) => card.id), SEED).filter((id) => id !== anchor);
+    const place = async (line: number[], id: string, right: boolean) => {
+      const label = slotFor(line, year(id), right);
+      await click(button(label));
+      await click(button(`Place: ${label}`));
+    };
+    const nameBoth = async () => {
+      for (const name of ["Title right", "Artist right"])
+        await click($$("label").find((item) => item.textContent?.trim() === name)!.querySelector("input")!);
+      await click(button("Record Name It"));
+    };
+    await openPlay(stored);
+    await click(button("Play Relay"));
+    expect($("label[for=option-relay-nameIt]")?.textContent).toBe(
+      "Name It: title and artist right gives back a life (up to the start)",
+    );
+    await type("#player-0", "Ada");
+    await type("#player-1", "Lin");
+    await type("#option-relay-target", "4");
+    await click($("#option-relay-nameIt")!);
+    await click(button("Start"));
+    await click(button("Draw card"));
+    await place([year(anchor)], draws[0], false);
+    await click(button("Reveal"));
+    expect(text()).toContain("Lives 2 of 3");
+    await click(button("Next card"));
+    await place([year(anchor)], draws[1], true);
+    await nameBoth();
+    await click(button("Reveal"));
+    expect(resultLines()).toEqual(["Lin Named it: a life back before the placement."]);
+    expect(text()).toContain("Lives 3 of 3");
+    await click(button("Next card"));
+    await place([year(anchor), year(draws[1])], draws[2], true);
+    await nameBoth();
+    await click(button("Reveal"));
+    expect(resultLines()).toEqual(["Ada Named it, but lives were already full."]);
+  });
+});

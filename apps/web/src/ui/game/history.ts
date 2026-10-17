@@ -1,6 +1,7 @@
 import type { Deck } from "../../core/deck";
 import { applyAction, currentCards, replay, startGame, type GameState } from "../../core/game/engine";
 import type { CardRef, GameAction, Session } from "../../core/session";
+import { distance } from "../../core/scoring";
 import { summaryOf, type Summary } from "./useGame";
 
 // Reads the session's action log for display. Results come from the engine's
@@ -104,3 +105,8 @@ export function places(standings: string[][]): { id: string; place: string }[] {
   }
   return result;
 }
+
+// "exact" or "N years off": the one wording for a guess against the answer.
+export const yearsOff = (n: number): string => (n === 0 ? "exact" : `${n} year${n === 1 ? "" : "s"} off`);
+// How far a guessed year is from the answer, by the core's distance (Daily and sudden death have no per-player summary of it).
+export const yearsOffBy = (guess: number, answer: number): string => yearsOff(distance(guess, answer));

@@ -6,7 +6,8 @@ import { Wager } from "./Wager";
 
 // Guesses are entered one player at a time and shown only as "Locked" until the
 // reveal, so the host device can be passed around. A mode that passes allAtOnce
-// also offers one form with every pending player's field, remembered per device.
+// also offers one form with every pending player's field, remembered per device
+// (not to a single player, who has nobody to enter for).
 export function LockedEntry({
   players,
   pending,
@@ -23,19 +24,20 @@ export function LockedEntry({
 }) {
   const current = players.find((player) => pending.includes(player.id));
   const [style, setStyle] = useState<EntryStyle>(() => (allAtOnce ? loadEntryStyle() : "each"));
-  const all = allAtOnce !== undefined && style === "all";
+  const toggle = allAtOnce !== undefined && players.length > 1;
+  const all = toggle && style === "all";
   function choose(next: EntryStyle) {
     setStyle(next);
     saveEntryStyle(next);
   }
   const everyone = (
     <p className="muted" role="status">
-      Everyone is locked in. Reveal when ready.
+      {players.length === 1 ? "Locked in. Reveal when ready." : "Everyone is locked in. Reveal when ready."}
     </p>
   );
   return (
     <div className="locked-entry">
-      {allAtOnce !== undefined ? (
+      {toggle ? (
         <div className="segmented" role="group" aria-label="Entry style">
           {(
             [
@@ -82,12 +84,17 @@ export function LockedEntry({
 export function EntryForm({
   heading,
   held,
+  playerName,
+  wagerRule,
   onLock,
   children,
 }: {
   heading: string;
   // Chips held when the player must wager; undefined without Stakes.
   held?: number;
+  playerName?: string;
+  // What wins the wager, shown with it.
+  wagerRule?: string;
   onLock: (wager: number | undefined) => string;
   children: ReactNode;
 }) {
@@ -101,7 +108,7 @@ export function EntryForm({
     <form className="entry-form" onSubmit={submit}>
       <h3>{heading}</h3>
       {children}
-      {held !== undefined ? <Wager held={held} value={wager} onChange={setWager} /> : null}
+      {held !== undefined ? <Wager held={held} value={wager} onChange={setWager} playerName={playerName} rule={wagerRule} /> : null}
       <div className="action-row">
         <button className="primary" type="submit">
           Lock in
@@ -129,6 +136,7 @@ export function AllAtOnceForm<T>({
   field,
   build,
   held,
+  wagerRule,
 }: {
   heading: string;
   controller: GameController;
@@ -139,6 +147,8 @@ export function AllAtOnceForm<T>({
   build: (player: SessionPlayer, value: T, wager: number | undefined) => ActionInput[] | string;
   // Chips held when the player must wager; undefined without Stakes.
   held?: (player: SessionPlayer) => number | undefined;
+  // What wins the wager, shown with each wager.
+  wagerRule?: string;
 }) {
   const [values, setValues] = useState<Record<string, T>>({});
   const [wagers, setWagers] = useState<Record<string, number>>({});
@@ -163,13 +173,15 @@ export function AllAtOnceForm<T>({
       setErrors([`Couldn't lock everyone in: ${notice || "the engine rejected an entry."}`]);
       return;
     }
+    const from = controller.getSnapshot().session?.actions.length ?? 0;
     const failure = send(controller, ...sends);
     if (failure) setErrors([failure]);
+    else controller.markBatch(from, new Set(sends.map((action) => "playerId" in action && action.playerId)).size);
   }
   return (
     <form className="entry-form" onSubmit={submit}>
       <h3>{heading}</h3>
-      <ul className="lock-list" aria-label="Entries">
+      <ul className="all-at-once" aria-label="Entries">
         {players.map((player) => {
           const chips = held?.(player);
           return pending.includes(player.id) ? (
@@ -183,6 +195,8 @@ export function AllAtOnceForm<T>({
                   held={chips}
                   value={wagers[player.id] ?? 1}
                   onChange={(value) => setWagers((current) => ({ ...current, [player.id]: value }))}
+                  playerName={player.name}
+                  rule={wagerRule}
                 />
               ) : null}
             </li>

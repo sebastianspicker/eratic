@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Deck } from "../../core/deck";
 import { replay } from "../../core/game/engine";
+import { dailySelection } from "../../core/random";
 import { previousDay } from "../../core/scoring";
 import type { DailyOptions, GameMode } from "../../core/session";
 import {
@@ -132,6 +133,14 @@ function DailyCard({ deck, onPlay, onResume }: { deck: Deck; onPlay: () => void;
   const today = utcDate(Date.now());
   const record = loadDaily();
   const played = record?.lastDate === today && record.deckId === deck.id;
+  // Daily can't skip a card (game-rules.md section 6.8), so a card without a link is guessed unheard.
+  const unlinked = played
+    ? 0
+    : dailySelection(
+        deck.cards.map((card) => card.id),
+        today,
+        deck.id,
+      ).filter((id) => deck.cards.find((card) => card.id === id)?.links.length === 0).length;
   const streak =
     record && (record.lastDate === today || record.lastDate === previousDay(today)) ? record.streak : 0;
   return (
@@ -167,6 +176,11 @@ function DailyCard({ deck, onPlay, onResume }: { deck: Deck; onPlay: () => void;
           )}
         </>
       )}
+      {unlinked > 0 ? (
+        <p className="muted">
+          {unlinked} of today's songs have no song link; you'll guess those without hearing them.
+        </p>
+      ) : null}
       <p className="muted">
         Streak: {streak} day{streak === 1 ? "" : "s"}
       </p>
@@ -229,7 +243,13 @@ export function PlayHome({
           {view.unreadable ? (
             <p>
               <button onClick={downloadUnreadable}>Download unreadable saved game</button>{" "}
-              <button onClick={() => controller.discardUnreadable()}>Discard unreadable game</button>
+              <button
+                onClick={() => {
+                  if (window.confirm("Discard the unreadable saved game? It can't be recovered.")) controller.discardUnreadable();
+                }}
+              >
+                Discard unreadable game
+              </button>
             </p>
           ) : null}
         </div>
@@ -239,7 +259,7 @@ export function PlayHome({
           <h2 id="resume-title">Unfinished game</h2>
           <p>
             {MODE_INFO[saved.mode].name} with {listNames(saved.players.map((player) => player.name))}, round{" "}
-            {savedRound + 1}
+            {savedRound + 1} · {saved.deckTitle}
           </p>
           <div className="action-row">
             <button className="primary" onClick={() => controller.resume()}>

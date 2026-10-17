@@ -140,6 +140,8 @@ public struct GameState: Equatable, Sendable {
     /// Relay outcome: `playing`, `won`, `lost` or `ended`.
     public internal(set) var outcome = "playing"
     var usedPairs = Set<[[UInt8]]>()
+    /// Cards of drawn pairs, for the `usedCardIDs` query only. A card may appear in several pairs, so `enter` never checks this set.
+    var pairedCards = Set<[UInt8]>()
     var dailyEras: [String] = []
     var suddenDeath: SuddenDeathState?
 
@@ -479,7 +481,7 @@ extension GameState {
     func checkCard(_ card: CardRef) throws {
         try require(DeckCodec.isIdentifier(card.cardId), "Invalid card ID: \(card.cardId).")
         try require((1850...2100).contains(card.year), "Card year must be 1850–2100.")
-        try require(card.era == EraBoundaries.eraOf(card.year), "Card era must be eraOf(year).")
+        try require(card.era.utf8.elementsEqual(EraBoundaries.eraOf(card.year).utf8), "Card era must be eraOf(year).")
     }
 
     /// Cards enter a session at most once (section 5.1).

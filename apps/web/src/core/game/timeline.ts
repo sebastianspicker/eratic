@@ -197,3 +197,23 @@ export const timeline: ModeRules = {
 export function timelineCards(state: GameState, playerId?: string): CardRef[] {
   return lineOf(state, playerId ?? activeId(state));
 }
+
+// The players still to play once the target was reached, in turn order: the round
+// is complete at the reveal of the last player (section 6.3). Undefined before the
+// target, outside the turns (sudden death, finished) and in other modes.
+export function timelineFinalRoundPlayers(state: GameState): string[] | undefined {
+  if (!of(state).finalRound) return undefined;
+  if (state.phase !== "awaitingDraw" && state.phase !== "open") return undefined;
+  return state.players.slice(state.turn).map((p) => p.id);
+}
+
+// The slots a challenge may still take this turn: not the placement, not an earlier
+// challenge (section 6.3 step 3). Empty before the placement or with challenges off.
+export function timelineOpenChallengeSlots(state: GameState): number[] {
+  const m = of(state);
+  if (state.phase !== "open" || m.placed === undefined || !options(state).challenges) return [];
+  const taken = new Set([m.placed, ...m.challenges.map((c) => c.slot)]);
+  return Array.from({ length: lineOf(state, activeId(state)).length + 1 }, (_, slot) => slot).filter(
+    (slot) => !taken.has(slot),
+  );
+}

@@ -23,7 +23,7 @@ const schemaErrors = (session: Session) =>
 type ReplayCase = {
   name: string;
   session: Session;
-  expect: Record<string, unknown> & { error?: { at: number } };
+  expect: Record<string, unknown> & { error?: { at: number }; absent?: string[] };
 };
 describe("contract: game-replay", () => {
   const list = replayCases.cases as unknown as ReplayCase[];
@@ -48,7 +48,13 @@ describe("contract: game-replay", () => {
         return;
       }
       const summary = summarize(replay(session));
-      for (const [member, value] of Object.entries(item.expect))
+      const { absent = [], ...members } = item.expect;
+      // `absent` lists summary members that must not be present.
+      for (const member of absent) {
+        expect(members, `${member} is both compared and absent`).not.toHaveProperty(member);
+        expect(Object.hasOwn(summary, member), `${member} must be absent`).toBe(false);
+      }
+      for (const [member, value] of Object.entries(members))
         expect(summary[member], member).toEqual(value);
       const exported = parseSession(exportSession(validateSession(session)));
       expect(exported.actions).toEqual(item.session.actions);

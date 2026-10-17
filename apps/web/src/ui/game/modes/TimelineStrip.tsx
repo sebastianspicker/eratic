@@ -13,21 +13,24 @@ export function slotLabel(years: readonly number[], slot: number): string {
 }
 
 // An era-coloured year chip with the title below; an optional letter (Lineup).
-export function YearChip({ card, deck, letter }: { card: CardRef; deck: Deck; letter?: string }) {
+export function YearChip({ card, deck, letter, isNew = false }: { card: CardRef; deck: Deck; letter?: string; isNew?: boolean }) {
   const era = eraFor(card.year);
   return (
-    <span className="tl-chip" style={eraStyle(era)} data-era={era.id}>
+    <span className={isNew ? "tl-chip new" : "tl-chip"} style={eraStyle(era)} data-era={era.id}>
       {letter ? <span className="tl-letter">{letter}</span> : null}
       <span className="tl-year">{card.year}</span>
       <span className="tl-title">{cardTitle(deck, card.cardId).title}</span>
+      {isNew ? <span className="visually-hidden">(new)</span> : null}
     </span>
   );
 }
 
 const MOVES: Record<string, number> = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 };
+// Home and End jump to the first and last open slot.
+const ENDS = new Set(["Home", "End"]);
 
 // A timeline: year chips with a slot button before, between and after them.
-// Arrow keys move between the open slots and Enter selects one; the confirm
+// Arrow keys move between the open slots (Home and End jump to the first and last) and Enter selects one; the confirm
 // button below ("Place: Before 1984") is what calls onSlot, so a stray tap never
 // places a card. Without onSlot the strip only shows the chips and any marked
 // slots ("Your slot").
@@ -40,6 +43,7 @@ export function TimelineStrip({
   verb = "Place",
   open = () => true,
   markers = {},
+  newCardId,
 }: {
   cards: readonly CardRef[];
   deck: Deck;
@@ -50,6 +54,8 @@ export function TimelineStrip({
   verb?: string;
   open?: (slot: number) => boolean;
   markers?: Record<number, string>;
+  // The card to mark as new (a reveal's strip).
+  newCardId?: string;
 }) {
   const years = cards.map((card) => card.year);
   const slots = Array.from({ length: cards.length + 1 }, (_, slot) => slot);
@@ -59,16 +65,16 @@ export function TimelineStrip({
   const [selected, setSelected] = useState<number>();
   const confirm = useRef<HTMLButtonElement>(null);
   const chosen = selected !== undefined && openSlots.includes(selected) ? selected : undefined;
-  // Focus moves to the confirm button when a slot is selected.
+  // Focus moves to the confirm button when a slot is selected; the page stays where the slot is.
   useEffect(() => {
-    if (chosen !== undefined) confirm.current?.focus();
+    if (chosen !== undefined) confirm.current?.focus({ preventScroll: true });
   }, [chosen]);
   const tabStop = openSlots.includes(focused) ? focused : openSlots[0];
   function move(event: KeyboardEvent, slot: number) {
     const by = MOVES[event.key];
-    if (by === undefined) return;
+    if (by === undefined && !ENDS.has(event.key)) return;
     event.preventDefault();
-    const index = openSlots.indexOf(slot) + by;
+    const index = by === undefined ? (event.key === "Home" ? 0 : openSlots.length - 1) : openSlots.indexOf(slot) + by;
     if (index < 0 || index >= openSlots.length) return;
     setFocused(openSlots[index]);
     buttons.current[openSlots[index]]?.focus();
@@ -110,13 +116,13 @@ export function TimelineStrip({
           slotItem(slot),
           slot < cards.length ? (
             <li key={cards[slot].cardId} className="tl-card">
-              <YearChip card={cards[slot]} deck={deck} />
+              <YearChip card={cards[slot]} deck={deck} isNew={cards[slot].cardId === newCardId} />
             </li>
           ) : null,
         ])}
       </ol>
       {onSlot && chosen !== undefined ? (
-        <div className="action-row tl-confirm">
+        <div className="action-row tl-confirm sticky">
           <button type="button" className="primary" ref={confirm} onClick={() => onSlot(chosen)}>
             {verb}: {slotLabel(years, chosen)}
           </button>

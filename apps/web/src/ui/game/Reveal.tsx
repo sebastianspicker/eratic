@@ -1,20 +1,26 @@
 import type { Deck } from "../../core/deck";
-import { distance } from "../../core/scoring";
+import { lineupPoints } from "../../core/scoring";
 import type { CardRef, Session } from "../../core/session";
 import { eraFor, eraStyle } from "../eras";
-import { cardTitle, listNames, playerName, type RevealInfo } from "./history";
+import { cardTitle, listNames, playerName, yearsOffBy, type RevealInfo } from "./history";
 import { orderText, RightOrder } from "./modes/Lineup";
 import type { ModeUI, ResultLine } from "./modes/types";
 
-const yearsOff = (n: number): string => (n === 0 ? "exact" : `${n} year${n === 1 ? "" : "s"} off`);
+const pointsText = (points: number): string => `${points} point${points === 1 ? "" : "s"}`;
 
 function suddenDeathLines(info: RevealInfo): ResultLine[] {
   const answer = info.cards[0]?.year;
+  const years = Object.fromEntries(info.cards.map((card) => [card.cardId, card.year]));
   return info.inputs.flatMap((action): ResultLine[] => {
     if (action.type === "sdGuess")
-      return [{ playerId: action.playerId, text: `guessed ${action.year}, ${yearsOff(distance(action.year, answer))}` }];
+      return [{ playerId: action.playerId, text: `guessed ${action.year}, ${yearsOffBy(action.year, answer)}` }];
     if (action.type === "sdOrder")
-      return [{ playerId: action.playerId, text: `ordered ${orderText(action.order, info.cards)}` }];
+      return [
+        {
+          playerId: action.playerId,
+          text: `ordered ${orderText(action.order, info.cards)} · ${pointsText(lineupPoints(action.order, years))}`,
+        },
+      ];
     if (action.type === "sdName" && action.playerId !== undefined)
       return [{ playerId: action.playerId, text: "named it first" }];
     return [];
@@ -49,6 +55,14 @@ export function leaderLine(info: RevealInfo, session: Session): string {
   return before.length === 1 && before[0] === leaders[0]
     ? `${names} leads with ${score}.`
     : `${names} takes the lead with ${score}.`;
+}
+
+// What the advance button brings next: a card, or a whole pair or lineup.
+function nextLabel(info: RevealInfo, session: Session): string {
+  if (info.suddenDeath) return "Next card";
+  if (session.mode === "imposter") return "Next pair";
+  if (session.mode === "lineup") return "Next lineup";
+  return "Next card";
 }
 
 // The signature moment: the card's era takes over the stage and the year drops in,
@@ -130,7 +144,7 @@ export function Reveal({
         {finished ? null : (
           <div className="action-row">
             <button className="primary" onClick={onNext}>
-              Next card
+              {nextLabel(info, session)}
             </button>
           </div>
         )}

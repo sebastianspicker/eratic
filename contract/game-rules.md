@@ -6,7 +6,7 @@ Both cores implement everything here as pure functions: `EraticCore` in Swift an
 
 | File | What it pins |
 | --- | --- |
-| `game-primitives.json` | PRNG output, hashing, shuffles, draw order, anchor picks, daily selection and streaks, era lookup, every scoring function, share text, imposter pairs |
+| `game-primitives.json` | PRNG output, hashing, shuffles, draw order, anchor picks, daily selection and streaks, era lookup, every scoring function, share text, imposter pairs and the next-pair draw order |
 | `game-replay.json` | Whole sessions replayed by the engine: the summary after the last action, or the index of the first rejected action |
 | `session-files.json` | Session file text accepted or rejected by the strict session decoder |
 | `scan-resolution.json` | Which card, if any, a scanned QR payload selects in a deck |
@@ -58,6 +58,7 @@ return t XOR (t >> 14)
 | `pickAnchors(cards, kind, seed, count, year?)` | Section 1.6 |
 | `dailySelection(cardIds, date, deckId)` | Remove duplicates, sort in code-point order, `shuffle` with `mulberry32(fnv1a32(UTF-8 of date + deckId))` (plain concatenation, e.g. `"2026-10-11demo-deck"`), and take the first `min(5, n)` IDs. The deck file's card order never matters. |
 | `imposterPairs(cards, seed)` | Section 8.3 |
+| `nextImposterPair(pairs, drawn)` | `pairs` is the list from `imposterPairs` (section 8.3), in its order; `drawn` is the list of pairs already drawn in the session, in draw order, each as its two card IDs (skipped pairs included). A pair is **played** when `drawn` contains the same two IDs in either order. Returns the first pair of `pairs`, in order, that is not played and shares no card ID with the last pair of `drawn`; else the first pair that is not played; nothing when every pair is played. The apps draw this pair (Original or Imposter, section 6.9); the engine doesn't check how a pair was chosen. |
 | `closerPick(candidates, referenceYear, revealed)` | Higher or Lower with `closer` (section 6.5). `candidates` is the list of unused cards `{id, year}` in `drawOrder` order. Let `W = max(3, 20 − 2 × revealed)`. Returns the first candidate whose year differs from `referenceYear` by 1 to `W` years; else the candidate with the smallest nonzero distance to `referenceYear` (the first in order on a tie); else the first candidate; nothing for an empty list. The apps draw this card instead of the first unused `drawOrder` ID. |
 
 ### 1.6 Anchor picks
@@ -301,7 +302,7 @@ Each mode lists its options (name, allowed values, default), player-count range,
 
 - **Options:** `rounds` 1–50 (5).
 - **Players:** 2–8.
-- **Pair:** `drawPair {a, b, original}`, two card references with different IDs and `original` `a` or `b`; the same two cards can't be paired twice, in either order, and a skipped pair stays used. Each player `choose {playerId, pick, year?}` once, `pick` `a` or `b`, `year` 1850–2100 → `reveal`. Points: `imposterPoints`. A year within 2 of the original's counts as a **bonus**.
+- **Pair:** `drawPair {a, b, original}`, two card references with different IDs and `original` `a` or `b`; the same two cards can't be paired twice, in either order, and a skipped pair stays used. Each player `choose {playerId, pick, year?}` once, `pick` `a` or `b`, `year` 1850–2100 → `reveal`. Points: `imposterPoints`. A year within 2 of the original's counts as a **bonus**. The apps choose each pair with `nextImposterPair` (section 1.5), so a card shared by several pairs doesn't play in consecutive rounds when another pair is left.
 - **End:** after `rounds` reveals.
 - **Ranking:** score ↓, bonuses ↓. No sudden death.
 - **Summary extras:** `bonuses`.

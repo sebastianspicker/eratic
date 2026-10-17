@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { pendingInputs } from "../../../core/game/engine";
-import { dailyRoundKind, distance } from "../../../core/scoring";
+import { dailyRoundKind } from "../../../core/scoring";
 import type { DailyOptions } from "../../../core/session";
 import { loadDaily } from "../../../sessions";
-import { deltas, signed } from "../history";
-import { YearEntry, yearsOff } from "./Bullseye";
+import { deltas, signed, yearsOffBy } from "../history";
+import { YearEntry } from "./Bullseye";
 import { EraEntry, eraPickText } from "./EraSort";
 import { LockedEntry, send } from "./LockedEntry";
 import type { ModeInputProps, ModeUI } from "./types";
@@ -71,7 +71,7 @@ export const dailyUI: ModeUI = {
         return [
           {
             playerId: action.playerId,
-            text: `${signed(deltas(info, action.playerId).points)}, ${yearsOff(distance(action.year, info.cards[0].year))} (guessed ${action.year})`,
+            text: `${signed(deltas(info, action.playerId).points)}, ${yearsOffBy(action.year, info.cards[0].year)} (guessed ${action.year})`,
           },
         ];
       return [];

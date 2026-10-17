@@ -13,17 +13,8 @@ struct ClosestYearInput: View {
     var body: some View {
         LockedEntryList(players: session.players.filter { info.players.contains($0.id) }, isLocked: { info.guesses[$0] != nil }, current: $current) { player in
             VStack(alignment: .leading, spacing: 10) {
-                YearEntry(label: "\(player.name)'s year", text: $year, error: yearError)
-                Button("Lock in") {
-                    guard let parsed = YearEntry.parse(year) else {
-                        yearError = YearEntry.errorText
-                        return
-                    }
-                    yearError = nil
-                    guard game.dispatch(.sdGuess(playerId: player.id, year: parsed)) else { return }
-                    current = nil
-                    year = ""
-                }
+                YearEntry(label: "\(player.name)'s year", text: $year, error: yearError, onSubmit: { lockYear(player.id) })
+                Button("Lock in") { lockYear(player.id) }
                 .buttonStyle(.borderedProminent)
             }
         }
@@ -31,6 +22,17 @@ struct ClosestYearInput: View {
             year = ""
             yearError = nil
         }
+    }
+
+    private func lockYear(_ player: String) {
+        guard let parsed = YearEntry.parse(year) else {
+            yearError = YearEntry.errorText
+            return
+        }
+        yearError = nil
+        guard game.dispatch(.sdGuess(playerId: player, year: parsed)) else { return }
+        current = nil
+        year = ""
     }
 }
 
@@ -66,7 +68,7 @@ struct SuddenDeathBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Sudden death: \(namesList(info.players.map(session.playerName)))").font(.title3.bold())
-            Text(info.kind == .closestYear ? "One song. The closest year wins." : info.kind == .lineup ? "Put \(info.cardCount) songs in order." : "Who named it first?")
+            Text(info.kind == .closestYear ? "One song. The closest year wins." : info.kind == .lineup ? "Order \(info.cardCount) songs. The best order wins." : "One 5-second clip. The first to name the song wins.")
                 .font(.callout)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { timelineOf } from "../../../core/game/engine";
-import { placementCorrect } from "../../../core/scoring";
+import { openChallengeSlots, timelineOf } from "../../../core/game/engine";
 import type { CardRef, Session, TimelineOptions } from "../../../core/session";
 import { chipsText, deltas, inputsSinceDraw, playerName, refById, signed, type RevealInfo } from "../history";
 import { send } from "./LockedEntry";
@@ -51,12 +50,12 @@ export function placementMarkers(session: Session, inputs: ReturnType<typeof inp
   return markers;
 }
 
-function WagerEntry({ held, onWager }: { held: number; onWager: (chips: number) => string }) {
+function WagerEntry({ held, name, onWager }: { held: number; name: string; onWager: (chips: number) => string }) {
   const [chips, setChips] = useState(1);
   const [error, setError] = useState("");
   return (
     <div className="wager-entry">
-      <Wager held={held} value={chips} onChange={setChips} />
+      <Wager held={held} value={chips} onChange={setChips} playerName={name} rule="Win the wager if your placement is right." />
       {held > 0 ? (
         <div className="action-row">
           <button type="button" onClick={() => setError(onWager(Math.min(chips, held, 3)))}>
@@ -91,7 +90,7 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
     if (!placed) setChallenger(undefined);
   }, [placed]);
   const markers = placementMarkers(session, inputs);
-  const taken = new Set(Object.keys(markers).map(Number));
+  const freeSlots = openChallengeSlots(state);
   const others = session.players.filter((player) => player.id !== active);
   const wagered = Object.hasOwn(state.wagers, active);
   const lineLabel = personal ? `${name}'s timeline` : "Shared timeline";
@@ -121,7 +120,7 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
           label={lineLabel}
           markers={markers}
           verb="Challenge"
-          open={(slot) => !taken.has(slot)}
+          open={(slot) => freeSlots.includes(slot)}
           onSlot={(slot) => {
             const problem = send(controller, { type: "challenge", playerId: challenger, slot });
             setError(problem);
@@ -169,6 +168,8 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
                         <span className="lock-state">Challenged</span>
                       ) : tokens < 1 ? (
                         <span className="muted">No tokens</span>
+                      ) : freeSlots.length === 0 ? (
+                        <span className="muted">No free slot</span>
                       ) : (
                         <button type="button" onClick={() => setChallenger(player.id)}>
                           Challenge as {player.name}
@@ -194,6 +195,7 @@ function TimelineInput({ controller, session, state, summary, deck }: ModeInputP
           {state.chips && !wagered ? (
             <WagerEntry
               held={state.chips[active]}
+              name={name}
               onWager={(chips) => send(controller, { type: "wager", playerId: active, chips })}
             />
           ) : null}
@@ -233,9 +235,24 @@ function outcome(info: RevealInfo, session: Session): string {
 const tokenGain = (info: RevealInfo, id: string): number =>
   (info.after.tokens?.[id] ?? 0) - (info.before.tokens?.[id] ?? 0);
 
+// The personal player whose line gained the drawn card, read from the engine's
+// summary after the reveal; undefined when nobody got it or the line is shared.
+function lineGainer(info: RevealInfo): string | undefined {
+  const drawn = info.cards[0].cardId;
+  return Object.entries(info.after.timelines ?? {}).find(([, ids]) => ids.includes(drawn))?.[0];
+}
+// Who got the card, for either ownership: the owner of the line that gained it, or
+// (shared line) the player the engine credited.
+function cardTaker(info: RevealInfo, session: Session): string | undefined {
+  if (info.after.timelines) return lineGainer(info);
+  return session.players.find((player) => deltas(info, player.id).points > 0)?.id;
+}
+
 function TimelineReveal({ info, session, deck }: { info: RevealInfo; session: Session; deck: ModeInputProps["deck"] }) {
   const active = info.before.active!;
-  const ids = info.after.timelines?.[active] ?? info.after.timeline ?? [];
+  // The line that took the card (or the active player's when nobody did), the new card marked.
+  const shown = lineGainer(info) ?? active;
+  const ids = info.after.timelines?.[shown] ?? info.after.timeline ?? [];
   const cards = ids.flatMap((id): CardRef[] => {
     const ref = refById(session, id);
     return ref ? [ref] : [];
@@ -250,25 +267,19 @@ function TimelineReveal({ info, session, deck }: { info: RevealInfo; session: Se
       <TimelineStrip
         cards={cards}
         deck={deck}
-        label={personal ? `${playerName(session, active)}'s timeline` : "Shared timeline"}
+        label={personal ? `${playerName(session, shown)}'s timeline` : "Shared timeline"}
+        newCardId={info.cards[0].cardId}
         compact
       />
     </div>
   );
 }
 
-// The line's years before the reveal, from the engine's summary.
-function yearsBefore(info: RevealInfo, session: Session): number[] {
-  const active = info.before.active!;
-  const ids = info.before.timelines?.[active] ?? info.before.timeline ?? [];
-  return ids.map((id) => refById(session, id)?.year ?? 0);
-}
-// A challenge that missed, or a right one that lost the card to someone first in line.
-function challengeText(info: RevealInfo, session: Session, playerId: string, slot: number): string {
+// A challenge that scored, or one that lost the card to whoever got it.
+function challengeText(info: RevealInfo, session: Session, playerId: string): string {
   if (deltas(info, playerId).points > 0) return "+1 card from the challenge";
-  const right = placementCorrect(yearsBefore(info, session), slot, info.cards[0].year);
-  const winner = session.players.find((player) => deltas(info, player.id).points > 0);
-  return right && winner ? `right, but ${winner.name} claimed it first` : "challenge missed, token spent";
+  const taker = cardTaker(info, session);
+  return taker ? `token spent, ${playerName(session, taker)} got the card` : "challenge missed, token spent";
 }
 
 export const timelineUI: ModeUI = {
@@ -283,7 +294,7 @@ export const timelineUI: ModeUI = {
     });
     for (const action of info.inputs)
       if (action.type === "challenge")
-        lines.push({ playerId: action.playerId, text: challengeText(info, session, action.playerId, action.slot) });
+        lines.push({ playerId: action.playerId, text: challengeText(info, session, action.playerId) });
     return lines;
   },
   RevealExtra: TimelineReveal,

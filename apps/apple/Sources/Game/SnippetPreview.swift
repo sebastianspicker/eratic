@@ -158,6 +158,8 @@ final class TileSnippets: ObservableObject {
     @Published private(set) var playing: Int?
     /// A tile pressed while its preview loads; it plays once ready.
     @Published private(set) var waiting: Int?
+    /// Tiles whose preview was unavailable or failed to load before it was heard; Lineup shows their titles instead.
+    @Published private(set) var failed: Set<Int> = []
     private var urls: [Int: URL] = [:]
     private var lengthMs = 10_000
     private var played: Set<Int> = []
@@ -210,6 +212,7 @@ final class TileSnippets: ObservableObject {
         } else {
             // A failed preview of the same tile is loaded afresh.
             if loaded == index { controller.unload(ifLoaded: url) }
+            failed.remove(index)
             // Another tile's snippet must not read as playing, or be stopped by a press, while this one loads.
             watchdog?.cancel()
             playing = nil
@@ -250,6 +253,13 @@ final class TileSnippets: ObservableObject {
 
     private func statusChanged() {
         let status = controller.status
+        if let loaded {
+            if controller.failed, !played.contains(loaded), !failed.contains(loaded) {
+                failed.insert(loaded)
+            } else if controller.canPlay, failed.contains(loaded) {
+                failed.remove(loaded)
+            }
+        }
         if let waiting, loaded == waiting {
             if controller.canPlay {
                 self.waiting = nil

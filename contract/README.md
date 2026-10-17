@@ -18,6 +18,11 @@ The [cases](cases) are the executable part of this contract. The Swift core test
 | [scan-resolution.json](cases/scan-resolution.json) | Which card, if any, a scanned payload selects in a deck: [game-rules.md](game-rules.md) section 8.2. |
 | [playlist-candidates.json](cases/playlist-candidates.json) | Playlist review candidates: reference parsing, page decoding and normalization (a page is given decoded or as exact `json` text), review issues and promotion to a card ([playlist-candidates.md](playlist-candidates.md)). |
 
+## Case format
+
+- **game-replay.json:** `{name, session, expect}`. `session` is a complete session object that passes the session schema (schema rejections belong in session-files.json). `expect` is either `{error: {at}}`, where `at` is the index of the first rejected action (−1 for a setup error) and the strict session decoder must reject the same session, or a list of summary members ([game-rules.md](game-rules.md) section 7) compared exactly after the last action, members it does not list being ignored. A valid case also exports and imports again to the same session. `expect.absent` (optional, valid cases only) lists summary members that must not be present at all, such as `active` with `play: everyone` or `shareText` while a Daily is playing; it can't name a member that `expect` also compares.
+- **session-files.json:** `{name, valid, session | json | base64}` (and `padToBytes`); the decoder must accept the file exactly when `valid` is true.
+
 ## Semantics
 
 - `schemaVersion` is exactly `1` or `2` (version 2 only adds the optional members of [game-rules.md](game-rules.md) section 8.3; any of them in a version-1 file is rejected). Unknown versions and fields are rejected, rather than silently discarded on export.

@@ -17,12 +17,7 @@ struct HigherLowerInput: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 16) {
                 if let reference = state.referenceCard {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Last song").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                        YearChip(year: reference.year)
-                        Text(deck.card(reference.cardId)?.title ?? reference.cardId).font(.headline)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    referenceBlock(reference)
                 }
                 Image(systemName: "arrow.right").accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 6) {
@@ -48,6 +43,27 @@ struct HigherLowerInput: View {
                 }
             }
         }
+    }
+
+    /// The one number the room decides on: the reference year large, in its era's colours, with title and artist.
+    private func referenceBlock(_ reference: CardRef) -> some View {
+        let era = Eras.for(reference.year)
+        let song = deck.card(reference.cardId)
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Last song").font(.callout.weight(.semibold))
+            Text(String(reference.year))
+                .font(.system(size: 56, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+            Text(song?.title ?? reference.cardId).font(.headline)
+            if let artist = song?.artist { Text(artist).font(.callout) }
+        }
+        .foregroundStyle(era?.inkColor ?? .primary)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(era?.groundColor ?? Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .combine)
     }
 
     /// Everyone play: each player still in calls Earlier or Later in turn; the calls stay hidden ("Locked") until the reveal.

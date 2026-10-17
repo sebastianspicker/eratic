@@ -21,7 +21,7 @@ function EveryoneCall({ controller, player }: { controller: ModeInputProps["cont
         return send(controller, { type: "call", playerId: player.id, call: choice });
       }}
     >
-      <div className="action-row" role="group" aria-label={`${player.name}'s call`}>
+      <div className="segmented" role="group" aria-label={`${player.name}'s call`}>
         {(["earlier", "later"] as const).map((value) => (
           <button key={value} type="button" aria-pressed={choice === value} onClick={() => setChoice(value)}>
             {CALLS[value]}
@@ -32,7 +32,7 @@ function EveryoneCall({ controller, player }: { controller: ModeInputProps["cont
   );
 }
 
-// The reference card's chip, the mystery card, Earlier and Later, and the streak.
+// The reference card as a large era-coloured block, the mystery card, Earlier and Later, and the streak.
 function HigherLowerInput({ controller, session, state, summary, deck, reveal }: ModeInputProps) {
   const reference = refById(session, summary.reference);
   const everyone = isEveryone(session);
@@ -47,11 +47,9 @@ function HigherLowerInput({ controller, session, state, summary, deck, reveal }:
     <div className="higher-lower">
       <div className="hl-row">
         {reference ? (
-          <div className="hl-reference">
-            <span className="muted">Last song</span>
-            <span className="row-year" style={eraStyle(eraFor(reference.year))}>
-              {reference.year}
-            </span>
+          <div className="hl-reference" style={eraStyle(eraFor(reference.year))}>
+            <span className="hl-label">Last song</span>
+            <span className="hl-year">{reference.year}</span>
             <strong>{title}</strong>
             <span>{artist}</span>
           </div>
@@ -145,9 +143,13 @@ export const higherLowerUI: ModeUI = {
     const reference = refById(session, info.before.reference);
     if (!reference) return null;
     return (
-      <p className="reveal-note">
-        Compared with {cardTitle(deck, reference.cardId).title} ({reference.year})
-      </p>
+      <>
+        <p className="reveal-note">
+          Compared with {cardTitle(deck, reference.cardId).title} ({reference.year})
+        </p>
+        {/* higherLowerCorrect accepts both calls on equal years (game-rules.md section 6.5). */}
+        {info.cards[0]?.year === reference.year ? <p className="reveal-note">Same year: either call is right.</p> : null}
+      </>
     );
   },
   tieBreaks: (summary, id) => {

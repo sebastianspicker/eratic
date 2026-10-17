@@ -9,11 +9,13 @@ struct CardStage: View {
     let deck: Deck
     @ObservedObject var clip: ClipController
     @EnvironmentObject private var game: GameController
+    @EnvironmentObject private var playback: PlaybackHub
     @State private var showScanner = false
     @State private var scanMessage: String?
     @State private var audioOnly: (track: ProviderTrack, payload: String)?
     @State private var exhausted = false
     @State private var confirmEnd = false
+    @State private var confirmSkip = false
     private let hasCamera = AVCaptureDevice.default(for: .video) != nil
 
     var body: some View {
@@ -24,7 +26,10 @@ struct CardStage: View {
                 MysteryCard()
                 if let song = deck.card(card.cardId) {
                     // Snippet Ladder plays its steps from its own inputs.
-                    if !(session.mode == .ladder && state.phase == .open) {
+                    if let url = firstToNameSnippetURL(song) {
+                        FirstToNameSnippet(card: song, url: url, deck: deck, options: session.options, clip: clip)
+                            .id(card.cardId)
+                    } else if !(session.mode == .ladder && state.phase == .open) {
                         ClipPanel(card: song, deck: deck, options: session.options, lengthMs: clipLengthMs, clip: clip)
                             .id(card.cardId)
                     }
@@ -56,15 +61,33 @@ struct CardStage: View {
             .frame(width: 520, height: 560)
             #endif
         }
-        .confirmationDialog("End this game?", isPresented: $confirmEnd, titleVisibility: .visible) {
+        .confirmationDialog("End this game now?", isPresented: $confirmEnd, titleVisibility: .visible) {
             Button("End game", role: .destructive) { game.dispatch(.end) }
+        } message: {
+            Text(game.endGameMessage)
+        }
+        .confirmationDialog("Skip this card?", isPresented: $confirmSkip, titleVisibility: .visible) {
+            Button("Skip card", role: .destructive) { game.dispatch(.skip) }
+        } message: {
+            Text("The entries for it are discarded.")
         }
     }
 
+    /// Skipping discards every entry for the card and can't be undone, so it asks once the card has entries
+    /// (only entries, clips and steps come before a reveal, so an undoable entry means there is one).
     private var skipButton: some View {
-        Button(state.currentPair != nil || !state.currentSet.isEmpty ? "Skip (a song is unavailable)" : "Skip card (song unavailable)") { game.dispatch(.skip) }
-            .buttonStyle(.borderless)
-            .font(.callout)
+        Button(state.currentPair != nil || !state.currentSet.isEmpty ? "Skip (a song is unavailable)" : "Skip card (song unavailable)") {
+            if game.undoable != nil { confirmSkip = true } else { game.dispatch(.skip) }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(kidsOn ? .extraLarge : .regular)
+        .font(.callout)
+    }
+
+    /// Kids (Era Sort's option, Timeline's preset) enlarges the host's action buttons.
+    private var kidsOn: Bool {
+        if case let .eraSort(options) = session.options, options.kids { return true }
+        return game.kids
     }
 
     /// A 5-second clip for the first-to-name sudden death, otherwise the usual clip; nil plays untimed.
@@ -81,6 +104,15 @@ struct CardStage: View {
         return ClipPanel.clipMs
     }
 
+    /// The song link for the 5-second first-to-name clip when this card has no exact clip: only the hidden preview can time it.
+    private func firstToNameSnippetURL(_ song: SongCard) -> URL? {
+        guard state.phase == .suddenDeathOpen, state.suddenDeathInfo?.kind == .firstToName else { return nil }
+        if playback.tier.exactClips, playback.track(for: song) != nil { return nil }
+        guard let url = SongBackup.backupURL(for: song, provider: playback.provider),
+              ScanRules.providerTrack(url.absoluteString) != nil else { return nil }
+        return url
+    }
+
     /// The single card in play, or the single sudden-death card.
     private var cardInPlay: CardRef? {
         if let card = state.currentCard { return card }
@@ -91,8 +123,14 @@ struct CardStage: View {
     @ViewBuilder
     private var drawControls: some View {
         if exhausted || !game.canDraw(in: deck) {
-            Text("No cards left to draw.").font(.headline)
-            Button("End game", role: .destructive) { confirmEnd = true }
+            if session.mode == .daily {
+                Text("No cards left to draw.").font(.headline)
+                Button("End game", role: .destructive) { confirmEnd = true }
+            } else {
+                Text(outOfCardsText).font(.headline)
+                // Nothing is in play, so there is nothing to lose: no question.
+                Button("Show results") { game.dispatch(.end) }.buttonStyle(.borderedProminent).controlSize(.large)
+            }
         } else {
             HStack(spacing: 12) {
                 // Sets and pairs are drawn from the deck; scanning picks one card at a time.
@@ -118,6 +156,15 @@ struct CardStage: View {
                 AudioOnlyButton(track: audioOnly.track, payload: audioOnly.payload, clip: clip)
             }
         }
+    }
+
+    /// Why the stage can't draw: the deck is used up, or a tie can't go to sudden death.
+    private var outOfCardsText: String {
+        if state.phase == .suddenDeath {
+            return "Not enough cards left for sudden death (it needs \(game.drawCount ?? 1)). The tie stands."
+        }
+        let rounds = "\(state.round) round" + (state.round == 1 ? "" : "s")
+        return session.mode == .imposter ? "No pairs left after \(rounds)." : "The deck is used up after \(rounds)."
     }
 
     private var drawLabel: String {
@@ -233,7 +280,7 @@ private struct ClipPanel: View {
                 Text("This card has no song link to play.").foregroundStyle(.secondary)
             }
             if let message = playError ?? clip.error?.localizedDescription {
-                Text(message).foregroundStyle(.red).font(.callout)
+                ErrorText(message)
             }
         }
         .onDisappear {
@@ -332,6 +379,56 @@ private struct ClipPanel: View {
     }
 }
 
+/// First to name without an exact clip for the card: *Play 5 s* plays the hidden preview's first five seconds, which stop by
+/// themselves. A preview that can't play hands over to the usual panel (the song's link and QR).
+private struct FirstToNameSnippet: View {
+    let card: SongCard
+    let url: URL
+    let deck: Deck
+    let options: GameOptions
+    @ObservedObject var clip: ClipController
+    @EnvironmentObject private var game: GameController
+    @StateObject private var snippets = SnippetController()
+    @State private var played = false
+    /// Playing the snippet remounts the backup's preview, which stops it.
+    @State private var previewRevision = UUID()
+    private static let lengthMs = 5_000
+
+    var body: some View {
+        if snippets.failed {
+            ClipPanel(card: card, deck: deck, options: options, lengthMs: Self.lengthMs, clip: clip)
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    Button(played ? "Replay 5 s" : "Play 5 s") { play() }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(!snippets.canPlay)
+                    if snippets.status == "starting" || snippets.status == "playing" {
+                        Button("Stop snippet") { snippets.stop() }
+                            .buttonStyle(.bordered)
+                            .controlSize(.large)
+                    }
+                    if !snippets.canPlay { Text(snippets.status == "loading" ? "Loading preview…" : "Starting…").font(.callout) }
+                }
+                SnippetPreview(controller: snippets, url: url)
+                SongBackup(card: card, collapsed: true, previewID: previewRevision)
+            }
+        }
+    }
+
+    private func play() {
+        previewRevision = UUID()
+        played = true
+        // Recorded once the sound starts, and only if the same card is still in play.
+        let key = game.playKey
+        snippets.snippet(from: 0, lengthMs: Self.lengthMs) {
+            guard game.playKey == key else { return }
+            game.dispatch(.clip(fromMs: 0, lengthMs: Self.lengthMs))
+        }
+    }
+}
+
 /// *Play audio only (not scored)*: plays a scanned provider link through playback without touching the session.
 private struct AudioOnlyButton: View {
     let track: ProviderTrack
@@ -345,7 +442,7 @@ private struct AudioOnlyButton: View {
         VStack(alignment: .leading, spacing: 4) {
             Button("Play audio only (not scored)") { play() }
                 .buttonStyle(.bordered)
-            if let error { Text(error).foregroundStyle(.red).font(.callout) }
+            if let error { ErrorText(error) }
         }
     }
 

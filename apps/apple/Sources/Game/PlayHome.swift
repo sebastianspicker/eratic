@@ -16,6 +16,7 @@ struct PlayHome: View {
                     VStack(alignment: .leading, spacing: 24) {
                         if let notice = game.storeNotice {
                             Label(notice, systemImage: "exclamationmark.triangle").font(.callout)
+                            if game.unreadableFile != nil { UnreadableGameActions() }
                         }
                         if let error = game.lastError {
                             Text(error).foregroundStyle(.red).font(.callout)
@@ -35,6 +36,47 @@ struct PlayHome: View {
                 .navigationDestination(for: GameMode.self) { mode in SetupView(mode: mode) }
             }
             .task { try? deckStore.loadSampleIfNeeded() }
+        }
+    }
+}
+
+/// *Export unreadable saved game* and *Discard* for the kept-aside file, until it is discarded.
+private struct UnreadableGameActions: View {
+    @EnvironmentObject private var game: GameController
+    @State private var exporting = false
+    @State private var exportData = Data()
+    @State private var confirmDiscard = false
+    @State private var problem: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button("Export unreadable saved game") {
+                    guard let data = game.unreadableGameData() else {
+                        problem = "The kept file couldn't be read."
+                        return
+                    }
+                    problem = nil
+                    exportData = data
+                    exporting = true
+                }
+                Button("Discard", role: .destructive) { confirmDiscard = true }
+            }
+            if let problem { Text(problem).font(.callout).foregroundStyle(.red) }
+        }
+        .fileExporter(isPresented: $exporting, document: UnreadableSessionDocument(data: exportData), contentType: .json,
+                      defaultFilename: "eratic-unreadable-session") { result in
+            switch result {
+            case .success: game.unreadableGameExported()
+            case let .failure(error): problem = error.localizedDescription
+            }
+        }
+        .confirmationDialog("Discard the unreadable saved game?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+            Button("Discard game", role: .destructive) {
+                if let failure = game.discardUnreadableGame() { problem = failure }
+            }
+        } message: {
+            Text("The kept file is deleted and can't be recovered. Export it first to keep a copy.")
         }
     }
 }
@@ -84,7 +126,7 @@ private struct ResumeBanner: View {
             let deckAvailable = game.deck(loaded: deckStore.deck) != nil
             let finished = state.phase == .finished
             Panel(title: finished ? "Results waiting" : "Game in progress") {
-                Text("\(session.mode.name) · \(namesList(session.players.map(\.name))) · " + (finished ? "game over" : "round \(state.round + 1)"))
+                Text("\(session.mode.name) · \(namesList(session.players.map(\.name))) · " + (finished ? "game over" : "round \(state.round + 1)") + " · \(session.deckTitle)")
                 if !deckAvailable {
                     Text("Load the deck “\(session.deckTitle)” in the Deck tab to resume.").foregroundStyle(.secondary)
                 }
@@ -221,7 +263,11 @@ private struct DailyCard: View {
                     DailyResult(score: record.lastScore, shareText: record.shareText, streak: record.streak)
                 } else {
                     Text(GameMode.daily.pitch)
-                    Text("Today's round is ready. Streak: \(game.currentDailyStreak)").font(.callout).foregroundStyle(.secondary)
+                    Text("Today's round is \(game.unfinishedDailyToday(deck: deck) ? "under way" : "ready"). Streak: \(game.currentDailyStreak)").font(.callout).foregroundStyle(.secondary)
+                    let unlinked = game.dailyUnlinkedCount(deck: deck)
+                    if unlinked > 0 {
+                        Text("\(unlinked) of today's songs have no song link; you'll guess those without hearing them.").font(.callout).foregroundStyle(.secondary)
+                    }
                     DailyStartButton(deck: deck, title: "Play today's round")
                         .buttonStyle(.borderedProminent)
                 }

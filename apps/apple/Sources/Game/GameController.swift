@@ -76,6 +76,9 @@ final class GameController: ObservableObject {
     @Published var deckNotice: String?
     private var deckNoticeSession: String?
 
+    /// The unreadable saved game kept aside in the Sessions folder; its notice stays until it is exported or discarded.
+    @Published private(set) var unreadableFile: String?
+
     private let store: SessionStore
     private let defaults: UserDefaults
 
@@ -97,14 +100,38 @@ final class GameController: ObservableObject {
                 // Kept aside like an unreadable file, so the next game doesn't overwrite it.
                 let reason = Self.message(error)
                 if let name = store.quarantineCurrent() {
+                    unreadableFile = name
                     storeNotice = "Your saved game couldn't be replayed (\(reason)). It was kept as \(name) in Eratic's Sessions folder."
                 } else {
                     storeNotice = "Your saved game couldn't be replayed (\(reason)) or moved aside, so Eratic won't overwrite it."
                 }
             }
         case let .quarantined(fileName, reason):
+            unreadableFile = fileName
             storeNotice = "Your saved game couldn't be read (\(reason)). It was kept as \(fileName) in Eratic's Sessions folder."
         }
+    }
+
+    /// The kept unreadable game's bytes for export; nil when there is none or it can't be read.
+    func unreadableGameData() -> Data? { unreadableFile.flatMap(store.readUnreadable) }
+
+    /// The file stays in the Sessions folder after an export, so *Discard* stays offered (on iOS the folder is
+    /// out of reach otherwise); the notice says the copy was saved.
+    func unreadableGameExported() {
+        storeNotice = "The unreadable saved game was exported. Discard removes Eratic's own copy."
+    }
+
+    /// Deletes the kept unreadable game (the UI asked first); returns a message when that failed.
+    func discardUnreadableGame() -> String? {
+        guard let unreadableFile else { return nil }
+        do {
+            try store.discardUnreadable(unreadableFile)
+        } catch {
+            return "Couldn't discard the unreadable saved game: \(Self.message(error))"
+        }
+        self.unreadableFile = nil
+        storeNotice = nil
+        return nil
     }
 
     /// An unfinished saved game the home screen offers to resume.
@@ -330,6 +357,7 @@ final class GameController: ObservableObject {
             self.session = session
             self.state = next
             lastError = nil
+            batch = nil
             if case .reveal = action {
                 lastReveal = RevealSnapshot(before: state, after: next)
                 showingReveal = true
@@ -349,35 +377,40 @@ final class GameController: ObservableObject {
 
     // MARK: Undo
 
-    /// The player and the action indices an undo removes, or nil when the last non-clip action isn't an entry.
-    /// Trailing `clip` records stay; so do interleaved ones. A guess takes the same player's wager
+    /// The entry's player (nil inside the outer optional means "not an entry").
+    private static func entryPlayer(_ action: GameAction) -> String?? {
+        switch action {
+        case let .guess(player, _), let .pickEra(player, _), let .place(player, _), let .challenge(player, _),
+             let .nameIt(player, _, _), let .wager(player, _), let .lock(player, _), let .call(player, _),
+             let .order(player, _), let .choose(player, _, _), let .sdGuess(player, _), let .sdOrder(player, _):
+            return .some(player)
+        case let .sdName(player):
+            return .some(player)
+        default:
+            return .none
+        }
+    }
+
+    private static func isClipOrStep(_ action: GameAction) -> Bool {
+        switch action {
+        case .clip, .step: return true
+        default: return false
+        }
+    }
+
+    /// The player and the action indices an undo removes, or nil when the last action besides clips and steps isn't an entry.
+    /// `clip` and `step` records are never undone and don't hide an earlier entry: they stay in the log, trailing or
+    /// interleaved (a ladder step doesn't depend on locks). A guess takes the same player's wager
     /// directly before it along (Bullseye sends both as one entry); nothing else is grouped.
-    /// Steps, marks, draws, reveals, skips, ends, anchors and references are never undone.
+    /// Marks, draws, reveals, skips, ends, anchors and references are never undone.
     static func undoSelection(_ actions: [SessionAction]) -> (playerID: String?, indices: [Int])? {
-        /// The entry's player (nil inside the outer optional means "not an entry").
-        func entryPlayer(_ action: GameAction) -> String?? {
-            switch action {
-            case let .guess(player, _), let .pickEra(player, _), let .place(player, _), let .challenge(player, _),
-                 let .nameIt(player, _, _), let .wager(player, _), let .lock(player, _), let .call(player, _),
-                 let .order(player, _), let .choose(player, _, _), let .sdGuess(player, _), let .sdOrder(player, _):
-                return .some(player)
-            case let .sdName(player):
-                return .some(player)
-            default:
-                return .none
-            }
-        }
-        func isClip(_ action: GameAction) -> Bool {
-            if case .clip = action { return true }
-            return false
-        }
-        guard let last = actions.lastIndex(where: { !isClip($0.action) }), let player = entryPlayer(actions[last].action) else { return nil }
+        guard let last = actions.lastIndex(where: { !Self.isClipOrStep($0.action) }), let player = Self.entryPlayer(actions[last].action) else { return nil }
         var indices = [last]
         // A guess takes the same player's wager directly before it along (Bullseye sends wager then guess as one entry).
         var lastIsGuess = false
         if case .guess = actions[last].action { lastIsGuess = true }
         if let player, lastIsGuess,
-           let previous = actions[..<last].lastIndex(where: { !isClip($0.action) }),
+           let previous = actions[..<last].lastIndex(where: { !Self.isClipOrStep($0.action) }),
            case let .wager(owner, _) = actions[previous].action, owner == player {
             indices.append(previous)
         }
@@ -389,7 +422,9 @@ final class GameController: ObservableObject {
         guard let session, let state, state.phase == .open || state.phase == .suddenDeathOpen,
               let selection = Self.undoSelection(session.actions) else { return nil }
         guard let playerID = selection.playerID else { return (nil, "Undo “Nobody named it”") }
-        return (playerID, "Undo \(session.playerName(playerID))'s entry")
+        // A lone player (or one named "You") has nobody else's entry to confuse it with.
+        let own = session.players.count == 1 || session.playerName(playerID) == "You"
+        return (playerID, own ? "Undo your entry" : "Undo \(session.playerName(playerID))'s entry")
     }
 
     /// Takes back the last entry (see `undoSelection`) by replaying the shortened session. Only while a card is open.
@@ -404,12 +439,78 @@ final class GameController: ObservableObject {
             self.session = session
             self.state = next
             lastError = nil
+            batch = nil
             persist()
             return true
         } catch {
             lastError = Self.message(error)
             return false
         }
+    }
+
+    /// A *Lock in all* that just sent entries for several players: the log length before and after them.
+    /// Offers *Undo all entries* until any other action happens.
+    private struct Batch {
+        let sessionID: String
+        let from: Int
+        let to: Int
+    }
+    @Published private var batch: Batch?
+
+    /// Notes that the actions after log length `from` were one *Lock in all* for `players` players.
+    func markBatch(from: Int, players: Int) {
+        guard let session, players > 1, session.actions.count > from else { return }
+        batch = Batch(sessionID: session.id, from: from, to: session.actions.count)
+    }
+
+    /// Whether the last *Lock in all* can still be taken back: nothing has happened since, the card is open,
+    /// and everything after `from` is an entry or a clip.
+    var canUndoBatch: Bool {
+        guard let session, let state, let batch, batch.sessionID == session.id, batch.to == session.actions.count,
+              state.phase == .open || state.phase == .suddenDeathOpen else { return false }
+        return Self.isTakeBack(session.actions, from: batch.from)
+    }
+
+    /// Whether every action after log length `from` is an entry or a clip, so removing them is safe.
+    static func isTakeBack(_ actions: [SessionAction], from: Int) -> Bool {
+        guard from >= 0, from < actions.count else { return false }
+        return actions[from...].allSatisfy { entry in
+            if case .some = Self.entryPlayer(entry.action) { return true }
+            if case .clip = entry.action { return true }
+            return false
+        }
+    }
+
+    /// Takes back the whole batch by replaying the log up to where it began.
+    @discardableResult
+    func undoBatch() -> Bool {
+        guard canUndoBatch, var session, let batch else { return false }
+        session.actions = Array(session.actions[..<batch.from])
+        do {
+            let next = try GameEngine.replay(session)
+            self.session = session
+            self.state = next
+            self.batch = nil
+            lastError = nil
+            persist()
+            return true
+        } catch {
+            lastError = Self.message(error)
+            return false
+        }
+    }
+
+    /// The *End game* question for the state of the game: what ending now leads to, and that an open card isn't scored.
+    var endGameMessage: String {
+        guard let session, let state else { return "" }
+        let sudden = state.phase == .suddenDeath || state.phase == .suddenDeathOpen
+        var message = "The standings so far become final."
+        if sudden {
+            message = "The tie stands."
+        } else if let after = try? GameEngine.apply(SessionAction(at: session.actions.last?.at ?? 0, .end), to: state), after.phase == .suddenDeath {
+            message = "Players tied for first go to sudden death."
+        }
+        return state.phase == .open || state.phase == .suddenDeathOpen ? message + " The card in play isn't scored." : message
     }
 
     /// What is in play: phase, round and card IDs. A clip prepared under one key is dropped once it changes.
@@ -472,16 +573,19 @@ final class GameController: ObservableObject {
         return nextDeckCards(count, in: deck) != nil
     }
 
-    /// The next pair of `imposterPairs` that wasn't paired in this session yet.
+    /// The next pair by `nextImposterPair`: not paired yet, and without a card of the last pair while another is left.
     func nextPair(in deck: Deck) -> (a: SongCard, b: SongCard, original: PairSide)? {
-        guard let session, let state else { return nil }
+        guard let session, state != nil else { return nil }
         let pool = drawPool(deck)
         // A valid deck has unique card IDs, so the pairs can't fail here.
-        for pair in (try? GameRandom.imposterPairs(pool.map { (id: $0.id, relatedTo: $0.relatedTo) }, seed: session.seed)) ?? [] where !state.wasPaired(pair.a, pair.b) {
-            guard let a = pool.first(where: { $0.id == pair.a }), let b = pool.first(where: { $0.id == pair.b }) else { continue }
-            return (a, b, pair.original == pair.a ? .a : .b)
+        let pairs = (try? GameRandom.imposterPairs(pool.map { (id: $0.id, relatedTo: $0.relatedTo) }, seed: session.seed)) ?? []
+        let drawn = session.actions.compactMap { entry -> (String, String)? in
+            if case .drawPair(let a, let b, _) = entry.action { return (a.cardId, b.cardId) }
+            return nil
         }
-        return nil
+        guard let pair = GameRandom.nextImposterPair(pairs, drawn: drawn),
+              let a = pool.first(where: { $0.id == pair.a }), let b = pool.first(where: { $0.id == pair.b }) else { return nil }
+        return (a, b, pair.original == pair.a ? .a : .b)
     }
 
     /// Draws from the deck for the current phase. Returns false when the deck has run out.
@@ -551,6 +655,13 @@ final class GameController: ObservableObject {
         let today = Self.todayUTC()
         guard daily.lastDate == today || (try? Scoring.previousDay(today)) == daily.lastDate else { return 0 }
         return daily.streak
+    }
+
+    /// How many of today's Daily cards have no song link at all. Daily can't skip a card (game-rules.md 6.8),
+    /// so those are guessed without hearing them.
+    func dailyUnlinkedCount(deck: Deck) -> Int {
+        let cards = GameRandom.dailySelection(deck.cards.map(\.id), date: Self.todayUTC(), deckId: deck.id)
+        return cards.filter { id in deck.card(id)?.links.isEmpty == true }.count
     }
 
     /// Starts today's Daily Eratic, unless it was already played (then the home screen shows the result).

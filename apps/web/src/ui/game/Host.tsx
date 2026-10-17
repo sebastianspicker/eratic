@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import type { Deck } from "../../core/deck";
-import { canReveal, currentCards, pendingInputs, type GameState } from "../../core/game/engine";
+import type { Card, Deck } from "../../core/deck";
+import { canReveal, currentCards, finalRoundPlayers, pendingInputs, type GameState } from "../../core/game/engine";
 import { exportSession, type DailyOptions, type HigherLowerOptions, type RelayOptions, type Session, type TimelineOptions } from "../../core/session";
 import type { PlaybackHub } from "../../playback/hub";
 import { exactClips } from "../../playback/player";
@@ -12,10 +12,11 @@ import { LockedEntry, send } from "./modes/LockedEntry";
 import { MODE_UI } from "./modes/registry";
 import type { ModeInputProps } from "./modes/types";
 import { MODE_INFO } from "./modes";
-import { openLink, PROVIDER_NAMES, usePlayback, type PlaybackProps } from "./playback";
+import { backupTrack, cardsKey as cardsKeyOf, openLink, PROVIDER_NAMES, useCardPlayer, usePlayback, type PlaybackProps } from "./playback";
 import { Results } from "./Results";
 import { Reveal } from "./Reveal";
-import { CardStage } from "./Stage";
+import { useSnippetPreview } from "./SnippetPreview";
+import { CardStage, MysteryCard, SongBackup } from "./Stage";
 import type { GameController, GameView, ScanOutcome, Summary } from "./useGame";
 
 // The scanner (and jsQR with it) loads only when the host opens the camera.
@@ -31,9 +32,12 @@ const SUDDEN_DEATH_RULES: Record<string, (count: number) => string> = {
   firstToName: () => "One 5-second clip. The first to name the song wins.",
 };
 
+const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+// The phase comes from the summary given, so a reveal's before-summary names the round just played.
 function roundText(session: Session, state: GameState, summary: Summary): string {
-  if (state.phase === "finished") return "Final results";
-  if (state.phase === "suddenDeath" || state.phase === "suddenDeathOpen") return "Sudden death";
+  if (summary.phase === "finished") return "Final results";
+  if (summary.phase === "suddenDeath" || summary.phase === "suddenDeathOpen") return "Sudden death";
   const options = state.options as unknown as Record<string, number>;
   const of = (total: number) => `${Math.min(summary.round + 1, total)} of ${total}`;
   switch (session.mode) {
@@ -42,7 +46,9 @@ function roundText(session: Session, state: GameState, summary: Summary): string
     case "higherLower":
       return state.players.length === 1 ? `Card ${summary.round + 1}` : `Card ${of(options.cards)}`;
     case "timeline":
-      return `First to ${options.target} cards`;
+      return (state.options as TimelineOptions).ownership === "shared"
+        ? `Shared line ${summary.timeline?.length ?? 0} of ${options.target}`
+        : `First to ${options.target} cards`;
     case "relay":
       return `Line of ${options.target} · Lives ${summary.lives} of ${options.lives}`;
     case "lineup":
@@ -86,12 +92,10 @@ function Scoreboard({ session, state, summary }: { session: Session; state: Game
           <li key={player.id} className={active ? "active" : ""}>
             <span className="score-name">{player.name}</span>
             <span className="score-value">{summary.scores[player.id] ?? 0}</span>
+            {session.mode === "higherLower" ? <span className="score-extra">streak</span> : null}
             {summary.chips ? <span className="score-extra">incl. {summary.chips[player.id]} chips</span> : null}
             {tokens && summary.tokens ? <span className="score-extra">Tokens {summary.tokens[player.id]}</span> : null}
-            {summary.streaks && session.mode === "higherLower" ? (
-              <span className="score-extra">Streak {summary.streaks[player.id] ?? 0}</span>
-            ) : null}
-            {lives ? (
+            {lives && !summary.eliminated?.includes(player.id) ? (
               <span className="score-extra">
                 Lives {lives[player.id] ?? 0} of {(state.options as HigherLowerOptions).lives}
               </span>
@@ -120,15 +124,76 @@ function SuddenDeathStage(props: ModeInputProps) {
       />
     );
   const card = deck.cards.find((item) => item.id === sd.cards[0]?.cardId);
+  return sd.kind === "firstToName" ? (
+    <FirstToNameStage card={card} deck={deck} session={session} playback={playback} controller={controller} />
+  ) : (
+    <CardStage card={card} deck={deck} session={session} playback={playback} controller={controller} />
+  );
+}
+
+// The 5 s clip for "first to name". Only an exact clip honours the length, so a card
+// without one (no exact tier, or no link for the provider) plays it as a hidden preview
+// snippet when it has one; else the card's usual stage (link, QR) takes over.
+function FirstToNameStage({
+  card,
+  deck,
+  session,
+  playback,
+  controller,
+}: {
+  card: Card | undefined;
+  deck: Deck;
+  session: Session;
+  playback: PlaybackProps;
+  controller: GameController;
+}) {
+  const { player, exact, route } = useCardPlayer(playback, controller);
+  const cardExact = exact && card !== undefined && route(card)?.kind === "exact";
+  const preview = useSnippetPreview(cardExact ? undefined : card && backupTrack(card, player?.provider)?.url, card?.id);
+  const [revision, setRevision] = useState(0);
+  const [played, setPlayed] = useState(false);
+  if (!card || cardExact || !preview.usable)
+    return (
+      <CardStage
+        card={card}
+        deck={deck}
+        session={session}
+        playback={playback}
+        controller={controller}
+        lengthMs={FIRST_TO_NAME_MS}
+      />
+    );
+  function playSnippet() {
+    // Recorded once the snippet is audible, and only while the same card is in play.
+    const expected = cardsKeyOf(controller.getSnapshot().state);
+    const started = preview.snippet(FIRST_TO_NAME_MS, () => {
+      if (cardsKeyOf(controller.getSnapshot().state) === expected)
+        controller.dispatch({ type: "clip", fromMs: 0, lengthMs: FIRST_TO_NAME_MS });
+    });
+    if (!started) return;
+    setPlayed(true);
+    // Playing the snippet stops the backup's own preview.
+    setRevision((value) => value + 1);
+  }
   return (
-    <CardStage
-      card={card}
-      deck={deck}
-      session={session}
-      playback={playback}
-      controller={controller}
-      lengthMs={sd.kind === "firstToName" ? FIRST_TO_NAME_MS : undefined}
-    />
+    <div className="card-stage">
+      <MysteryCard />
+      <SongBackup card={card} provider={player?.provider} collapsed previewKey={revision} />
+      {preview.frame}
+      <div className="clip-controls">
+        <div className="action-row">
+          <button className="primary" disabled={!preview.ready} onClick={playSnippet}>
+            {played ? "Replay 5 s" : "Play 5 s"}
+          </button>
+          {preview.active ? <button onClick={preview.stop}>Stop snippet</button> : null}
+        </div>
+        {preview.status ? (
+          <p className="muted" role="status">
+            {preview.status}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -194,12 +259,16 @@ export function Host({
   controller,
   view,
   deck,
+  openDeck,
   hub,
   hasCamera,
 }: {
   controller: GameController;
   view: GameView;
+  // The deck the game plays (its snapshot, when it has one).
   deck: Deck;
+  // The deck open in the app, which Play again starts a new game from.
+  openDeck: Deck;
   hub: PlaybackHub;
   hasCamera: boolean;
 }) {
@@ -226,6 +295,9 @@ export function Host({
     : "";
   // Who the generic Reveal is waiting for; empty when nobody owes an input.
   const stillToAnswer = listNames(pendingInputs(state).map((id) => playerName(session, id)));
+  // Timeline: once the target is reached, who still plays the round (game-rules.md section 6.3).
+  const finalRoundIds = finalRoundPlayers(state);
+  const finalRound = finalRoundIds?.length ? listNames(finalRoundIds.map((id) => playerName(session, id))) : "";
   const outOfCards = !controller.canDraw(deck);
   // Sudden deaths that draw several cards at once (a lineup of four) draw from the deck.
   const drawCount = state.phase === "suddenDeath" ? controller.suddenDeathCount() : 1;
@@ -242,7 +314,10 @@ export function Host({
       host.querySelector<HTMLElement>(".reveal h2") ??
       host.querySelector<HTMLElement>(".results h2") ??
       host.querySelector<HTMLElement>(".inputs h3") ??
+      host.querySelector<HTMLElement>(".stage [data-first-control]:not(:disabled)") ??
       host.querySelector<HTMLElement>(".inputs [data-first-control]") ??
+      // Nothing pending: the Reveal button, not the first toggle or chip.
+      host.querySelector<HTMLElement>(".inputs > .action-row > button.primary:not(:disabled)") ??
       host.querySelector<HTMLElement>(".inputs button:not(:disabled)") ??
       host.querySelector<HTMLElement>(".stage-empty button.primary");
     if (!target) return;
@@ -256,15 +331,26 @@ export function Host({
   function stopClip() {
     void clip.cancel(hub.player);
   }
-  function endGame() {
-    if (!window.confirm("End this game now? The standings so far become final.")) return;
+  // Ends without asking: used when nothing is in play, so there is nothing to lose.
+  function showResults() {
     stopClip();
     controller.dispatch({ type: "end" });
+  }
+  function endGame() {
+    const cardOpen = state.phase === "open" || state.phase === "suddenDeathOpen";
+    const sudden = state.phase === "suddenDeath" || state.phase === "suddenDeathOpen";
+    const consequence = sudden
+      ? "The tie stands."
+      : controller.project([{ type: "end" }])?.phase === "suddenDeath"
+        ? "Players tied for first go to sudden death."
+        : "The standings so far become final.";
+    if (!window.confirm(`End this game now? ${consequence}${cardOpen ? " The card in play isn't scored." : ""}`)) return;
+    showResults();
   }
   function next() {
     setScanMessage(undefined);
     setDismissedAt(session.actions.length);
-    if (view.source === "draw" || !scanHere) controller.draw(deck);
+    if ((view.source === "draw" || !scanHere) && !outOfCards) controller.draw(deck);
   }
   function draw() {
     setScanMessage(undefined);
@@ -313,8 +399,14 @@ export function Host({
     controller.dispatch({ type: "reveal" });
   }
   function skip() {
+    // Only entries come before a reveal, so an undoable entry means the card has some.
+    if (controller.undoable() !== undefined && !window.confirm("Skip this card? The entries for it are discarded.")) return;
     stopClip();
     controller.dispatch({ type: "skip" });
+  }
+  function playAgain() {
+    // A new game plays the open deck when it is the game's deck, else the game's own snapshot.
+    controller.playAgain(openDeck.id === session.deckId ? openDeck : deck);
   }
 
   const card = cards[0] && deck.cards.find((item) => item.id === cards[0].cardId);
@@ -337,7 +429,7 @@ export function Host({
         session={session}
         summary={summary}
         ui={ui}
-        onPlayAgain={() => controller.playAgain(deck)}
+        onPlayAgain={playAgain}
         onNewGame={() => controller.close()}
         onDownload={() => {
           try {
@@ -366,11 +458,18 @@ export function Host({
                 Reveal
               </button>
             )}
+            {view.batch ? (
+              <button className="quiet" onClick={() => controller.undoBatch(view.batch!.from)}>
+                Undo all entries
+              </button>
+            ) : null}
             {undoable && !(session.mode === "ladder" && (inputProps.answerShown || ladderBusy)) ? (
               <button className="quiet" onClick={() => controller.undo()}>
                 {undoable.playerId === undefined
                   ? "Undo “Nobody named it”"
-                  : `Undo ${playerName(session, undoable.playerId)}'s entry`}
+                  : session.players.length === 1
+                    ? "Undo your entry"
+                    : `Undo ${playerName(session, undoable.playerId)}'s entry`}
               </button>
             ) : null}
             {session.mode === "daily" ? null : (
@@ -389,17 +488,24 @@ export function Host({
     body = (
       <div className="stage panel">
         <div className="stage-empty">
-          {outOfCards ? (
+          {outOfCards && session.mode === "daily" ? (
             <>
-              <p>
-                {session.mode === "daily"
-                  ? "This round's card was skipped. End the game to finish today's round."
-                  : session.mode === "imposter"
-                    ? "No pairs left to play."
-                    : "No cards left in the deck."}
-              </p>
+              <p>This round's card was skipped. End the game to finish today's round.</p>
               <button className="primary" onClick={endGame}>
                 End game
+              </button>
+            </>
+          ) : outOfCards ? (
+            <>
+              <p>
+                {state.phase === "suddenDeath"
+                  ? `Not enough cards left for sudden death (it needs ${drawCount}). The tie stands.`
+                  : session.mode === "imposter"
+                    ? `No pairs left after ${plural(summary.round, "round")}.`
+                    : `The deck is used up after ${plural(summary.round, "round")}.`}
+              </p>
+              <button className="primary" onClick={showResults}>
+                Show results
               </button>
             </>
           ) : (
@@ -464,20 +570,45 @@ export function Host({
             {session.mode === "lineup" && lineupDeckByName(deck, playback) ? "Lineup by name" : MODE_INFO[session.mode].name}
           </h1>
           <p className="round-text">{roundText(session, state, showReveal ? reveal.before : summary)}</p>
+          {finalRound ? (
+            <p className="final-round" role="status">
+              Final round: {finalRound} still to play.
+            </p>
+          ) : null}
         </div>
-        {finished ? null : <button onClick={endGame}>End game</button>}
+        {finished ? null : (
+          <div className="action-row">
+            <button
+              className="quiet"
+              onClick={() => {
+                stopClip();
+                controller.close();
+              }}
+            >
+              Play home
+            </button>
+            <button onClick={endGame}>End game</button>
+          </div>
+        )}
       </div>
-      <Scoreboard session={session} state={state} summary={summary} />
-      {view.notice || view.storageNotice ? (
+      <Scoreboard session={session} state={state} summary={showReveal && !finished ? reveal.before : summary} />
+      {view.notice || view.storageNotice || view.gameNotices.length > 0 ? (
         <div className="notice" role="alert">
           {view.notice ? <p>{view.notice}</p> : null}
           {view.storageNotice ? <p>{view.storageNotice}</p> : null}
+          {view.gameNotices.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
         </div>
       ) : null}
-      {view.announcement ? (
-        <p className="announcement" role="status">
-          {view.announcement}
-        </p>
+      {view.announcement.length > 0 ? (
+        <div className="announcement" role="status">
+          <ul>
+            {view.announcement.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
       ) : null}
       {summary.suddenDeath && !finished ? (
         <p className="sudden-death-banner" role="status">

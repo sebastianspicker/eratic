@@ -139,6 +139,22 @@ export function imposterPairs(
   );
 }
 
+// Which pair to draw next (section 1.5): the first pair not yet played that shares no
+// card with the last pair drawn, else the first pair not yet played.
+export function nextImposterPair(
+  pairs: readonly ImposterPair[],
+  drawn: readonly (readonly [string, string])[],
+): ImposterPair | undefined {
+  const open = pairs.filter(
+    (pair) =>
+      !drawn.some(([x, y]) => (x === pair.a && y === pair.b) || (x === pair.b && y === pair.a)),
+  );
+  const last = drawn[drawn.length - 1];
+  const apart = (pair: ImposterPair): boolean =>
+    !last || (pair.a !== last[0] && pair.a !== last[1] && pair.b !== last[0] && pair.b !== last[1]);
+  return open.find(apart) ?? open[0];
+}
+
 // Daily Eratic (section 6.8). Dates are proleptic Gregorian, handled as integers.
 const leapYear = (y: number): boolean =>
   (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;

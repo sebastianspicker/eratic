@@ -52,6 +52,8 @@ extension Era {
 enum Stage {
     static let ink = Color(hex: "#17131C")
     static let paper = Color(hex: "#F7F2E8")
+    /// Errors on the paper ground: about 7:1, where system red is under 4.5:1.
+    static let error = Color(red: 0.62, green: 0.08, blue: 0.08)
 }
 
 extension Color {

@@ -44,7 +44,7 @@ struct BullseyeInput: View {
                                       error: rowErrors[player.id])
                         }
                         if session.options.stakes {
-                            WagerControl(held: state.chips(for: player.id) ?? 0, wager: Binding(get: { wagers[player.id] ?? 1 }, set: { wagers[player.id] = $0 }))
+                            WagerControl(held: state.chips(for: player.id) ?? 0, wager: Binding(get: { wagers[player.id] ?? 1 }, set: { wagers[player.id] = $0 }), rule: WagerControl.bullseyeRule)
                         }
                     }
                 }
@@ -71,6 +71,8 @@ struct BullseyeInput: View {
         }
         rowErrors = errors
         guard errors.isEmpty else { return }
+        let from = game.session?.actions.count ?? 0
+        let locking = session.players.filter { !isLocked($0.id) }.count
         for player in session.players where !isLocked(player.id) {
             if let held = game.state?.chips(for: player.id), held >= 1, game.state?.owesWager(player.id) == true {
                 guard game.dispatch(.wager(playerId: player.id, chips: min(wagers[player.id] ?? 1, min(3, held)))) else { return }
@@ -79,6 +81,7 @@ struct BullseyeInput: View {
                 guard game.dispatch(.guess(playerId: player.id, year: year)) else { return }
             }
         }
+        game.markBatch(from: from, players: locking)
         years = [:]
         wagers = [:]
     }
@@ -87,10 +90,11 @@ struct BullseyeInput: View {
         LockedEntryList(players: session.players, isLocked: isLocked, current: $current) { player in
             VStack(alignment: .leading, spacing: 10) {
                 if state.guesses[player.id] == nil {
-                    YearEntry(label: "\(player.name)'s year", text: $year, error: yearError)
+                    YearEntry(label: "\(player.name)'s year", text: $year, error: yearError,
+                              onSubmit: { lock(player.id) })
                 }
                 if session.options.stakes {
-                    WagerControl(held: state.chips(for: player.id) ?? 0, wager: $wager)
+                    WagerControl(held: state.chips(for: player.id) ?? 0, wager: $wager, rule: WagerControl.bullseyeRule)
                 }
                 Button("Lock in") { lock(player.id) }
                     .buttonStyle(.borderedProminent)
@@ -132,10 +136,23 @@ struct BullseyeRuler: View {
     /// Player name, guess and the player's 1-based number in session order (the ruler marker), in turn order.
     let guesses: [(number: Int, name: String, year: Int)]
 
+    /// The row of each guess: guesses of the same year stack, the first on top, so every number stays visible.
+    static func rows(_ years: [Int]) -> [Int: Int] {
+        var seen: [Int: Int] = [:]
+        var rows: [Int: Int] = [:]
+        for (index, year) in years.enumerated() {
+            rows[index] = seen[year, default: 0]
+            seen[year, default: 0] += 1
+        }
+        return rows
+    }
+
     var body: some View {
         let years = guesses.map(\.year) + [answer]
         let low = (years.min() ?? answer) - 2
         let high = (years.max() ?? answer) + 2
+        let rowOf = Self.rows(guesses.map(\.year))
+        let deepest = rowOf.values.max() ?? 0
         VStack(alignment: .leading, spacing: 8) {
             GeometryReader { geometry in
                 let width = geometry.size.width
@@ -153,21 +170,22 @@ struct BullseyeRuler: View {
                                 .offset(x: x(from), y: 26)
                         }
                     }
-                    ForEach(Array(guesses.enumerated()), id: \.offset) { _, guess in
+                    // The answer is drawn first, behind the guess markers, so an exact guess keeps its number.
+                    Rectangle()
+                        .fill(.primary)
+                        .frame(width: 3, height: 34 + CGFloat(deepest) * 22)
+                        .offset(x: min(max(0, width - 3), max(0, center(answer) - 1.5)), y: 16)
+                    ForEach(Array(guesses.enumerated()), id: \.offset) { index, guess in
                         Text(String(guess.number))
                             .font(.caption2.weight(.heavy))
                             .frame(width: 20, height: 20)
                             .background(Circle().fill(.background))
                             .overlay(Circle().strokeBorder(.primary, lineWidth: 1.5))
-                            .offset(x: min(max(0, width - 20), max(0, center(guess.year) - 10)), y: 2)
+                            .offset(x: min(max(0, width - 20), max(0, center(guess.year) - 10)), y: 2 + CGFloat(rowOf[index] ?? 0) * 22)
                     }
-                    Rectangle()
-                        .fill(.primary)
-                        .frame(width: 3, height: 34)
-                        .offset(x: min(max(0, width - 3), max(0, center(answer) - 1.5)), y: 16)
                 }
             }
-            .frame(height: 52)
+            .frame(height: 52 + CGFloat(deepest) * 22)
             .accessibilityHidden(true)
             HStack {
                 Text(String(low))

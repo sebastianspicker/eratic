@@ -68,7 +68,8 @@ struct RevealView: View {
                 .opacity(staged(1))
                 Group {
                     Divider().overlay(era?.inkColor.opacity(0.4) ?? .secondary)
-                    ForEach(resultLines(card), id: \.self) { line in
+                    // By position: two players can have the same line.
+                    ForEach(Array(resultLines(card).enumerated()), id: \.offset) { _, line in
                         Text(line).font(.body.weight(.medium))
                     }
                     if let leader { Text(leader).font(.headline) }
@@ -92,23 +93,19 @@ struct RevealView: View {
         }
     }
 
-    /// Who leads after the reveal, from the engine's scores before and after: "Ada takes the lead with 23." when the
-    /// sole leader changed, "Ada leads with 23.", or "Ada and Lin share the lead with 20.". None for Relay, Daily,
-    /// one-player games, sudden death, or while nobody has scored.
+    /// Who leads after the reveal, from the engine's standings (the first group) and scores: "Ada takes the lead with 23."
+    /// when the sole leader changed, "Ada leads with 23.", or "Ada and Lin share the lead with 20.". None for Relay,
+    /// Daily, one-player games, sudden death, or while nobody has scored.
     static func leaderLine(_ reveal: RevealSnapshot, _ session: GameSession) -> String? {
         guard session.mode != .relay, session.mode != .daily, session.players.count > 1,
-              reveal.before.phase != .suddenDeathOpen, reveal.before.phase != .suddenDeath else { return nil }
-        func leaders(_ state: GameState) -> (ids: [String], score: Int)? {
-            let scores = GameEngine.scores(of: state)
-            guard let top = session.players.compactMap({ scores[$0.id] }).max(), top > 0 else { return nil }
-            return (session.players.map(\.id).filter { scores[$0] == top }, top)
-        }
-        guard let now = leaders(reveal.after) else { return nil }
-        if now.ids.count > 1 { return "\(namesList(now.ids.map(session.playerName))) share the lead with \(now.score)." }
-        let name = session.playerName(now.ids[0])
-        let previous = leaders(reveal.before)
-        if previous?.ids == now.ids { return "\(name) leads with \(now.score)." }
-        return "\(name) takes the lead with \(now.score)."
+              reveal.before.phase != .suddenDeathOpen, reveal.before.phase != .suddenDeath,
+              reveal.after.phase != .suddenDeath else { return nil }
+        guard let leaders = GameEngine.standings(of: reveal.after).first, let first = leaders.first,
+              let score = GameEngine.scores(of: reveal.after)[first], score > 0 else { return nil }
+        if leaders.count > 1 { return "\(namesList(leaders.map(session.playerName))) share the lead with \(score)." }
+        let name = session.playerName(first)
+        if GameEngine.standings(of: reveal.before).first == [first] { return "\(name) leads with \(score)." }
+        return "\(name) takes the lead with \(score)."
     }
 
     /// One line per player, in words, with the points read from the engine's state before and after the reveal:
@@ -168,14 +165,12 @@ struct RevealView: View {
             guard let active = before.activePlayerID else { return [] }
             let tokenGain = (after.tokens(for: active) ?? 0) - (before.tokens(for: active) ?? 0)
             var lines = ["\(session.playerName(active)): " + (points(active) > 0 ? "\(signedPoints(points(active))) card" : "no card") + chips(active) + (tokenGain > 0 ? ", +1 token" : "")]
-            let years = timelineBefore(active).map(\.year)
             for challenge in before.challenges {
                 let text: String
                 if points(challenge.playerId) > 0 {
                     text = "+1 card from the challenge"
-                } else if (try? Scoring.placementCorrect(years: years, slot: challenge.slot, year: card.year)) == true,
-                          let winner = session.players.first(where: { points($0.id) > 0 }) {
-                    text = "right, but \(winner.name) claimed it first"
+                } else if let taker = cardTaker(card) {
+                    text = "token spent, \(taker.name) got the card"
                 } else {
                     text = "challenge missed, token spent"
                 }
@@ -186,8 +181,10 @@ struct RevealView: View {
             // The line belongs to the team: nothing per player.
             guard let marks = before.nameItMarks, let active = before.activePlayerID else { return [] }
             let name = session.playerName(active)
-            return [Scoring.nameItAward(titleOK: marks.titleOK, artistOK: marks.artistOK)
-                    ? "\(name) named it: the team wins back a life if it lost one." : "\(name) didn't fully name it."]
+            // Name It is judged before the placement (section 6.6): an award gives back a life, up to the start.
+            guard Scoring.nameItAward(titleOK: marks.titleOK, artistOK: marks.artistOK) else { return ["\(name) didn't fully name it."] }
+            guard case let .relay(options) = session.options, before.lives < options.lives else { return ["\(name) named it, but lives were already full."] }
+            return ["\(name) named it: a life back before the placement."]
         case .ladder:
             guard case let .ladder(options) = session.options else { return [] }
             return session.players.map { player in
@@ -211,8 +208,15 @@ struct RevealView: View {
         return "neither right"
     }
 
-    private func timelineBefore(_ active: String) -> [CardRef] {
-        reveal.before.timeline(for: personalTimeline ? active : nil)
+    /// Who got the drawn card, from the lines after the reveal: the owner of the personal line that holds it,
+    /// or (shared line) the player the engine credited. Nil when nobody got it.
+    private func cardTaker(_ card: CardRef) -> SessionPlayer? {
+        if personalTimeline {
+            return session.players.first { player in
+                reveal.after.timeline(for: player.id).contains { $0.cardId.utf8.elementsEqual(card.cardId.utf8) }
+            }
+        }
+        return session.players.first { RevealDeltas.points(reveal, $0.id) > 0 }
     }
 
     private var personalTimeline: Bool {
@@ -233,8 +237,10 @@ struct RevealView: View {
                 let taker = session.players.first { $0.id != active && RevealDeltas.points(reveal, $0.id) > 0 }
                 Text(activeGained ? "Correct! \(name) keeps it." : taker.map { "\($0.name) takes the card." } ?? "Discarded.")
                     .font(.callout.weight(.semibold))
-                Text(personalTimeline ? "\(name)'s timeline" : "Shared timeline").font(.caption).foregroundStyle(.secondary)
-                TimelineStrip(cards: after.timeline(for: personalTimeline ? active : nil), deck: deck, compact: true)
+                // The line that took the card (the active player's when nobody did), the new card marked.
+                let shown = personalTimeline ? cardTaker(card)?.id ?? active : nil
+                Text(shown.map { "\(session.playerName($0))'s timeline" } ?? "Shared timeline").font(.caption).foregroundStyle(.secondary)
+                TimelineStrip(cards: after.timeline(for: shown), deck: deck, compact: true, newCardID: card.cardId)
             }
         case .relay:
             let line = after.timeline(for: nil)
@@ -255,6 +261,8 @@ struct RevealView: View {
         case .higherLower:
             if let reference = before.referenceCard {
                 Text("Compared with \(deck.card(reference.cardId)?.title ?? reference.cardId) (\(String(reference.year)))").font(.callout)
+                // Equal years make either call right (game-rules.md section 6.5).
+                if card.year == reference.year { Text("Same year: either call is right.").font(.callout) }
             }
         default:
             EmptyView()
