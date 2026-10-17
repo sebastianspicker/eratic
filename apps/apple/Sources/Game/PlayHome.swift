@@ -24,6 +24,7 @@ struct PlayHome: View {
                         PlaybackPanel()
                         DailyCard()
                         ModeGallery()
+                        BuildFooter()
                     }
                     .padding(24)
                     .frame(maxWidth: 980, alignment: .leading)
@@ -35,6 +36,24 @@ struct PlayHome: View {
             }
             .task { try? deckStore.loadSampleIfNeeded() }
         }
+    }
+}
+
+/// The build and a copy of the recorded problems, for bug reports.
+private struct BuildFooter: View {
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("Eratic \(Diagnostics.build)")
+            Button("Copy diagnostics") {
+                Clipboard.copy(Diagnostics.text())
+                copied = true
+            }
+            if copied { Text("Diagnostics copied") }
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
     }
 }
 

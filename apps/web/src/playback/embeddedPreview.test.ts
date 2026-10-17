@@ -689,3 +689,61 @@ describe("Apple snippets", () => {
     f.session.dispose();
   });
 });
+
+describe("preview failure causes", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+  const lookup = (response: Partial<Response> | Error) =>
+    vi.fn(async () => { if (response instanceof Error) throw response; return response as Response; }) as unknown as typeof fetch;
+  async function appleFailure(lookupFetch: typeof fetch) {
+    const state = vi.fn(); const failure = vi.fn();
+    const session = new ApplePreviewSession("456", "us", state, { fetch: lookupFetch, failure });
+    await vi.waitFor(() => expect(state).toHaveBeenLastCalledWith("error"));
+    session.dispose();
+    return failure;
+  }
+  it("names Apple's rate limit, a failed lookup and an unreachable lookup", async () => {
+    expect(await appleFailure(lookup({ ok: false, status: 429 }))).toHaveBeenCalledWith("rateLimited");
+    expect(await appleFailure(lookup({ ok: false, status: 503 }))).toHaveBeenCalledWith("lookupFailed");
+    expect(await appleFailure(lookup({ ok: true, status: 200, json: async () => { throw SyntaxError("bad"); } }))).toHaveBeenCalledWith("lookupFailed");
+    expect(await appleFailure(lookup(new TypeError("Failed to fetch")))).toHaveBeenCalledWith("lookupFailed");
+  });
+  it("says offline when the browser is offline, whatever failed", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    expect(await appleFailure(lookup(new TypeError("Failed to fetch")))).toHaveBeenCalledWith("offline");
+  });
+  it("names Apple media errors and timeouts", async () => {
+    const state = vi.fn(); const failure = vi.fn(); const audio = document.createElement("audio");
+    audio.load = vi.fn(); audio.pause = vi.fn();
+    const session = new ApplePreviewSession("456", "us", state, {
+      fetch: lookup({ ok: true, status: 200, json: async () => ({ results: [{ wrapperType: "track", trackId: 456, previewUrl: "https://audio-ssl.itunes.apple.com/x.m4a" }] }) }),
+      createAudio: () => audio, failure,
+    });
+    await vi.waitFor(() => expect(audio.src).not.toBe(""));
+    audio.dispatchEvent(new Event("error"));
+    expect(failure).toHaveBeenCalledWith("playerFailed");
+    session.dispose();
+    vi.useFakeTimers();
+    const stalled = vi.fn();
+    const slow = new ApplePreviewSession("456", "us", vi.fn(), { fetch: vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch, failure: stalled });
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(stalled).toHaveBeenCalledWith("timeout");
+    slow.dispose();
+  });
+  it("names Spotify player errors and timeouts", async () => {
+    const f = fixture(); const failure = vi.fn();
+    const session = new SpotifyPreviewSession(f.host, "track", f.state, { load: async () => f.api, failure });
+    await Promise.resolve(); f.listeners.error({});
+    expect(failure).toHaveBeenCalledWith("playerFailed");
+    session.dispose();
+    const blocked = vi.fn();
+    const unloaded = new SpotifyPreviewSession(fixture().host, "track", vi.fn(), { load: async () => { throw Error("blocked"); }, failure: blocked });
+    await vi.waitFor(() => expect(blocked).toHaveBeenCalledWith("playerFailed"));
+    unloaded.dispose();
+    vi.useFakeTimers();
+    const g = fixture(); const late = vi.fn();
+    const slow = new SpotifyPreviewSession(g.host, "track", g.state, { load: async () => g.api, failure: late });
+    await vi.advanceTimersByTimeAsync(12_000);
+    expect(late).toHaveBeenCalledWith("timeout");
+    slow.dispose();
+  });
+});

@@ -78,7 +78,7 @@ struct CardDetail: View {
     private var routeCaption: String {
         switch mode {
         case .official: return "Supplied mapping — unverified"
-        case .directLink: return "Direct provider link · opens outside the official Hitster app"
+        case .directLink: return "Direct provider link · opens the provider"
         case .eraticCard: return "Eratic card · selects this card in a loaded deck"
         }
     }

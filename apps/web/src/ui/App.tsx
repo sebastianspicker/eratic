@@ -6,6 +6,7 @@ import {
   updateGameYear,
   type Deck,
 } from "../core/deck";
+import { record, withCause } from "../diagnostics";
 import { PlaybackHub } from "../playback/hub";
 import { completeSpotifyLogin } from "../playback/spotifyAuth";
 import {
@@ -15,6 +16,7 @@ import {
   readUnreadable,
   UnreadableSlotError,
 } from "../storage";
+import { BuildFooter } from "./BuildFooter";
 import { CardList } from "./CardList";
 import { MIGRATION_NOTICE, DeckGameFields, withCardGameFields, withCardRelation, withDeckClipStart } from "./CardGameFields";
 import { LinkSuggestions } from "./LinkSuggestions";
@@ -53,6 +55,8 @@ export default function App() {
   const [selectedID, setSelectedID] = useState(initial.deck.cards[0].id);
   const [notice, setNotice] = useState(initial.notice);
   const [persisted, setPersisted] = useState(initial.persisted);
+  // The deck holds changes that storage refused, so they exist only in this page.
+  const [unstored, setUnstored] = useState(false);
   const [unreadable, setUnreadable] = useState(initial.unreadable);
   const fileInput = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<"deck" | "play">("deck");
@@ -86,29 +90,31 @@ export default function App() {
   const selected =
     deck.cards.find((card) => card.id === selectedID) ?? deck.cards[0];
   // message is shown after a successful save (the deck format 2 notice).
-  function installDeck(next: Deck, message = "") {
+  // False when the deck changed in memory but could not be stored.
+  function installDeck(next: Deck, message = ""): boolean {
+    let stored = true;
     try {
       persistDeck(next);
       setPersisted(true);
+      setUnstored(false);
       setNotice(message);
     } catch (failure) {
+      stored = false;
       setPersisted(false);
-      setNotice(
-        [
-          failure instanceof UnreadableSlotError
-            ? failure.message
-            : "Browser storage is unavailable. Export your deck to keep your changes.",
-          message,
-        ]
-          .filter(Boolean)
-          .join(" "),
-      );
+      setUnstored(true);
+      const problem =
+        failure instanceof UnreadableSlotError
+          ? failure.message
+          : "Browser storage is unavailable. Export your deck to keep your changes.";
+      record("deck", withCause(problem, failure));
+      setNotice([problem, message].filter(Boolean).join(" "));
     }
     setDeck(next);
+    return stored;
   }
   // Deck format 2 fields: validated by the core; throws its message on failure.
-  function saveV2({ deck: next, migrated }: { deck: Deck; migrated: boolean }) {
-    installDeck(next, migrated ? MIGRATION_NOTICE : "");
+  function saveV2({ deck: next, migrated }: { deck: Deck; migrated: boolean }): boolean {
+    return installDeck(next, migrated ? MIGRATION_NOTICE : "");
   }
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -118,22 +124,28 @@ export default function App() {
       if (file.size > MAX_DECK_BYTES)
         throw new Error("Deck file is too large. Maximum size is 8 MiB.");
       const next = decodeDeckBytes(new Uint8Array(await file.arrayBuffer()));
+      const question = unstored
+        ? `Replace the current deck and its unsaved changes with “${next.title}”? Export the current deck first to keep them.`
+        : persisted
+          ? `Replace the deck stored on this device with “${next.title}”? Export the current deck first to keep a copy.`
+          : "";
+      if (question && !window.confirm(question)) return;
       installDeck(next);
       setSelectedID(next.cards[0].id);
       setImportRevision((value) => value + 1);
     } catch (failure) {
-      setNotice(
-        failure instanceof Error ? failure.message : "Could not import deck.",
-      );
+      const problem = failure instanceof Error ? failure.message : "Could not import deck.";
+      record("deck", `Import failed: ${problem}`);
+      setNotice(problem);
     }
   }
   function downloadDeck() {
     try {
       saveText(`${deck.id}.json`, exportDeck(deck));
     } catch (failure) {
-      setNotice(
-        failure instanceof Error ? failure.message : "Could not export deck.",
-      );
+      const problem = failure instanceof Error ? failure.message : "Could not export deck.";
+      record("deck", `Export failed: ${problem}`);
+      setNotice(problem);
     }
   }
   function downloadUnreadable() {
@@ -262,6 +274,7 @@ export default function App() {
           </div>
         </main>
       )}
+      <BuildFooter />
     </>
   );
 }

@@ -241,6 +241,15 @@ ol {
   font-size: 15px;
   overflow-wrap: anywhere;
 }
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 32px 32px;
+  color: var(--muted);
+  font-size: 14px;
+}
 .muted {
   color: var(--muted);
   font-size: 14px;
@@ -482,6 +491,9 @@ input[type="checkbox"] {
     padding: 14px 16px;
     flex-wrap: wrap;
     gap: 12px;
+  }
+  .app-footer {
+    padding: 20px 16px 24px;
   }
   .wordmark {
     font-size: 30px;

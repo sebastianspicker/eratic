@@ -202,6 +202,26 @@ export function savePlayPrefs(sessionId: string, prefs: PlayPrefs, storage = def
   }
 }
 
+// The ID of a finished game whose results the host has not left yet, so a reload
+// offers them again ("Results waiting"). Same key and meaning as the Apple app.
+export const UNSEEN_KEY = "eratic.play.unseen.v1";
+export function loadUnseen(storage = defaultStorage()): string | null {
+  try {
+    return storage?.getItem(UNSEEN_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+// Unavailable storage only means the results are not offered after a reload.
+export function markUnseen(sessionId: string | null, storage = defaultStorage()): void {
+  try {
+    if (sessionId === null) storage?.removeItem(UNSEEN_KEY);
+    else storage?.setItem(UNSEEN_KEY, sessionId);
+  } catch {
+    // storage full or blocked
+  }
+}
+
 // The player names of the last non-Daily game, so the next Setup starts with
 // the same room. 1-10 trimmed names of 1-40 code points; anything else counts
 // as absent.

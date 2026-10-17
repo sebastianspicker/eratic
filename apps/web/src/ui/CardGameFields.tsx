@@ -78,21 +78,25 @@ export function withDeckClipStart(deck: Deck, seconds: string): { deck: Deck; mi
 }
 
 const secondsOf = (value: number | undefined): string => (value === undefined ? "" : String(value / 1000));
-function useSaveStatus(onSave: () => void) {
+// "unstored": the change applied in memory, but browser storage refused it (the page notice says why).
+export type SaveStatus = "" | "saved" | "unstored";
+export const saveStatusText = (status: SaveStatus, saved: string): string =>
+  status === "saved" ? saved : status === "unstored" ? "Not stored on this device" : "";
+// onSave returns false when the change could not be stored.
+function useSaveStatus(onSave: () => boolean) {
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<SaveStatus>("");
   function submit(event: SyntheticEvent) {
     event.preventDefault();
     try {
-      onSave();
-      setSaved(true);
+      setSaved(onSave() ? "saved" : "unstored");
       setError("");
     } catch (failure) {
-      setSaved(false);
+      setSaved("");
       setError(failure instanceof Error ? failure.message : "Could not save the game settings.");
     }
   }
-  return { error, saved, submit, edited: () => setSaved(false) };
+  return { error, saved, submit, edited: () => setSaved("") };
 }
 
 // The inspector's optional Game section: clip start, difficulty, related recording.
@@ -103,7 +107,7 @@ export function CardGameFields({
 }: {
   card: Card;
   deck: Deck;
-  onSave: (values: CardGameValues) => void;
+  onSave: (values: CardGameValues) => boolean;
 }) {
   const [values, setValues] = useState<CardGameValues>({
     clipStart: secondsOf(card.clip?.startMs),
@@ -178,7 +182,7 @@ export function CardGameFields({
       <div className="save-row">
         <button type="submit">Save game settings</button>
         <span className="save-status" role="status">
-          {saved ? "Game settings saved" : ""}
+          {saveStatusText(saved, "Game settings saved")}
         </span>
       </div>
       {error ? (
@@ -192,7 +196,7 @@ export function CardGameFields({
 
 // The deck's default clip start, shown under the deck heading. Not a form, so the
 // inspector's form stays the page's first.
-export function DeckGameFields({ deck, onSave }: { deck: Deck; onSave: (seconds: string) => void }) {
+export function DeckGameFields({ deck, onSave }: { deck: Deck; onSave: (seconds: string) => boolean }) {
   const [value, setValue] = useState(secondsOf(deck.defaultClipStartMs));
   const { error, saved, submit, edited } = useSaveStatus(() => onSave(value));
   return (
@@ -219,7 +223,7 @@ export function DeckGameFields({ deck, onSave }: { deck: Deck; onSave: (seconds:
         </button>
       </div>
       <span className="save-status" role="status">
-        {saved ? "Default saved" : ""}
+        {saveStatusText(saved, "Default saved")}
       </span>
       {error ? (
         <p className="error" role="alert">

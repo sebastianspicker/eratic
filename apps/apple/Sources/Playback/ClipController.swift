@@ -13,7 +13,9 @@ final class ClipController: ObservableObject {
     @Published private(set) var state = State.idle
     /// Milliseconds left in a timed clip, updated about ten times a second.
     @Published private(set) var remainingMs: Int?
-    @Published private(set) var error: PlaybackError?
+    @Published private(set) var error: PlaybackError? {
+        didSet { if let error, error != oldValue { Diagnostics.record("clip", error.localizedDescription) } }
+    }
 
     private var task: Task<Void, Never>?
     private var player: Player?
@@ -95,7 +97,7 @@ final class ClipController: ObservableObject {
         } catch {
             // Cancelled or superseded: `cancel()` already stopped this run's player, and a newer clip may be playing.
             guard isCurrent(run) else { return }
-            self.error = error as? PlaybackError ?? .network
+            self.error = PlaybackError.from(error)
             stop(player)
             self.player = nil
             task = nil

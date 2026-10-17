@@ -14,7 +14,9 @@ final class PlaybackHub: ObservableObject {
     @Published private(set) var provider: PlaybackProvider
     @Published private(set) var tier = PlaybackTier.unavailable(reason: "Not connected")
     @Published private(set) var status = Status.idle
-    @Published private(set) var error: PlaybackError?
+    @Published private(set) var error: PlaybackError? {
+        didSet { if let error, error != oldValue { Diagnostics.record("playback", error.localizedDescription) } }
+    }
 
     private let openURL: (URL) -> Void
     private var players: [PlaybackProvider: Player] = [:]
@@ -41,7 +43,7 @@ final class PlaybackHub: ObservableObject {
             tier = adapter.tier
             status = .connected
         } catch {
-            self.error = error as? PlaybackError ?? .network
+            self.error = PlaybackError.from(error)
             status = .failed
         }
     }

@@ -15,6 +15,9 @@ import {
   SESSION_KEY,
   SESSION_UNREADABLE_KEY,
   UnreadableSessionSlotError,
+  UNSEEN_KEY,
+  loadUnseen,
+  markUnseen,
 } from "./sessions";
 
 function fakeStorage(initial: Record<string, string> = {}): Storage {
@@ -149,5 +152,23 @@ describe("play preferences", () => {
     storage.setItem(PLAY_PREFS_KEY, JSON.stringify({ s1: { easyOnly: true, source: "scan" } }));
     expect(loadPlayPrefs("s1", storage)).toEqual({ easyOnly: true, source: "scan" });
     expect(loadPlayPrefs("s1", storage)?.kids).toBeUndefined();
+  });
+});
+
+describe("unseen results marker", () => {
+  it("keeps the ID of a finished game under the Apple app's key, and clears it", () => {
+    const storage = fakeStorage();
+    expect(UNSEEN_KEY).toBe("eratic.play.unseen.v1");
+    expect(loadUnseen(storage)).toBeNull();
+    markUnseen("s1", storage);
+    expect(storage.getItem(UNSEEN_KEY)).toBe("s1");
+    expect(loadUnseen(storage)).toBe("s1");
+    markUnseen(null, storage);
+    expect(loadUnseen(storage)).toBeNull();
+  });
+  it("survives unavailable storage", () => {
+    expect(loadUnseen(brokenStorage())).toBeNull();
+    expect(() => markUnseen("s1", brokenStorage())).not.toThrow();
+    expect(() => markUnseen(null, undefined)).not.toThrow();
   });
 });

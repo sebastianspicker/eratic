@@ -15,6 +15,10 @@ import { loadRoster } from "../../sessions";
 import { listNames } from "./history";
 import type { CardSource, StartSetup } from "./useGame";
 
+// Printing is planned, not built: until then testers make their own scannable code.
+export const SCAN_HINT =
+  "No printed cards yet? In the Deck tab, tick “Use a direct provider link instead” under a card's QR preview, then show that code on another screen or print it, and scan it here.";
+
 function OptionControl({
   mode,
   field,
@@ -293,6 +297,7 @@ export function Setup({
                   {label}
                 </label>
               ))}
+              {source === "scan" ? <p className="muted">{SCAN_HINT}</p> : null}
             </fieldset>
           ) : null}
         </fieldset>

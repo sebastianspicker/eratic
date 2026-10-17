@@ -6,16 +6,34 @@ import UIKit
 import AppKit
 #endif
 
-/// The deck both tabs share. Edits stay in memory until the deck is exported.
+/// The deck both tabs share. Edits stay in memory until the deck is exported (ADR 0005).
 @MainActor
 final class DeckStore: ObservableObject {
-    @Published var deck: Deck?
+    @Published private(set) var deck: Deck?
+    /// An edit was made since the deck was loaded or last exported; quitting or importing would lose it.
+    @Published private(set) var hasUnsavedEdits = false
 
     /// Loads the bundled sample deck when nothing is loaded yet.
     func loadSampleIfNeeded() throws {
         guard deck == nil else { return }
         guard let url = Bundle.main.url(forResource: "demo-deck", withExtension: "json") else { throw DeckError("Bundled sample is missing.") }
         deck = try DeckCodec.decode(Data(contentsOf: url))
+    }
+
+    func edit(_ updated: Deck) {
+        deck = updated
+        hasUnsavedEdits = true
+    }
+
+    /// An imported deck: nothing unsaved yet.
+    func replace(with imported: Deck) {
+        deck = imported
+        hasUnsavedEdits = false
+    }
+
+    /// The export wrote `exported`; unchanged since then means nothing is unsaved.
+    func exported(_ exported: Deck) {
+        if deck == exported { hasUnsavedEdits = false }
     }
 }
 

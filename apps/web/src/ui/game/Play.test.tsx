@@ -26,6 +26,7 @@ import { BESTS_KEY } from "../../bests";
 import { parseDeck } from "../../core/deck";
 import { parseSession } from "../../core/session";
 import { recapLines } from "./Results";
+import { SCAN_HINT } from "./Setup";
 import App from "../App";
 
 const scan = vi.hoisted(() => ({ payload: "" }));
@@ -295,6 +296,67 @@ describe("Bullseye", () => {
     expect(text()).toContain("Final standings");
     await click(button("New game"));
     expect($(".resume")).toBeNull();
+  });
+
+  it("offers finished results again after a reload until the host leaves them", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada", "Lin"]);
+    await click(button("Draw card"));
+    await submit("#guess-p1", "1990");
+    await click(button("End game"));
+    expect(text()).toContain("Final standings");
+    const standings = $(".standings")?.textContent;
+    await rerender();
+    await toPlay();
+    expect($(".resume h2")?.textContent).toBe("Results waiting");
+    expect($(".resume")?.textContent).toContain("Bullseye with Ada and Lin, game over");
+    await click(button("Show results"));
+    expect($(".standings")?.textContent).toBe(standings);
+    expect(hasButton("Download session JSON")).toBe(true);
+    await rerender(); // reloading on the results screen again keeps them
+    await toPlay();
+    await click(button("Show results"));
+    expect($(".standings")?.textContent).toBe(standings);
+    await click(button("New game"));
+    expect($(".resume")).toBeNull();
+    await rerender();
+    await toPlay();
+    expect($(".resume")).toBeNull();
+  });
+
+  it("dismisses waiting results, and a new game starts without asking", async () => {
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "1" });
+    await click(button("Draw card"));
+    await submit("#guess-p1", "1990");
+    await click(button("Reveal"));
+    expect(text()).toContain("Final standings");
+    await rerender();
+    await toPlay();
+    await click(button("Dismiss"));
+    expect($(".resume")).toBeNull();
+    await rerender();
+    await toPlay();
+    expect($(".resume")).toBeNull();
+    const confirm = vi.mocked(window.confirm);
+    confirm.mockClear();
+    await setUp("Bullseye", ["Ada"]);
+    expect(confirm).not.toHaveBeenCalled();
+    expect($("h1")?.textContent).toBe("Bullseye");
+  });
+
+  it("tells hosts without printed cards how to get a scannable code", async () => {
+    Object.defineProperty(navigator, "mediaDevices", { value: { getUserMedia: vi.fn() }, configurable: true });
+    await render();
+    await toPlay();
+    await click(button("Play Bullseye"));
+    expect(text()).not.toContain(SCAN_HINT);
+    await click($('input[value="scan"]')!);
+    expect(text()).toContain(SCAN_HINT);
+    await click($('input[value="draw"]')!);
+    expect(text()).not.toContain(SCAN_HINT);
   });
 
   it("scans printed cards: another deck, a deck card, an unmatched song and a repeat", async () => {

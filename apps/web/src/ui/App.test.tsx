@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import demo from "../../../../contract/demo-deck.json";
+import { BUILD, clearDiagnostics } from "../diagnostics";
 import { STORAGE_KEY, UNREADABLE_KEY } from "../storage";
 import App from "./App";
 
@@ -83,6 +84,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.restoreAllMocks();
+  clearDiagnostics();
 });
 
 describe("web companion workflows", () => {
@@ -113,6 +115,8 @@ describe("web companion workflows", () => {
   it("keeps the official route empty without a mapping and renders a direct link only on request", async () => {
     await render();
     expect(container.textContent).toContain("No official card mapping");
+    expect(container.textContent).toContain("Direct links open the provider.");
+    expect(container.textContent).not.toMatch(/hitster/i); // no compatibility claim either way (ADR 0013)
     expect($(".qr-image")).toBeNull();
     await click($(".checkbox-label input")!);
     await waitFor(() => !!$(".qr-image svg"));
@@ -235,5 +239,104 @@ describe("web companion workflows", () => {
     expect($$("button").some((item) => item.textContent === "Discard it")).toBe(
       false,
     );
+  });
+
+  it("shows the build and copies diagnostics with the problems the app reported", async () => {
+    let copied = "";
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: async (text: string) => void (copied = text) },
+      configurable: true,
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Quota exceeded", "QuotaExceededError");
+    });
+    await render();
+    expect($(".app-footer")?.textContent).toContain(`Eratic ${BUILD}`);
+    await click(button("Save changes"));
+    await click(button("Copy diagnostics"));
+    expect(copied.split("\n")[0]).toBe(`Eratic web ${BUILD}`);
+    expect(copied).toContain("[deck] Browser storage is unavailable. Export your deck to keep your changes. (Quota exceeded)");
+    expect(container.textContent).toContain("Diagnostics copied");
+    Reflect.deleteProperty(navigator, "clipboard");
+  });
+
+  it("saves diagnostics as a file when the clipboard is unavailable", async () => {
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+    await render();
+    await click(button("Copy diagnostics"));
+    expect(downloads.at(-1)?.name).toBe("eratic-diagnostics.txt");
+    expect(await downloads.at(-1)!.text).toContain(`Eratic web ${BUILD}`);
+    expect(container.textContent).toContain("Diagnostics saved as a file");
+    Reflect.deleteProperty(navigator, "clipboard");
+  });
+
+  it("does not claim a save when browser storage refuses it", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Quota exceeded", "QuotaExceededError");
+    });
+    await render();
+    await type("#game-year", "1999");
+    await click(button("Save changes"));
+    expect(container.textContent).not.toContain("Changes saved");
+    expect($(".inspector .save-status")?.textContent).toBe("Not stored on this device");
+    expect($(".notice[role=alert]")?.textContent).toContain("Export your deck to keep your changes.");
+    expect($$(".song-row")[0].querySelector(".row-year")?.textContent).toBe("1999"); // kept in memory
+    const difficulty = $("#difficulty") as HTMLSelectElement;
+    await act(async () => {
+      difficulty.value = "2";
+      difficulty.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await click(button("Save game settings"));
+    expect(container.textContent).not.toContain("Game settings saved");
+    expect($(".game-fields .save-status")?.textContent).toBe("Not stored on this device");
+  });
+
+  it("asks before an import replaces the deck stored on this device", async () => {
+    await render();
+    await type("#game-year", "1999");
+    await click(button("Save changes"));
+    const stored = saved();
+    const next = structuredClone(demo);
+    next.id = "other-deck";
+    next.title = "Other deck";
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await importFile(JSON.stringify(next));
+    expect(confirm).toHaveBeenCalledWith(
+      "Replace the deck stored on this device with “Other deck”? Export the current deck first to keep a copy.",
+    );
+    expect($("h1")?.textContent).toBe(demo.title);
+    expect(saved()).toBe(stored);
+    confirm.mockReturnValue(true);
+    await importFile(JSON.stringify(next));
+    expect($("h1")?.textContent).toBe("Other deck");
+    expect(JSON.parse(saved()!).id).toBe("other-deck");
+  });
+
+  it("asks before an import replaces edits that storage refused to keep", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Quota exceeded", "QuotaExceededError");
+    });
+    await render();
+    await type("#game-year", "1999");
+    await click(button("Save changes"));
+    const next = structuredClone(demo);
+    next.title = "Other deck";
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await importFile(JSON.stringify(next));
+    expect(confirm).toHaveBeenCalledWith(
+      "Replace the current deck and its unsaved changes with “Other deck”? Export the current deck first to keep them.",
+    );
+    expect($("h1")?.textContent).toBe(demo.title);
+    expect($$(".song-row")[0].querySelector(".row-year")?.textContent).toBe("1999");
+  });
+
+  it("imports over the unsaved sample without asking", async () => {
+    await render();
+    const confirm = vi.spyOn(window, "confirm");
+    const next = structuredClone(demo);
+    next.title = "Other deck";
+    await importFile(JSON.stringify(next));
+    expect(confirm).not.toHaveBeenCalled();
+    expect($("h1")?.textContent).toBe("Other deck");
   });
 });

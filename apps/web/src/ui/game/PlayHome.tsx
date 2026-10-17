@@ -255,6 +255,21 @@ export function PlayHome({
           </div>
         </section>
       ) : null}
+      {view.waiting ? (
+        <section className="resume panel" aria-labelledby="results-waiting-title">
+          <h2 id="results-waiting-title">Results waiting</h2>
+          <p>
+            {MODE_INFO[view.waiting.mode].name} with {listNames(view.waiting.players.map((player) => player.name))}, game
+            over
+          </p>
+          <div className="action-row">
+            <button className="primary" onClick={() => controller.showResults()}>
+              Show results
+            </button>
+            <button onClick={() => controller.dismissResults()}>Dismiss</button>
+          </div>
+        </section>
+      ) : null}
       <div className="play-grid">
         <PlaybackPanel hub={hub} deck={deck} />
         <DailyCard deck={deck} onPlay={onDaily} onResume={savedDaily ? daily : undefined} />

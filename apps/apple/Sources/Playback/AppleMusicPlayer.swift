@@ -25,8 +25,31 @@ final class AppleMusicPlayer: Player {
             let subscription = try await MusicSubscription.current
             tier = subscription.canPlayCatalogContent ? .fullTrack : .previewOnly(maxMs: 30_000)
         } catch {
+            let cause = Self.musicKitError(error)
+            // Without MusicKit set up for this app, catalog previews fail too; say so now.
+            if cause == .notConfigured {
+                tier = .unavailable(reason: cause.localizedDescription)
+                throw cause
+            }
             tier = .previewOnly(maxMs: 30_000)
+            Diagnostics.record("playback", "Apple Music subscription unknown, using 30-second previews: \(cause.localizedDescription)")
         }
+    }
+
+    /// MusicKit's failures in the player's terms: a build without the MusicKit app service fails
+    /// its developer token, which is not a connection problem.
+    static func musicKitError(_ error: Error) -> PlaybackError {
+        if let token = error as? MusicTokenRequestError {
+            switch token {
+            case .developerTokenRequestFailed: return .notConfigured
+            case .permissionDenied, .privacyAcknowledgementRequired, .userNotSignedIn, .userTokenRevoked: return .notAuthorised
+            default: return .failed(token.localizedDescription)
+            }
+        }
+        if let request = error as? MusicDataRequest.Error {
+            return request.status == 404 ? .trackUnavailable : .failed(request.localizedDescription)
+        }
+        return PlaybackError.from(error)
     }
 
     func prepare(_ track: PlayableTrack) async throws {
@@ -39,7 +62,7 @@ final class AppleMusicPlayer: Player {
         do {
             response = try await request.response()
         } catch {
-            throw PlaybackError.network
+            throw Self.musicKitError(error)
         }
         guard let found = response.items.first else { throw PlaybackError.trackUnavailable }
         song = found

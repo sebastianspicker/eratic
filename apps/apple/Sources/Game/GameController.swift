@@ -42,7 +42,9 @@ final class GameController: ObservableObject {
 
     @Published private(set) var session: GameSession?
     @Published private(set) var state: GameState?
-    @Published var lastError: String?
+    @Published var lastError: String? {
+        didSet { if let lastError, lastError != oldValue { Diagnostics.record("game", lastError) } }
+    }
     /// The personal-best outcome recorded for a finished session, so the results can show it again.
     var bestOutcome: (sessionId: String, outcome: Bests.Outcome)?
     /// Snippet Ladder's answer is shown, or a step is preparing, starting or playing: Undo is hidden.
@@ -55,7 +57,9 @@ final class GameController: ObservableObject {
     /// Setup news for the host to read out, such as Timeline anchors.
     @Published var announcement: String?
     /// Set when a saved game couldn't be read and was kept aside.
-    @Published private(set) var storeNotice: String?
+    @Published private(set) var storeNotice: String? {
+        didSet { if let storeNotice, storeNotice != oldValue { Diagnostics.record("game", storeNotice) } }
+    }
     @Published var cardSource = CardSource.draw
     @Published private(set) var easyOnly = false
     /// Timeline's Kids switch: larger controls for this session (the options themselves were preset at setup).

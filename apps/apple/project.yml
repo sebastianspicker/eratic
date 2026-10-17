@@ -14,6 +14,11 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     PRODUCT_NAME: Eratic
     INFOPLIST_KEY_CFBundleDisplayName: Eratic
+    # Keep MARKETING_VERSION equal to the version in apps/web/package.json.
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Only HTTPS and the system Keychain, which are exempt from export documentation.
+    INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
 targets:
   Eratic-macOS:
     type: application
@@ -56,6 +61,8 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        # iPad multitasking requires all four orientations.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
 schemes:
   Eratic-macOS:
     build:

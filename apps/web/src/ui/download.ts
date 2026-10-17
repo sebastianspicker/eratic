@@ -1,6 +1,6 @@
-// Offers text as a JSON file download.
-export function saveText(filename: string, text: string) {
-  const blob = new Blob([text], { type: "application/json" });
+// Offers text as a file download, JSON unless another type is given.
+export function saveText(filename: string, text: string, type = "application/json") {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;

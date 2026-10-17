@@ -86,7 +86,7 @@ final class CalibrationRun: ObservableObject {
             await player.stop()
         } catch {
             await player.stop()
-            self.error = error as? PlaybackError ?? .network
+            self.error = PlaybackError.from(error)
         }
     }
 

@@ -2,26 +2,27 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { clearDiagnostics, diagnosticsText } from "../../diagnostics";
 import { EmbeddedPreview } from "./EmbeddedPreview";
 
 const fake = vi.hoisted(() => ({
   created: vi.fn(), dispose: vi.fn(), play: vi.fn(), pause: vi.fn(), seek: vi.fn(), restart: vi.fn(),
-  state: "ready", duration: 30, position: 12,
+  state: "ready", duration: 30, position: 12, failure: undefined as string | undefined,
 }));
 vi.mock("../../playback/embeddedPreview", async importOriginal => {
   const original = await importOriginal<typeof import("../../playback/embeddedPreview")>();
   const methods = () => ({ dispose: fake.dispose, play: fake.play, pause: fake.pause, seek: fake.seek, restart: fake.restart });
   return { ...original,
     SpotifyPreviewSession: class {
-      constructor(_host: HTMLElement, id: string, notify: (s: string) => void, options: { autoplay?: boolean; progress?: (p: object) => void }) {
-        fake.created("spotify", id, options.autoplay); notify(fake.state);
+      constructor(_host: HTMLElement, id: string, notify: (s: string) => void, options: { autoplay?: boolean; progress?: (p: object) => void; failure?: (f: string) => void }) {
+        fake.created("spotify", id, options.autoplay); if (fake.failure) options.failure?.(fake.failure); notify(fake.state);
         options.progress?.({ position: fake.position, duration: fake.duration });
       }
       dispose = fake.dispose; play = fake.play; pause = fake.pause; seek = fake.seek; restart = fake.restart;
     },
     ApplePreviewSession: class {
-      constructor(id: string, storefront: string, notify: (s: string) => void, options: { autoplay?: boolean; progress?: (p: object) => void }) {
-        fake.created("apple", id, storefront, options.autoplay); notify(fake.state);
+      constructor(id: string, storefront: string, notify: (s: string) => void, options: { autoplay?: boolean; progress?: (p: object) => void; failure?: (f: string) => void }) {
+        fake.created("apple", id, storefront, options.autoplay); if (fake.failure) options.failure?.(fake.failure); notify(fake.state);
         options.progress?.({ position: fake.position, duration: fake.duration });
       }
       dispose = methods().dispose; play = fake.play; pause = fake.pause; seek = fake.seek; restart = fake.restart;
@@ -31,7 +32,7 @@ vi.mock("../../playback/embeddedPreview", async importOriginal => {
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let root: Root; let host: HTMLDivElement;
 beforeEach(() => {
-  vi.clearAllMocks(); Object.assign(fake, { state: "ready", duration: 30, position: 12 });
+  vi.clearAllMocks(); Object.assign(fake, { state: "ready", duration: 30, position: 12, failure: undefined }); clearDiagnostics();
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(async () => { await act(() => root.unmount()); host.remove(); });
@@ -127,4 +128,20 @@ it("Apple error offers retry and the reveal fallback", async () => {
   expect(fake.created).toHaveBeenCalledTimes(2);
   expect(host.querySelector("iframe")).toBeNull();
   expect(host.textContent).not.toContain("Show Apple Music player (reveals song)");
+});
+it("names the cause of a failed preview and keeps it for bug reports", async () => {
+  Object.assign(fake, { state: "error", failure: "rateLimited" });
+  await render("https://music.apple.com/us/album/x/1?i=456");
+  await click("Play preview");
+  expect(host.textContent).toContain(
+    "Apple Music is limiting preview requests; wait a minute before retrying. Retry or use the QR/song link.",
+  );
+  expect(diagnosticsText()).toContain("[preview] Apple Music: Apple Music is limiting preview requests");
+  Object.assign(fake, { failure: "timeout" });
+  await render(spotify);
+  await click("Play preview");
+  expect(host.textContent).toContain("The Spotify preview didn't start in time. Retry or use the QR/song link.");
+  Object.assign(fake, { failure: undefined });
+  await click("Retry preview");
+  expect(host.textContent).toContain("The preview could not play. Retry or use the QR/song link.");
 });

@@ -53,6 +53,15 @@ enum PlaybackError: LocalizedError, Equatable {
     case notConfigured
     case noTrackPrepared
     case playbackFailed
+    /// Any other failure, with the system's own description so a bug report can name it.
+    case failed(String)
+
+    /// Keeps a playback error as it is; a lost connection is `.network`, anything else keeps its own words.
+    static func from(_ error: Error) -> PlaybackError {
+        if let error = error as? PlaybackError { return error }
+        if error is URLError { return .network }
+        return .failed(error.localizedDescription)
+    }
 
     var errorDescription: String? {
         switch self {
@@ -65,6 +74,7 @@ enum PlaybackError: LocalizedError, Equatable {
         case .notConfigured: return "This music service is not set up in this build."
         case .noTrackPrepared: return "No song is prepared for playback."
         case .playbackFailed: return "Apple Music couldn't start this song."
+        case let .failed(reason): return "Playback failed: \(reason)"
         }
     }
 }

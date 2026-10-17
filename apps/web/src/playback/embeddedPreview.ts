@@ -86,7 +86,18 @@ type Snippet = {
   from: number; length: number; onAudible: () => void; onset: boolean;
   before?: number; staleTimer?: ReturnType<typeof setTimeout>; timer?: ReturnType<typeof setTimeout>;
 };
-export type PreviewOptions = { autoplay?: boolean; progress?: (progress: PreviewProgress) => void };
+// Why a preview ended in "error", reported just before that state so the host
+// reads a cause instead of one message for everything.
+export type PreviewFailure = "offline" | "rateLimited" | "lookupFailed" | "playerFailed" | "timeout";
+export type PreviewOptions = {
+  autoplay?: boolean; progress?: (progress: PreviewProgress) => void; failure?: (failure: PreviewFailure) => void;
+};
+// Whatever failed, a browser that knows it is offline says so.
+const failureCause = (failure: PreviewFailure): PreviewFailure =>
+  typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : failure;
+class LookupError extends Error {
+  constructor(readonly failure: PreviewFailure) { super(failure); }
+}
 
 // Inspired by HITSTER's distinct embed fallback; independently implemented with
 // Spotify's public iframe API. It is NOT an exact-clip Player (ATTRIBUTION.md).
@@ -146,9 +157,9 @@ export class SpotifyPreviewSession implements PreviewSession {
             this.update("paused");
           }
         });
-        controller.addListener("error", () => this.update("error"));
+        controller.addListener("error", () => this.fail("playerFailed"));
       });
-    }).catch(() => this.update("error"));
+    }).catch(() => this.fail("playerFailed"));
   }
 
   private cancelSnippet() {
@@ -184,11 +195,16 @@ export class SpotifyPreviewSession implements PreviewSession {
     if (state === "error") this.dispose();
     this.notify(state);
   }
+  private fail(failure: PreviewFailure) {
+    if (this.disposed) return;
+    this.options.failure?.(failureCause(failure));
+    this.update("error");
+  }
   private deadline() {
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.pendingStart = false;
-      this.update("error");
+      this.fail("timeout");
     }, 12_000);
   }
   // Spotify can drop a play() sent right at "ready", and a browser may refuse audio
@@ -203,7 +219,7 @@ export class SpotifyPreviewSession implements PreviewSession {
     clearTimeout(this.autoTimer);
     this.autoTimer = setTimeout(() => {
       if (this.disposed || settled()) return;
-      try { retry(); } catch { this.update("error"); return; }
+      try { retry(); } catch { this.fail("playerFailed"); return; }
       this.autoTimer = setTimeout(() => {
         if (this.disposed || settled()) return;
         giveUp();
@@ -219,7 +235,7 @@ export class SpotifyPreviewSession implements PreviewSession {
     this.pauseRequested = false;
     this.notify("starting");
     this.deadline();
-    try { start(this.controller); } catch { this.update("error"); }
+    try { start(this.controller); } catch { this.fail("playerFailed"); }
   }
   play() {
     this.cancelSnippet();
@@ -270,7 +286,7 @@ export class SpotifyPreviewSession implements PreviewSession {
     clearTimeout(this.autoTimer);
     this.pendingStart = false;
     this.pauseRequested = true;
-    try { this.controller?.pause(); this.update("paused"); } catch { this.update("error"); }
+    try { this.controller?.pause(); this.update("paused"); } catch { this.fail("playerFailed"); }
   }
   dispose() {
     if (this.disposed) return;
@@ -310,14 +326,14 @@ export class ApplePreviewSession implements PreviewSession {
     lookup.searchParams.set("entity", "song");
     const request = options.fetch ?? ((input, init) => fetch(input, init));
     void request(lookup.href, { signal: this.abort.signal }).then(async (response) => {
-      if (!response.ok) throw new Error("lookup failed");
+      if (!response.ok) throw new LookupError(response.status === 429 ? "rateLimited" : "lookupFailed");
       const body = await response.json() as { results?: { wrapperType?: unknown; trackId?: unknown; previewUrl?: unknown }[] };
       if (this.disposed) return;
       const track = body.results?.find((item) => item?.wrapperType === "track" && String(item.trackId) === id);
       const src = this.previewSource(track?.previewUrl);
       if (!src) return this.finish("unavailable");
       this.attach(src);
-    }).catch(() => this.finish("error"));
+    }).catch((error: unknown) => this.finish("error", error instanceof LookupError ? error.failure : "lookupFailed"));
   }
 
   private previewSource(value: unknown): string | undefined {
@@ -362,7 +378,7 @@ export class ApplePreviewSession implements PreviewSession {
       this.cancelSnippet();
       this.update("paused");
     });
-    on("error", () => this.finish("error"));
+    on("error", () => this.finish("error", "playerFailed"));
     for (const name of ["timeupdate", "durationchange", "loadedmetadata"]) on(name, progress);
     audio.preload = "auto";
     audio.src = src;
@@ -399,10 +415,11 @@ export class ApplePreviewSession implements PreviewSession {
   }
   private deadline() {
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.finish("error"), 12_000);
+    this.timer = setTimeout(() => this.finish("error", "timeout"), 12_000);
   }
-  private finish(state: "error" | "unavailable") {
+  private finish(state: "error" | "unavailable", failure?: PreviewFailure) {
     if (this.disposed) return;
+    if (failure) this.options.failure?.(failureCause(failure));
     // End this attempt before pausing/aborting: both can queue callbacks. Only
     // an explicit retry creates a new session and can resume hidden playback.
     this.dispose();
@@ -427,9 +444,9 @@ export class ApplePreviewSession implements PreviewSession {
         if (name === "AbortError") return;
         // Blocked autoplay: stay playable from the host's next Play press.
         if (name === "NotAllowedError") return this.update("ready");
-        this.finish("error");
+        this.finish("error", "playerFailed");
       });
-    } catch { this.finish("error"); }
+    } catch { this.finish("error", "playerFailed"); }
   }
   restart() {
     if (this.disposed || !this.audio) return;

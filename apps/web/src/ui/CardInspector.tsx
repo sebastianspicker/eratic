@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { Card, Deck } from "../core/deck";
-import { CardGameFields, type CardGameValues } from "./CardGameFields";
+import { CardGameFields, saveStatusText, type CardGameValues, type SaveStatus } from "./CardGameFields";
 import { QRPreview } from "./QRPreview";
 import { eraFor, eraStyle } from "./eras";
 export function CardInspector({
@@ -11,18 +11,18 @@ export function CardInspector({
 }: {
   card: Card;
   deck: Deck;
-  onSave: (value: number, source: string) => void;
-  onSaveGame: (values: CardGameValues) => void;
+  // false: changed in memory but not stored on this device.
+  onSave: (value: number, source: string) => boolean;
+  onSaveGame: (values: CardGameValues) => boolean;
 }) {
   const [year, setYear] = useState(String(card.gameYear.value));
   const [source, setSource] = useState(card.gameYear.source);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<SaveStatus>("");
   function submit(event: FormEvent) {
     event.preventDefault();
     try {
-      onSave(Number(year), source);
-      setSaved(true);
+      setSaved(onSave(Number(year), source) ? "saved" : "unstored");
       setError("");
     } catch (failure) {
       setError(
@@ -60,7 +60,7 @@ export function CardInspector({
             value={year}
             onChange={(event) => {
               setYear(event.target.value);
-              setSaved(false);
+              setSaved("");
             }}
           />
           <label htmlFor="year-source">Year source</label>
@@ -70,7 +70,7 @@ export function CardInspector({
             value={source}
             onChange={(event) => {
               setSource(event.target.value);
-              setSaved(false);
+              setSaved("");
             }}
           />
           <div className="save-row">
@@ -78,7 +78,7 @@ export function CardInspector({
               Save changes
             </button>
             <span className="save-status" role="status">
-              {saved ? "Changes saved" : ""}
+              {saveStatusText(saved, "Changes saved")}
             </span>
           </div>
           {error ? (

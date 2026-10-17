@@ -15,6 +15,8 @@ struct DeckWorkspace: View {
     @State private var dismissedSuggestions: Set<String> = []
     /// `suggestRelations` for the loaded cards, recomputed when they change rather than on every redraw.
     @State private var relationSuggestions: [RelationSuggestion] = []
+    /// A decoded import waiting for the host to confirm it may replace unsaved edits.
+    @State private var pendingImport: Deck?
 
     private var deck: Deck? { store.deck }
 
@@ -36,7 +38,7 @@ struct DeckWorkspace: View {
                             }
                         }
                     } header: {
-                        Text("\(deck.cards.count) cards · local collection")
+                        Text("\(deck.cards.count) cards · " + (store.hasUnsavedEdits ? "unsaved edits, export to keep them" : "local collection"))
                     }
                     let suggestions = relationSuggestions.filter { !dismissedSuggestions.contains(suggestionKey($0)) }
                     if !suggestions.isEmpty {
@@ -66,7 +68,7 @@ struct DeckWorkspace: View {
             if let card = deck?.cards.first(where: { $0.id == selectedCardID }) {
                 CardDetail(card: card, deckId: deck?.id ?? "", otherCards: deck?.cards.filter { $0.id != card.id } ?? [], onSaveYear: { year in
                     guard let current = deck else { return }
-                    store.deck = try current.updatingGameYear(year, forCardID: card.id)
+                    store.edit(try current.updatingGameYear(year, forCardID: card.id))
                 }, onSaveGameFields: { clip, difficulty, related in
                     guard let current = deck else { return }
                     apply(try current.updatingGameFields(clip: clip, difficulty: difficulty, relatedTo: related, forCardID: card.id))
@@ -97,12 +99,24 @@ struct DeckWorkspace: View {
                 let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
                 guard size <= DeckCodec.maximumBytes else { throw DeckError("Deck exceeds the 8 MiB import limit.") }
                 let imported = try DeckCodec.decode(Data(contentsOf: url))
-                store.deck = imported
-                selectedCardID = imported.cards.first?.id
+                if store.hasUnsavedEdits {
+                    pendingImport = imported
+                } else {
+                    install(imported)
+                }
             } catch { errorMessage = error.localizedDescription }
         }
+        .confirmationDialog("Replace the deck with unsaved edits?", isPresented: Binding(get: { pendingImport != nil }, set: { if !$0 { pendingImport = nil } }), titleVisibility: .visible, presenting: pendingImport) { imported in
+            // The presented deck is passed in, so dismissal clearing pendingImport can't race the action.
+            Button("Replace deck", role: .destructive) { install(imported) }
+        } message: { _ in
+            Text("Your edits to “\(deck?.title ?? "")” exist only in memory. Cancel and export the deck first to keep them.")
+        }
         .fileExporter(isPresented: $showExporter, document: exportDocument, contentType: .json, defaultFilename: deck?.id ?? "deck") { result in
-            if case .failure(let error) = result { errorMessage = error.localizedDescription }
+            switch result {
+            case .success: if let exportDocument { store.exported(exportDocument.deck) }
+            case .failure(let error): errorMessage = error.localizedDescription
+            }
         }
         .sheet(isPresented: $showDefaultClipStart) {
             if let deck {
@@ -112,6 +126,9 @@ struct DeckWorkspace: View {
         .onChange(of: store.deck?.cards, initial: true) { relationSuggestions = deck.map { RelationSuggestions.suggestRelations($0.cards) } ?? [] }
         .alert("Saved as deck format 2; older Eratic versions can't open it.", isPresented: $migratedNotice) {
             Button("OK", role: .cancel) {}
+        }
+        .onChange(of: errorMessage) { _, message in
+            if let message { Diagnostics.record("deck", message) }
         }
         .alert("Couldn’t open or save deck", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) { errorMessage = nil }
@@ -154,6 +171,11 @@ struct DeckWorkspace: View {
     /// Stores an edited deck; the first edit that converts it to format 2 says so once.
     private func apply(_ updated: Deck) {
         if let current = deck, current.schemaVersion < 2, updated.schemaVersion >= 2 { migratedNotice = true }
-        store.deck = updated
+        store.edit(updated)
+    }
+
+    private func install(_ imported: Deck) {
+        store.replace(with: imported)
+        selectedCardID = imported.cards.first?.id
     }
 }

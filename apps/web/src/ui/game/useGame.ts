@@ -37,11 +37,14 @@ import {
   loadSessionDeck,
   persistSession,
   persistSessionDeck,
+  loadUnseen,
+  markUnseen,
   readUnreadableSession,
   recordDaily,
   savePlayPrefs,
   UnreadableSessionSlotError,
 } from "../../sessions";
+import { record, withCause } from "../../diagnostics";
 import { cardsNeeded, isEasy, MODE_INFO } from "./modes";
 
 // The host's game: one session, its engine state, and persistence after every
@@ -99,6 +102,8 @@ export interface GameView {
   summary?: Summary;
   // An unfinished saved game waiting for Resume.
   saved?: Session;
+  // A finished game whose results the host had not left before a reload ("Results waiting").
+  waiting?: Session;
   unreadable: boolean;
   notice: string;
   storageNotice: string;
@@ -183,14 +188,17 @@ export class GameController {
   ) {
     const loaded = loadSession(storage);
     let saved: Session | undefined;
+    let waiting: Session | undefined;
     if (loaded.session)
       try {
         if (replay(loaded.session).phase !== "finished") saved = loaded.session;
+        else if (loadUnseen(storage) === loaded.session.id) waiting = loaded.session;
       } catch {
         // parseSession already replayed it; unreachable in practice
       }
     this.view = {
       saved,
+      waiting,
       unreadable: loaded.unreadable,
       notice: loaded.notice,
       storageNotice: "",
@@ -220,9 +228,12 @@ export class GameController {
       persistSession(session, this.storage);
       return "";
     } catch (failure) {
-      return failure instanceof UnreadableSessionSlotError
-        ? failure.message
-        : "Browser storage is unavailable. This game won't survive a reload.";
+      const problem =
+        failure instanceof UnreadableSessionSlotError
+          ? failure.message
+          : "Browser storage is unavailable. This game won't survive a reload.";
+      record("game", withCause(problem, failure));
+      return problem;
     }
   }
   private pool(deck: Deck, easyOnly = this.view.easyOnly): Card[] {
@@ -336,11 +347,13 @@ export class GameController {
         storageNotice = "Browser storage refused the game's settings, so Easy cards only won't survive a reload.";
       persistSessionDeck(deck, this.storage);
     }
+    markUnseen(null, this.storage);
     this.set({
       session,
       state,
       summary: summaryOf(state),
       saved: undefined,
+      waiting: undefined,
       notice: "",
       storageNotice,
       announcement: lines.join(" "),
@@ -368,8 +381,17 @@ export class GameController {
     );
   }
   resume() {
-    const saved = this.view.saved;
-    if (!saved) return;
+    if (this.view.saved) this.open(this.view.saved);
+  }
+  // Results waiting: shows them again; they stay offered until the host leaves them.
+  showResults() {
+    if (this.view.waiting) this.open(this.view.waiting);
+  }
+  dismissResults() {
+    markUnseen(null, this.storage);
+    this.set({ waiting: undefined });
+  }
+  private open(saved: Session) {
     const state = replay(saved);
     this.last = undefined;
     const prefs = loadPlayPrefs(saved.id, this.storage);
@@ -379,6 +401,7 @@ export class GameController {
       state,
       summary: summaryOf(state),
       saved: undefined,
+      waiting: undefined,
       notice: "",
       announcement: "",
       source: prefs?.source ?? "draw",
@@ -401,9 +424,10 @@ export class GameController {
     }
     this.set({ saved: undefined, notice: "" });
   }
-  // Leaves the host screen; an unfinished game stays saved for Resume.
+  // Leaves the host screen; an unfinished game stays saved for Resume, and left results are seen.
   close() {
     const { session, state } = this.view;
+    if (state?.phase === "finished") markUnseen(null, this.storage);
     this.set({
       session: undefined,
       state: undefined,
@@ -454,6 +478,7 @@ export class GameController {
         this.storage,
       );
     }
+    if (state.phase !== "finished" && next.phase === "finished") markUnseen(session.id, this.storage);
     this.set({
       session: updated,
       state: next,

@@ -28,8 +28,19 @@ struct HostView: View {
                 }
             }
         }
+        // A hosted game keeps the iPhone/iPad screen on, so previews and the stage survive a quiet round.
+        .onAppear { Self.keepScreenOn(true) }
         // Leaving Play home, switching tabs or closing the game never leaves a clip running.
-        .onDisappear { clip.cancel() }
+        .onDisappear {
+            clip.cancel()
+            Self.keepScreenOn(false)
+        }
+    }
+
+    private static func keepScreenOn(_ on: Bool) {
+        #if os(iOS)
+        UIApplication.shared.isIdleTimerDisabled = on
+        #endif
     }
 
     private func content(_ session: GameSession, _ state: GameState, _ deck: Deck) -> some View {

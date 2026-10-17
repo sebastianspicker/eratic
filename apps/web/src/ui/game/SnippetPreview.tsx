@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { Card } from "../../core/deck";
+import { record } from "../../diagnostics";
 import {
-  ApplePreviewSession, previewTarget, SpotifyPreviewSession, type PreviewSession, type PreviewState,
+  ApplePreviewSession, previewTarget, SpotifyPreviewSession, type PreviewFailure, type PreviewSession, type PreviewState,
 } from "../../playback/embeddedPreview";
 import type { PlaybackProvider } from "../../playback/player";
+import { failureText } from "./EmbeddedPreview";
 import { backupTrack } from "./playback";
 
 // A hidden provider preview that plays timed snippets (Snippet Ladder without exact
@@ -24,7 +26,7 @@ export function useSnippetPreview(url: string | undefined, cardId: string | unde
 } {
   const target = url ? previewTarget(url) : undefined;
   // The state belongs to one preview: right after a switch, the previous one's reads as loading.
-  const [current, setCurrent] = useState<{ key: string; state: PreviewState }>({ key: "", state: "loading" });
+  const [current, setCurrent] = useState<{ key: string; state: PreviewState; failure?: PreviewFailure }>({ key: "", state: "loading" });
   const [ran, setRan] = useState(false);
   const [length, setLength] = useState(0);
   const [stopped, setStopped] = useState(false);
@@ -41,14 +43,23 @@ export function useSnippetPreview(url: string | undefined, cardId: string | unde
     setRan(false);
     setStopped(false);
     let disposed = false;
+    // Reported just before the "error" state it explains.
+    let failure: PreviewFailure | undefined;
     const notify = (next: PreviewState) => {
       if (disposed) return;
       currentState.current = next;
-      setCurrent({ key, state: next });
+      setCurrent({ key, state: next, ...(next === "error" && { failure }) });
+    };
+    const name = target.provider === "spotify" ? "Spotify" : "Apple Music";
+    const options = {
+      failure: (cause: PreviewFailure) => {
+        failure = cause;
+        record("preview", `${name}: ${failureText(name, cause)}`);
+      },
     };
     const current = target.provider === "spotify"
-      ? mount.current ? new SpotifyPreviewSession(mount.current, target.id, notify) : undefined
-      : new ApplePreviewSession(target.id, target.storefront, notify);
+      ? mount.current ? new SpotifyPreviewSession(mount.current, target.id, notify, options) : undefined
+      : new ApplePreviewSession(target.id, target.storefront, notify, options);
     session.current = current;
     return () => {
       disposed = true;
@@ -62,7 +73,7 @@ export function useSnippetPreview(url: string | undefined, cardId: string | unde
   const status = !target ? ""
     : state === "loading" ? "Loading preview…"
     : state === "unavailable" ? "No hidden preview is available for this song."
-    : state === "error" ? "The preview could not play."
+    : state === "error" ? failureText(target.provider === "spotify" ? "Spotify" : "Apple Music", current.failure)
     : state === "starting" ? "Starting preview…"
     : state === "playing" ? `Playing ${length / 1000} s…`
     : state === "paused" && ran ? stopped ? "Snippet stopped" : "Snippet finished" : "Preview ready";

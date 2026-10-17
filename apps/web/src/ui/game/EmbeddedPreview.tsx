@@ -1,8 +1,29 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { record } from "../../diagnostics";
 import {
   ApplePreviewSession, previewTarget, SpotifyPreviewSession,
-  type PreviewProgress, type PreviewSession, type PreviewState,
+  type PreviewFailure, type PreviewProgress, type PreviewSession, type PreviewState,
 } from "../../playback/embeddedPreview";
+
+// What went wrong, in words; without a known cause, the generic sentence.
+export function failureText(name: string, failure?: PreviewFailure): string {
+  switch (failure) {
+    case "offline": return "You're offline, so the preview can't load.";
+    case "rateLimited": return `${name} is limiting preview requests; wait a minute before retrying.`;
+    case "lookupFailed": return `${name}'s preview lookup didn't answer; a content blocker or network filter may block it.`;
+    case "playerFailed": return `The ${name} player couldn't load the preview; a content blocker or network filter may block it.`;
+    case "timeout": return `The ${name} preview didn't start in time.`;
+    default: return "The preview could not play.";
+  }
+}
+// The failure callback for a preview session: keeps the cause for the message and for bug reports.
+export function useFailure(name: string): [PreviewFailure | undefined, (failure: PreviewFailure | undefined) => void] {
+  const [failure, setFailure] = useState<PreviewFailure>();
+  return [failure, (next) => {
+    if (next) record("preview", `${name}: ${failureText(name, next)}`);
+    setFailure(next);
+  }];
+}
 
 export function EmbeddedPreview({ url }: { url: string }) {
   const target = previewTarget(url);
@@ -12,14 +33,14 @@ export function EmbeddedPreview({ url }: { url: string }) {
     : <ApplePreview key={`${target.storefront}/${target.id}`} id={target.id} storefront={target.storefront} url={target.url} />;
 }
 
-const messages = (name: string): Record<PreviewState, string> => ({
+const messages = (name: string, failure?: PreviewFailure): Record<PreviewState, string> => ({
   loading: `Loading ${name} preview…`,
   ready: "Preview ready. Press Play; song details stay hidden.",
   starting: "Starting preview…",
   playing: "Preview playing",
   paused: "Preview stopped",
   unavailable: "No hidden preview is available for this song. Use the QR/song link.",
-  error: `The preview could not play. Retry or use the QR/song link.`,
+  error: `${failureText(name, failure)} Retry or use the QR/song link.`,
 });
 
 const clock = (seconds: number) => {
@@ -63,13 +84,15 @@ function SpotifyPreview({ id }: { id: string }) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<PreviewState>("loading");
   const [progress, setProgress] = useState(empty);
+  const [failure, setFailure] = useFailure("Spotify");
   const [showPlayer, setShowPlayer] = useState(false);
   const mount = useRef<HTMLDivElement>(null);
   const session = useRef<PreviewSession | undefined>(undefined);
   useEffect(() => {
     if (!attempt || !mount.current) return;
     setProgress(empty);
-    const current = new SpotifyPreviewSession(mount.current, id, setState, { autoplay: true, progress: setProgress });
+    setFailure(undefined);
+    const current = new SpotifyPreviewSession(mount.current, id, setState, { autoplay: true, progress: setProgress, failure: setFailure });
     session.current = current;
     return () => {
       current.dispose();
@@ -89,7 +112,7 @@ function SpotifyPreview({ id }: { id: string }) {
             {showPlayer ? "Hide player" : "Show player (reveals song)"}
           </button>
         </div>
-        <p role="status">{messages("Spotify")[state]}</p>
+        <p role="status">{messages("Spotify", failure)[state]}</p>
       </>}
       <div className={showPlayer ? "embed-frame" : "embed-frame concealed"}
         aria-hidden={!showPlayer} inert={!showPlayer} ref={mount} />
@@ -102,11 +125,13 @@ function ApplePreview({ id, storefront, url }: { id: string; storefront: string;
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<PreviewState>("loading");
   const [progress, setProgress] = useState(empty);
+  const [failure, setFailure] = useFailure("Apple Music");
   const session = useRef<PreviewSession | undefined>(undefined);
   useEffect(() => {
     if (!attempt) return;
     setProgress(empty);
-    const current = new ApplePreviewSession(id, storefront, setState, { autoplay: true, progress: setProgress });
+    setFailure(undefined);
+    const current = new ApplePreviewSession(id, storefront, setState, { autoplay: true, progress: setProgress, failure: setFailure });
     session.current = current;
     return () => {
       current.dispose();
@@ -119,7 +144,7 @@ function ApplePreview({ id, storefront, url }: { id: string; storefront: string;
       {!attempt ? <button className="primary" onClick={() => setAttempt(1)}>Play preview</button> : <>
         <PreviewTransport session={session} state={state} progress={progress} />
         {state === "error" ? <div className="action-row"><button onClick={() => setAttempt(attempt + 1)}>Retry preview</button></div> : null}
-        <p role="status">{messages("Apple Music")[state]}</p>
+        <p role="status">{messages("Apple Music", failure)[state]}</p>
       </>}
       {fallback ? <AppleRevealPlayer url={url} onActivate={() => {
         session.current?.dispose();

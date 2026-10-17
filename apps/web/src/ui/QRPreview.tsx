@@ -105,10 +105,7 @@ export function QRPreview({ card }: { card: Card }) {
           Supplied official URL. Playback has not been verified.
         </p>
       ) : null}
-      <p className="muted compatibility-note">
-        Direct links open the provider. They are not compatible with the
-        official Hitster app.
-      </p>
+      <p className="muted compatibility-note">Direct links open the provider.</p>
     </section>
   );
 }

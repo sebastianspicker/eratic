@@ -8,3 +8,5 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+// Set by vite.config.ts: "<package version> (<commit>)".
+declare const __ERATIC_BUILD__: string;

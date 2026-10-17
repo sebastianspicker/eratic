@@ -30,7 +30,9 @@ case "$MODE" in
     exec /usr/bin/log stream --info --style compact --predicate 'process == "Eratic"'
     ;;
   --telemetry)
-    exec /usr/bin/log stream --info --style compact --predicate 'subsystem == "com.example.eratic.macos"'
+    # Diagnostics.swift logs under the app's bundle identifier.
+    SUBSYSTEM="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_BUNDLE/Contents/Info.plist")"
+    exec /usr/bin/log stream --info --style compact --predicate "subsystem == \"$SUBSYSTEM\""
     ;;
   --verify)
     sleep 1

@@ -141,6 +141,11 @@ struct SetupView: View {
                     Text(CardSource.draw.label).tag(CardSource.draw)
                 }
                 if !hasCamera { Text("No camera found, so cards are drawn from the deck.").font(.caption).foregroundStyle(.secondary) }
+                // Printing is planned, not built: until then testers make their own scannable code.
+                if hasCamera, SetupView.scanModes(mode), cardSource == .scan {
+                    Text("No printed cards yet? In the Deck tab, choose a card's Direct link QR route, then show that code on another screen or print it, and scan it here.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section {
                 if game.resumable { Text("Starting replaces the unfinished saved game.").font(.callout).foregroundStyle(.secondary) }
