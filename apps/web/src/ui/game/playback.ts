@@ -204,6 +204,9 @@ export function useCardPlayer(
     key = card.id,
     onAudible: () => boolean = () => true,
   ) {
+    // One play at a time: a second press while one prepares or starts would race it on the shared player.
+    // (Skip, reveal and a new card mount a fresh stage or tile set, so an overtaken song can't block them.)
+    if (preparingKey !== undefined || playback.clipState.state === "starting") return;
     const how = route(card);
     if (!player || !tier || !how) {
       setError("Choose how to play songs on Play home first.");
@@ -227,7 +230,10 @@ export function useCardPlayer(
     };
     try {
       if (how.kind === "exact") {
+        const generation = playback.clip.generation;
         await player.prepare(how.track);
+        // Stopped (reveal, skip, another card) while the track loaded: don't start it.
+        if (playback.clip.generation !== generation) return;
         const fitted = fitClip(fromMs, lengthMs, tier);
         setStatus("");
         await playback.clip.start(player, fitted.fromMs, fitted.lengthMs, () =>

@@ -347,18 +347,22 @@ export function Host({
     if (!window.confirm(`End this game now? ${consequence}${cardOpen ? " The card in play isn't scored." : ""}`)) return;
     showResults();
   }
+  // Drawing stops anything still playing, such as an unscored audio-only clip.
   function next() {
+    stopClip();
     setScanMessage(undefined);
     setDismissedAt(session.actions.length);
     if ((view.source === "draw" || !scanHere) && !outOfCards) controller.draw(deck);
   }
   function draw() {
+    stopClip();
     setScanMessage(undefined);
     controller.draw(deck);
   }
   function onScan(payload: string) {
     const outcome = controller.scan(payload, deck);
     if (outcome.kind === "drawn") {
+      stopClip();
       setScanning(false);
       setScanMessage(undefined);
     } else setScanMessage(outcome);
@@ -385,7 +389,9 @@ export function Host({
       return;
     }
     try {
+      const generation = clip.generation;
       await player.prepare({ provider: player.provider, id: audio.trackId, url: audio.url });
+      if (clip.generation !== generation) return; // a card was drawn or the clip stopped meanwhile
       await clip.start(player, 0, 30_000);
     } catch (failure) {
       setScanMessage({

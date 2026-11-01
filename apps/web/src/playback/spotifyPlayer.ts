@@ -88,7 +88,7 @@ export class SpotifyPlayer implements Player {
       }
       if (response.status === 429 && !retried) {
         retried = true;
-        const seconds = Number(response.headers.get("Retry-After"));
+        const seconds = Number(response.headers.get("Retry-After") ?? 1); // Number(null) would be 0
         await this.clock.sleep((Number.isFinite(seconds) ? seconds : 1) * 1000);
         continue;
       }

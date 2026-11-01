@@ -293,6 +293,20 @@ describe("Snippet Ladder", () => {
     expect(button("Lock in Lin").disabled).toBe(false);
   });
 
+  it("lets Space open the song backup instead of playing a step", async () => {
+    await openPlay(deck());
+    await setUp("Snippet Ladder", ["Ada", "Lin"], { "#option-ladder-rounds": "1" });
+    await click(button("Draw card"));
+    const summary = $(".song-backup summary") as HTMLElement;
+    expect(summary).not.toBeNull();
+    const before = actions().length;
+    await act(async () => {
+      summary.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    });
+    expect(actions()).toHaveLength(before);
+    expect(fake.plays).toEqual([]);
+  });
+
   it("hides Undo while a step is preparing, until it has been heard", async () => {
     await openPlay(deck());
     await setUp("Snippet Ladder", ["Ada", "Lin"], { "#option-ladder-rounds": "1" });
@@ -648,6 +662,43 @@ describe("Preparing a song", () => {
     await act(async () => release());
     await waitFor(() => $$("button").every((item) => item.textContent !== "Preparing…"));
     expect(button("Stop B")).toBeTruthy();
+  });
+});
+
+describe("Stopping before the clip starts", () => {
+  it("doesn't start a clip that was stopped while its song was preparing", async () => {
+    await openPlay(deck());
+    await setUp("Bullseye", ["Ada"], { "#option-bullseye-rounds": "2" });
+    await click(button("Draw card"));
+    let release = () => {};
+    fake.gate = new Promise<void>((resolve) => (release = resolve));
+    await click($(".stage .clip-controls button.primary")!);
+    await click(button("Skip card"));
+    // The skipped song is still loading; the next card plays anyway, and only it starts.
+    await click(button("Draw card"));
+    await click($(".stage .clip-controls button.primary")!);
+    await act(async () => release());
+    await waitFor(() => $$("button").every((item) => item.textContent !== "Preparing…"));
+    expect(fake.prepared).toHaveLength(2);
+    expect(fake.plays).toHaveLength(1);
+    expect(actions().filter((action: { type: string }) => action.type === "clip")).toHaveLength(1);
+    expect(actions().findIndex((action: { type: string }) => action.type === "clip")).toBeGreaterThan(
+      actions().findLastIndex((action: { type: string }) => action.type === "draw"),
+    );
+  });
+
+  it("ignores a second tile's Play while the first is still preparing", async () => {
+    await openPlay(deck());
+    await setUp("Lineup", ["Ada"], { "#option-lineup-k": "3", "#option-lineup-rounds": "1" });
+    await click(button("Draw lineup"));
+    let release = () => {};
+    fake.gate = new Promise<void>((resolve) => (release = resolve));
+    await click(button("Play B"));
+    await click(button("Play A"));
+    await act(async () => release());
+    await waitFor(() => $$("button").every((item) => item.textContent !== "Preparing…"));
+    expect(fake.prepared).toHaveLength(1);
+    expect(fake.plays).toHaveLength(1);
   });
 });
 

@@ -62,12 +62,18 @@ final class ClipController: ObservableObject {
 
     private func isCurrent(_ run: Int) -> Bool { run == generation && !Task.isCancelled }
 
+    /// A run cancelled while `play` was in flight: `cancel()`'s stop may have reached the provider before the
+    /// sound started, so stop again unless a newer clip has taken this same player (`start` sets it, `cancel` clears it).
+    private func stopIfUnclaimed(_ player: Player) {
+        if self.player !== player { stop(player) }
+    }
+
     private func run(_ run: Int, player: Player, fromMs: Int, lengthMs: Int?) async {
         guard isCurrent(run) else { return }
         let clock = ContinuousClock()
         do {
             let start = try await player.play(fromMs: fromMs)
-            guard isCurrent(run) else { return }
+            guard isCurrent(run) else { return stopIfUnclaimed(player) }
             state = .playing(startedAt: start.audibleAt, lengthMs: lengthMs)
             let end = lengthMs.map { start.audibleAt.advanced(by: .milliseconds($0)) }
             var lastPosition = start.positionMs
@@ -95,8 +101,8 @@ final class ClipController: ObservableObject {
             remainingMs = lengthMs == nil ? nil : 0
             state = .finished
         } catch {
-            // Cancelled or superseded: `cancel()` already stopped this run's player, and a newer clip may be playing.
-            guard isCurrent(run) else { return }
+            // Cancelled or superseded: a newer clip may be playing, so only an unclaimed player is stopped.
+            guard isCurrent(run) else { return stopIfUnclaimed(player) }
             self.error = PlaybackError.from(error)
             stop(player)
             self.player = nil

@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { exportSession, type Session } from "./core/session";
+import { describe, expect, it, vi } from "vitest";
+import { demoDeck } from "./core/deck";
+import { exportSession, parseSession, type Session } from "./core/session";
 import {
   clearSession,
   DAILY_KEY,
+  dailyResult,
   discardUnreadableSession,
   loadPlayPrefs,
   PLAY_PREFS_KEY,
@@ -18,7 +20,15 @@ import {
   UNSEEN_KEY,
   loadUnseen,
   markUnseen,
+  loadSessionDeck,
+  persistSessionDeck,
 } from "./sessions";
+
+// Pass-through spy, so a test can see whether a save replayed the stored game.
+vi.mock("./core/session", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./core/session")>();
+  return { ...actual, parseSession: vi.fn(actual.parseSession) };
+});
 
 function fakeStorage(initial: Record<string, string> = {}): Storage {
   const map = new Map(Object.entries(initial));
@@ -96,6 +106,30 @@ describe("session storage", () => {
     expect(storage.getItem(SESSION_KEY)).toBeNull();
     expect(readUnreadableSession(storage)).toBeNull();
   });
+  it("doesn't replay the game it saved last, but still checks anything else", () => {
+    const storage = fakeStorage();
+    persistSession(session(), storage);
+    vi.mocked(parseSession).mockClear();
+    persistSession(session(), storage);
+    expect(parseSession).not.toHaveBeenCalled();
+    storage.setItem(SESSION_KEY, BAD);
+    persistSession(session(), storage);
+    expect(storage.getItem(SESSION_UNREADABLE_KEY)).toBe(BAD);
+  });
+  it("drops the previous game's deck copy when the new copy can't be stored", () => {
+    const storage = fakeStorage();
+    persistSessionDeck(demoDeck(), storage);
+    const full: Storage = {
+      ...storage,
+      getItem: storage.getItem,
+      removeItem: storage.removeItem,
+      setItem: () => {
+        throw new Error("QuotaExceededError");
+      },
+    };
+    persistSessionDeck({ ...demoDeck(), title: "Edited" }, full);
+    expect(loadSessionDeck(storage)).toBeUndefined();
+  });
   it("clears a readable session", () => {
     const storage = fakeStorage();
     persistSession(session(), storage);
@@ -125,10 +159,25 @@ describe("daily record", () => {
       lastScore: 20,
       deckId: "demo-deck",
       shareText: "b",
+      played: { "demo-deck": { score: 20, shareText: "b" } },
     });
     expect(recordDaily("2026-10-11", 9, "demo-deck", "c", storage).streak).toBe(2);
     expect(recordDaily("2026-10-13", 9, "demo-deck", "d", storage).streak).toBe(1);
     expect(loadDaily(storage)?.lastDate).toBe("2026-10-13");
+  });
+  it("remembers each deck played on the same day, also after a record without played", () => {
+    const storage = fakeStorage({
+      [DAILY_KEY]: JSON.stringify({ lastDate: "2026-10-11", streak: 4, lastScore: 30, deckId: "deck-a", shareText: "A" }),
+    });
+    recordDaily("2026-10-11", 12, "deck-b", "B", storage);
+    const record = loadDaily(storage);
+    expect(record?.streak).toBe(4);
+    expect(dailyResult(record, "2026-10-11", "deck-a")).toEqual({ score: 30, shareText: "A" });
+    expect(dailyResult(record, "2026-10-11", "deck-b")).toEqual({ score: 12, shareText: "B" });
+    expect(dailyResult(record, "2026-10-12", "deck-a")).toBeUndefined();
+    recordDaily("2026-10-12", 7, "deck-b", undefined, storage);
+    expect(dailyResult(loadDaily(storage), "2026-10-12", "deck-a")).toBeUndefined();
+    expect(loadDaily(storage)?.streak).toBe(5);
   });
   it("treats a corrupt record as absent", () => {
     for (const raw of [

@@ -37,7 +37,7 @@ function lockSteps(inputs: GameAction[]): Map<string, number> {
 }
 const isTextField = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
-  (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName));
+  (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "SUMMARY", "A"].includes(target.tagName));
 
 // The step bar and the clip buttons. An exact step plays its length from the clip
 // start; without exact clips (or for a card with no link for the connected provider)
@@ -93,7 +93,7 @@ function LadderStage({ controller, session, state, summary, deck, playback, answ
   }
   const latest = useRef(playStep);
   latest.current = playStep;
-  // Space plays the next step, unless focus is in a field or on a button (which Space presses).
+  // Space plays the next step, unless focus is in a field or on a control Space works (button, summary, link).
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       // Only audible steps: a stray Space must not mark a step played by hand.

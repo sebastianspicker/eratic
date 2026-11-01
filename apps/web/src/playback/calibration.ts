@@ -1,5 +1,6 @@
 import type { Clock } from "./clock";
 import type { PlayableTrack, PlaybackProvider, Player } from "./player";
+import { defaultStorage } from "../storage";
 
 export const CALIBRATION_KEY = "eratic.calibration.v1";
 const CLIP_MS = 1000;
@@ -62,13 +63,6 @@ export async function runCalibration(
   return summarise(results);
 }
 
-function defaultStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 function readAll(storage: Storage | undefined): Record<string, CalibrationResult> {
   try {
     const value = JSON.parse(storage?.getItem(CALIBRATION_KEY) ?? "null");

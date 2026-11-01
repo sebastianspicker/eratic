@@ -79,4 +79,40 @@ describe("session persist failures", () => {
     controller.close();
     expect(controller.getSnapshot().gameNotices).toEqual([]);
   });
+
+  it("drops an old storage warning when a saved game is resumed", () => {
+    const map = new Map<string, string>();
+    let full = false;
+    const storage: Storage = {
+      getItem: (key) => map.get(key) ?? null,
+      setItem: (key, value) => {
+        if (full) throw new DOMException("Quota exceeded", "QuotaExceededError");
+        map.set(key, value);
+      },
+      removeItem: (key) => void map.delete(key),
+      clear: () => map.clear(),
+      key: () => null,
+      length: 0,
+    };
+    let clock = 0;
+    const controller = new GameController(storage, () => (clock += 1000), () => 7);
+    controller.start(
+      {
+        mode: "bullseye",
+        options: sessionOptions("bullseye", defaultOptions("bullseye")),
+        players: [{ id: "p1", name: "Ada" }],
+        source: "draw",
+        easyOnly: false,
+      },
+      deck,
+    );
+    full = true;
+    controller.dispatch({ type: "draw", card: cardRef(deck.cards[0]) });
+    expect(controller.getSnapshot().storageNotice).not.toBe("");
+    controller.close();
+    full = false;
+    controller.resume();
+    expect(controller.getSnapshot().session).toBeDefined();
+    expect(controller.getSnapshot().storageNotice).toBe("");
+  });
 });

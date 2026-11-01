@@ -437,6 +437,7 @@ private struct AudioOnlyButton: View {
     @EnvironmentObject private var playback: PlaybackHub
     @EnvironmentObject private var game: GameController
     @State private var error: String?
+    @State private var prepareTask: Task<Void, Never>?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -444,6 +445,7 @@ private struct AudioOnlyButton: View {
                 .buttonStyle(.bordered)
             if let error { ErrorText(error) }
         }
+        .onDisappear { prepareTask?.cancel() }
     }
 
     private func play() {
@@ -454,13 +456,18 @@ private struct AudioOnlyButton: View {
         }
         let playable = PlayableTrack(provider: provider, id: track.id, storefront: track.storefront, url: URL(string: payload))
         let player = playback.player
-        Task {
+        // As ClipPanel: the clip only starts if the same thing is still in play once the track is prepared.
+        let key = game.playKey
+        prepareTask?.cancel()
+        prepareTask = Task {
             do {
                 try await player.prepare(playable)
+                guard !Task.isCancelled, game.playKey == key else { return }
                 clip.start(player: player, fromMs: 0, lengthMs: ClipPanel.clipMs)
                 // Not scored and never recorded.
                 game.pendingClipRecords = []
             } catch {
+                guard !Task.isCancelled, game.playKey == key else { return }
                 self.error = (error as? PlaybackError)?.localizedDescription ?? error.localizedDescription
             }
         }

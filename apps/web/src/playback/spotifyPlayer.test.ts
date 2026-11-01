@@ -239,6 +239,18 @@ describe("SpotifyPlayer", () => {
     expect(calls.filter((c) => c.url.includes("/me/player/play"))).toHaveLength(2);
   });
 
+  it("waits 1 s on a 429 without Retry-After", async () => {
+    const { player, clock, calls } = setup({ playStatuses: [429, 204] });
+    await player.connect();
+    await player.prepare(track);
+    const started = player.play(0);
+    await clock.advance(900);
+    expect(calls.filter((c) => c.url.includes("/me/player/play"))).toHaveLength(1);
+    await clock.advance(300);
+    await started;
+    expect(calls.filter((c) => c.url.includes("/me/player/play"))).toHaveLength(2);
+  });
+
   it("maps a missing device to noActiveDevice", async () => {
     const { player } = setup({ playStatuses: [404] });
     await player.connect();

@@ -13,7 +13,7 @@ import {
 import { systemClock } from "../../playback/clock";
 import type { PlaybackHub } from "../../playback/hub";
 import { exactClips, type PlaybackProvider } from "../../playback/player";
-import { loadDaily } from "../../sessions";
+import { dailyResult, loadDaily } from "../../sessions";
 import { saveText } from "../download";
 import { listNames } from "./history";
 import { ShareText } from "./modes/Daily";
@@ -132,7 +132,7 @@ function PlaybackPanel({ hub, deck }: { hub: PlaybackHub; deck: Deck }) {
 function DailyCard({ deck, onPlay, onResume }: { deck: Deck; onPlay: () => void; onResume?: () => void }) {
   const today = utcDate(Date.now());
   const record = loadDaily();
-  const played = record?.lastDate === today && record.deckId === deck.id;
+  const played = dailyResult(record, today, deck.id);
   // Daily can't skip a card (game-rules.md section 6.8), so a card without a link is guessed unheard.
   const unlinked = played
     ? 0
@@ -149,9 +149,9 @@ function DailyCard({ deck, onPlay, onResume }: { deck: Deck; onPlay: () => void;
       {played ? (
         <>
           <p>
-            Played today: {record.lastScore} points.
+            Played today: {played.score} points.
           </p>
-          {record.shareText ? <ShareText text={record.shareText} /> : null}
+          {played.shareText ? <ShareText text={played.shareText} /> : null}
         </>
       ) : (
         <>
@@ -213,8 +213,7 @@ export function PlayHome({
   const saved = view.saved;
   const savedRound = useMemo(() => (saved ? summaryOf(replay(saved)).round : 0), [saved]);
   const today = utcDate(Date.now());
-  const record = loadDaily();
-  const playedToday = record?.lastDate === today && record.deckId === deck.id;
+  const playedToday = dailyResult(loadDaily(), today, deck.id) !== undefined;
   // The saved game is today's Daily for this deck: offer Resume rather than a new round.
   const savedDaily =
     saved?.mode === "daily" && saved.deckId === deck.id && (saved.options as DailyOptions).date === today;

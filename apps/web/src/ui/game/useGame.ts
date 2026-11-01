@@ -45,6 +45,7 @@ import {
   UnreadableSessionSlotError,
 } from "../../sessions";
 import { record, withCause } from "../../diagnostics";
+import { defaultStorage } from "../../storage";
 import { cardsNeeded, isEasy, MODE_INFO } from "./modes";
 
 // The host's game: one session, its engine state, and persistence after every
@@ -172,13 +173,6 @@ const ENTRIES = new Set<GameAction["type"]>([
 ]);
 const DRAWS = new Set<GameAction["type"]>(["draw", "drawSet", "drawPair", "sdDraw"]);
 const defaultRandom = (): number => crypto.getRandomValues(new Uint32Array(1))[0];
-function defaultStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 
 export class GameController {
   private listeners = new Set<() => void>();
@@ -411,6 +405,7 @@ export class GameController {
       saved: undefined,
       waiting: undefined,
       notice: "",
+      storageNotice: "",
       gameNotices: [],
       announcement: [],
       batch: undefined,

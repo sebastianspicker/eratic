@@ -63,7 +63,7 @@ struct CardGameFields: View {
         var clip: CardClip?
         if !clipText.trimmingCharacters(in: .whitespaces).isEmpty {
             guard let ms = ClipSeconds.parse(clipText) else {
-                errorMessage = "Enter the clip start in seconds, such as 15 or 15.5."
+                errorMessage = "Enter the clip start in seconds, from 0 to 3600, such as 15 or 15.5."
                 return
             }
             clip = CardClip(startMs: ms)
@@ -120,7 +120,7 @@ struct DefaultClipStartEditor: View {
         var ms: Int?
         if !text.trimmingCharacters(in: .whitespaces).isEmpty {
             guard let parsed = ClipSeconds.parse(text) else {
-                errorMessage = "Enter the clip start in seconds, such as 15 or 15.5."
+                errorMessage = "Enter the clip start in seconds, from 0 to 3600, such as 15 or 15.5."
                 return
             }
             ms = parsed
@@ -136,8 +136,10 @@ struct DefaultClipStartEditor: View {
 
 /// Seconds as typed by the host ↔ milliseconds as stored.
 enum ClipSeconds {
+    /// Nil for anything outside 0–3600 s (the contract's 0–3,600,000 ms), before `Int(_:)` could trap on a huge value.
     static func parse(_ text: String) -> Int? {
-        guard let seconds = Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")), seconds.isFinite, seconds >= 0 else { return nil }
+        guard let seconds = Double(text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")),
+              seconds.isFinite, seconds >= 0, seconds <= 3600 else { return nil }
         return Int((seconds * 1000).rounded())
     }
 

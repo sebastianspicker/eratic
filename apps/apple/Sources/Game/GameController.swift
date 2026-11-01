@@ -22,12 +22,26 @@ struct RevealSnapshot {
     let after: GameState
 }
 
-/// The Daily Eratic record in `UserDefaults` (`eratic.daily.v1`).
+/// The Daily Eratic record in `UserDefaults` (`eratic.daily.v1`): one streak per device; lastScore, deckId and
+/// shareText are the latest game, and `played` holds every deck's result on lastDate (older records have none).
 struct DailyRecord: Codable, Equatable {
     var lastDate: String
     var streak: Int
     var lastScore: Int
     var deckId: String
+    var shareText: String?
+    var played: [String: DailyDeckResult]?
+
+    /// This deck's result on `date`, if it was played that day.
+    func result(date: String, deckId id: String) -> DailyDeckResult? {
+        guard lastDate == date else { return nil }
+        if let result = played?[id] { return result }
+        return deckId == id ? DailyDeckResult(score: lastScore, shareText: shareText) : nil
+    }
+}
+
+struct DailyDeckResult: Codable, Equatable {
+    var score: Int
     var shareText: String?
 }
 
@@ -257,6 +271,9 @@ final class GameController: ObservableObject {
             announcement = setup.announcement
             lastError = nil
             persist()
+            // Once this game is saved, the previous game's readable deck copy goes (unless it is this very deck), so it
+            // can never match this game by deck ID if the new copy below isn't written. loadDeck quarantines an unreadable one.
+            if lastError == nil, case let .deck(old) = store.loadDeck(), old != deck { try? store.discardDeck() }
             snapshotDeck = deck
             do {
                 try store.saveDeck(deck)
@@ -550,8 +567,6 @@ final class GameController: ObservableObject {
         return cards.count == count ? cards : nil
     }
 
-    func nextDeckCard(in deck: Deck) -> SongCard? { nextDeckCards(1, in: deck)?.first }
-
     /// The number of cards the next draw needs, or nil when nothing can be drawn now. Original or Imposter draws pairs instead.
     var drawCount: Int? {
         guard let state else { return nil }
@@ -643,10 +658,9 @@ final class GameController: ObservableObject {
         return String(format: "%04d-%02d-%02d", parts.year ?? 1970, parts.month ?? 1, parts.day ?? 1)
     }
 
-    /// Today's record for this deck, when today was already played.
-    func dailyPlayedToday(deck: Deck) -> DailyRecord? {
-        guard let daily, daily.lastDate == Self.todayUTC(), daily.deckId == deck.id else { return nil }
-        return daily
+    /// Today's result for this deck, when today was already played with it.
+    func dailyPlayedToday(deck: Deck) -> DailyDeckResult? {
+        daily?.result(date: Self.todayUTC(), deckId: deck.id)
     }
 
     /// The streak as of today: kept when the last game was today or yesterday, otherwise 0.
@@ -681,8 +695,18 @@ final class GameController: ObservableObject {
         guard case let .daily(options) = session.options, let player = session.players.first else { return }
         let previous = daily.map { DailyStreakRecord(lastDate: $0.lastDate, streak: $0.streak) }
         guard let streak = try? Scoring.dailyStreak(previous: previous, date: options.date) else { return }
-        let record = DailyRecord(lastDate: options.date, streak: streak, lastScore: GameEngine.scores(of: state)[player.id] ?? 0,
-                                 deckId: session.deckId, shareText: GameEngine.summary(of: state)["shareText"] as? String)
+        let score = GameEngine.scores(of: state)[player.id] ?? 0
+        let shareText = GameEngine.summary(of: state)["shareText"] as? String
+        // Other decks played the same day stay played; an older record's own game counts too.
+        var played: [String: DailyDeckResult] = [:]
+        if let daily, daily.lastDate == options.date {
+            for id in Set([daily.deckId] + (daily.played.map { Array($0.keys) } ?? [])) {
+                played[id] = daily.result(date: options.date, deckId: id)
+            }
+        }
+        played[session.deckId] = DailyDeckResult(score: score, shareText: shareText)
+        let record = DailyRecord(lastDate: options.date, streak: streak, lastScore: score,
+                                 deckId: session.deckId, shareText: shareText, played: played)
         daily = record
         if let data = try? JSONEncoder().encode(record) { defaults.set(data, forKey: Self.dailyKey) }
     }

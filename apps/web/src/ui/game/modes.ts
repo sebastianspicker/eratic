@@ -10,8 +10,6 @@ export interface ModeInfo {
   name: string;
   pitch: string;
   players: [number, number];
-  // Rounds of play are counted with this option, if any.
-  roundsOption?: "rounds" | "cards";
 }
 export const MODE_ORDER: GameMode[] = [
   "ladder",
@@ -29,7 +27,6 @@ export const MODE_INFO: Record<GameMode, ModeInfo> = {
     name: "Snippet Ladder",
     pitch: "Name the song from as little as one second. The fewer seconds you need, the more points you score.",
     players: [1, 8],
-    roundsOption: "rounds",
   },
   timeline: {
     name: "Timeline",
@@ -40,13 +37,11 @@ export const MODE_INFO: Record<GameMode, ModeInfo> = {
     name: "Bullseye",
     pitch: "Everyone guesses the year; the closest guess scores the most.",
     players: [1, 10],
-    roundsOption: "rounds",
   },
   eraSort: {
     name: "Era Sort",
     pitch: "Which era does this song belong to? The fastest way into Eratic.",
     players: [1, 10],
-    roundsOption: "rounds",
   },
   higherLower: {
     name: "Higher or Lower",
@@ -62,7 +57,6 @@ export const MODE_INFO: Record<GameMode, ModeInfo> = {
     name: "Lineup",
     pitch: "Hear four or five songs, then put them all in order.",
     players: [1, 6],
-    roundsOption: "rounds",
   },
   daily: {
     name: "Daily Eratic",
@@ -73,7 +67,6 @@ export const MODE_INFO: Record<GameMode, ModeInfo> = {
     name: "Original or Imposter",
     pitch: "Two versions of one song; spot the original.",
     players: [2, 8],
-    roundsOption: "rounds",
   },
 };
 
@@ -175,7 +168,11 @@ export function modeAvailability(
   deck: Deck,
   exact: boolean,
 ): { reason?: string; label?: string } {
-  const smallest = cardsNeeded(mode, mode === "lineup" ? { k: 3 } : {}, MODE_INFO[mode].players[0]);
+  const smallest = cardsNeeded(
+    mode,
+    mode === "lineup" ? { k: 3 } : mode === "timeline" ? { ownership: "shared" } : {},
+    MODE_INFO[mode].players[0],
+  );
   if (deck.cards.length < smallest) return { reason: "Deck too small" };
   // Without exact clips, Snippet Ladder and Original or Imposter play by hand from the song backup.
   if (mode === "imposter" && imposterPairs(deck.cards, 0).length === 0) return { reason: "Needs linked recordings" };

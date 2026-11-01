@@ -259,8 +259,8 @@ private struct DailyCard: View {
     var body: some View {
         Panel(title: GameMode.daily.name) {
             if let deck = deckStore.deck {
-                if let record = game.dailyPlayedToday(deck: deck) {
-                    DailyResult(score: record.lastScore, shareText: record.shareText, streak: record.streak)
+                if let result = game.dailyPlayedToday(deck: deck) {
+                    DailyResult(score: result.score, shareText: result.shareText, streak: game.currentDailyStreak)
                 } else {
                     Text(GameMode.daily.pitch)
                     Text("Today's round is \(game.unfinishedDailyToday(deck: deck) ? "under way" : "ready"). Streak: \(game.currentDailyStreak)").font(.callout).foregroundStyle(.secondary)

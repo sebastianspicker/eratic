@@ -1,6 +1,7 @@
 import { exportDeck, parseDeck, type Deck } from "./core/deck";
 import { exportSession, parseSession, type Session } from "./core/session";
 import { dailyStreak, isValidDate } from "./core/scoring";
+import { defaultStorage, quarantine as keepAside, readable } from "./storage";
 
 // The current game in localStorage, with the same quarantine rule as decks
 // (storage.ts): an unreadable value is copied aside before anything can overwrite it.
@@ -9,29 +10,10 @@ export const SESSION_UNREADABLE_KEY = "eratic.session.v1.unreadable";
 export const DAILY_KEY = "eratic.daily.v1";
 export class UnreadableSessionSlotError extends Error {}
 
-function defaultStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-}
-function isReadable(raw: string): boolean {
-  try {
-    parseSession(raw);
-    return true;
-  } catch {
-    return false;
-  }
-}
-// False if the quarantine slot already holds a different value.
-function quarantine(storage: Storage, raw: string): boolean {
-  const held = storage.getItem(SESSION_UNREADABLE_KEY);
-  if (held === raw) return true;
-  if (held !== null) return false;
-  storage.setItem(SESSION_UNREADABLE_KEY, raw);
-  return true;
-}
+const isReadable = (raw: string): boolean => readable(parseSession, raw);
+const quarantine = (storage: Storage, raw: string): boolean => keepAside(storage, SESSION_UNREADABLE_KEY, raw);
+// The value this tab wrote last: it was valid when written, so a save needn't replay it again.
+let lastWritten: string | undefined;
 
 export function loadSession(storage = defaultStorage()): {
   session?: Session;
@@ -70,11 +52,12 @@ export function persistSession(session: Session, storage = defaultStorage()): vo
   const json = exportSession(session);
   if (!storage) throw new Error("Browser storage is unavailable.");
   const current = storage.getItem(SESSION_KEY);
-  if (current !== null && !isReadable(current) && !quarantine(storage, current))
+  if (current !== null && current !== lastWritten && !isReadable(current) && !quarantine(storage, current))
     throw new UnreadableSessionSlotError(
       "Browser storage holds an unreadable saved game, and another one is already kept aside. Download or discard it first; this game is not being saved.",
     );
   storage.setItem(SESSION_KEY, json);
+  lastWritten = json;
 }
 // Forgets the saved game; an unreadable value is never removed without a copy.
 // False when a saved game is still there afterwards.
@@ -106,12 +89,32 @@ export function discardUnreadableSession(storage = defaultStorage()): void {
 }
 
 // Daily Eratic: the last day played and the streak (game-rules.md section 6.8).
+export interface DailyResult {
+  score: number;
+  shareText?: string;
+}
+// One streak per device; lastScore, deckId and shareText are the latest game, and
+// played holds every deck's result on lastDate (records written before it have none).
 export interface DailyRecord {
   lastDate: string;
   streak: number;
   lastScore: number;
   deckId: string;
   shareText?: string;
+  played?: Record<string, DailyResult>;
+}
+const isResult = (value: unknown): value is DailyResult =>
+  typeof value === "object" &&
+  value !== null &&
+  Number.isInteger((value as DailyResult).score) &&
+  ((value as DailyResult).shareText === undefined || typeof (value as DailyResult).shareText === "string");
+// This deck's result on date, if it was played that day.
+export function dailyResult(record: DailyRecord | undefined, date: string, deckId: string): DailyResult | undefined {
+  if (record?.lastDate !== date) return undefined;
+  if (record.played && Object.hasOwn(record.played, deckId)) return record.played[deckId];
+  return record.deckId === deckId
+    ? { score: record.lastScore, ...(record.shareText !== undefined && { shareText: record.shareText }) }
+    : undefined;
 }
 // A corrupt record counts as absent.
 export function loadDaily(storage = defaultStorage()): DailyRecord | undefined {
@@ -127,14 +130,22 @@ export function loadDaily(storage = defaultStorage()): DailyRecord | undefined {
       Number.isInteger(value.lastScore) &&
       typeof value.deckId === "string" &&
       (value.shareText === undefined || typeof value.shareText === "string")
-    )
+    ) {
+      // A malformed played map is dropped; the streak still counts.
+      const played =
+        value.played && typeof value.played === "object" && !Array.isArray(value.played) &&
+        Object.values(value.played).every(isResult)
+          ? value.played
+          : undefined;
       return {
         lastDate: value.lastDate,
         streak: value.streak as number,
         lastScore: value.lastScore as number,
         deckId: value.deckId,
         ...(value.shareText !== undefined && { shareText: value.shareText }),
+        ...(played && { played }),
       };
+    }
   } catch {
     // corrupt or unavailable
   }
@@ -148,12 +159,18 @@ export function recordDaily(
   storage = defaultStorage(),
 ): DailyRecord {
   const previous = loadDaily(storage);
+  // Other decks played the same day stay played; an older record's own game counts too.
+  const sameDay: Record<string, DailyResult> = {};
+  if (previous?.lastDate === date)
+    for (const id of new Set([previous.deckId, ...Object.keys(previous.played ?? {})]))
+      sameDay[id] = dailyResult(previous, date, id)!;
   const record: DailyRecord = {
     lastDate: date,
     streak: dailyStreak(previous, date),
     lastScore: score,
     deckId,
     ...(shareText !== undefined && { shareText }),
+    played: { ...sameDay, [deckId]: { score, ...(shareText !== undefined && { shareText }) } },
   };
   try {
     storage?.setItem(DAILY_KEY, JSON.stringify(record));
@@ -280,29 +297,20 @@ export function saveEntryStyle(style: EntryStyle, storage = defaultStorage()): b
 // is open. An unreadable value is kept aside like an unreadable session.
 export const SESSION_DECK_KEY = "eratic.session.v1.deck";
 export const SESSION_DECK_UNREADABLE_KEY = "eratic.session.v1.deck.unreadable";
-function quarantineDeck(storage: Storage, raw: string): boolean {
-  const held = storage.getItem(SESSION_DECK_UNREADABLE_KEY);
-  if (held === raw) return true;
-  if (held !== null) return false;
-  storage.setItem(SESSION_DECK_UNREADABLE_KEY, raw);
-  return true;
-}
-function isReadableDeck(raw: string): boolean {
-  try {
-    parseDeck(raw);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const quarantineDeck = (storage: Storage, raw: string): boolean =>
+  keepAside(storage, SESSION_DECK_UNREADABLE_KEY, raw);
 // Best effort: a failure only means Resume needs the deck to be open.
 export function persistSessionDeck(deck: Deck, storage = defaultStorage()): void {
   try {
     if (!storage) return;
     const json = exportDeck(deck);
     const current = storage.getItem(SESSION_DECK_KEY);
-    if (current !== null && current !== json && !isReadableDeck(current) && !quarantineDeck(storage, current))
-      return;
+    if (current !== null && current !== json) {
+      // The previous game's own copy goes first, so it can never match the new game
+      // (by deck ID) if this write fails; that also frees its space for the write.
+      if (readable(parseDeck, current)) storage.removeItem(SESSION_DECK_KEY);
+      else if (!quarantineDeck(storage, current)) return;
+    }
     storage.setItem(SESSION_DECK_KEY, json);
   } catch {
     // storage full or blocked

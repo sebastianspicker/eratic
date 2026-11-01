@@ -30,7 +30,6 @@ final class CalibrationRun: ObservableObject {
 
     var medianLatencyMs: Int? { Self.median(trials.map(\.startLatencyMs)) }
     var maxStopErrorMs: Int? { trials.map { abs($0.stopErrorMs) }.max() }
-    var passed: Bool? { result?.passed }
 
     static func key(_ provider: PlaybackProvider) -> String { "eratic.calibration.v1.\(provider.rawValue)" }
 

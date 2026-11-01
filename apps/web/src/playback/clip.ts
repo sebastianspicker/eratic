@@ -19,6 +19,10 @@ export class ClipController {
   get state(): ClipState {
     return this.current;
   }
+  // Bumped by every start and cancel; a caller that awaited something can check it is still current.
+  get generation(): number {
+    return this.run;
+  }
   subscribe(listener: (state: ClipState) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

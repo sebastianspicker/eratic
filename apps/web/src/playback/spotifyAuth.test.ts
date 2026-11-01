@@ -146,6 +146,17 @@ describe("tokens", () => {
     await expect(accessToken(d)).rejects.toMatchObject({ code: "notAuthorised" });
     expect(d.local!.getItem(SPOTIFY_AUTH_KEY)).toBeNull();
   });
+
+  it("keeps the sign-in when Spotify is down or rate-limiting", async () => {
+    for (const status of [429, 500, 503]) {
+      const { d } = deps({
+        fetch: (async () => jsonResponse({}, status)) as unknown as typeof fetch,
+      });
+      saveTokens({ access: "A1", refresh: "R1", expiresAt: 0 }, d.local as Storage);
+      await expect(accessToken(d)).rejects.toMatchObject({ code: "network" });
+      expect(loadTokens(d.local as Storage)).toMatchObject({ refresh: "R1" });
+    }
+  });
 });
 
 describe("hardening", () => {

@@ -132,8 +132,9 @@ final class SpotifyAuth: NSObject, ASWebAuthenticationPresentationContextProvidi
         let data: Data, response: URLResponse
         do { (data, response) = try await URLSession.shared.data(for: request) } catch { throw PlaybackError.network }
         guard let http = response as? HTTPURLResponse else { throw PlaybackError.network }
+        // Only 400 (invalid_grant) and 401 reject the sign-in; a 429 or 5xx is temporary and must not sign out.
         guard http.statusCode == 200 else {
-            throw http.statusCode >= 500 ? PlaybackError.network : PlaybackError.notAuthorised
+            throw [400, 401].contains(http.statusCode) ? PlaybackError.notAuthorised : PlaybackError.network
         }
         guard let decoded = try? JSONDecoder().decode(TokenResponse.self, from: data), !decoded.access_token.isEmpty,
               let refreshToken = decoded.refresh_token ?? fallbackRefresh, !refreshToken.isEmpty else { throw PlaybackError.notAuthorised }

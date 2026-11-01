@@ -21,6 +21,7 @@ import {
   SESSION_UNREADABLE_KEY,
 } from "../../sessions";
 import { friendlyError, GameController, type Summary } from "./useGame";
+import { modeAvailability } from "./modes";
 import { STORAGE_KEY } from "../../storage";
 import { BESTS_KEY } from "../../bests";
 import { parseDeck } from "../../core/deck";
@@ -2142,5 +2143,14 @@ describe("Setup, Results and Play home review fixes", () => {
     expect($("form.setup")).toBeNull();
     expect(savedSession().mode).toBe("daily");
     expect(savedSession().players.map((player: { name: string }) => player.name)).toEqual(["You"]);
+  });
+});
+
+describe("Mode availability", () => {
+  it("offers Timeline for a 2-card deck, which a shared line can play", () => {
+    const deck = parseDeck(JSON.stringify(demo));
+    const two = { ...deck, cards: deck.cards.slice(0, 2) };
+    expect(modeAvailability("timeline", two, false).reason).toBeUndefined();
+    expect(modeAvailability("timeline", { ...deck, cards: deck.cards.slice(0, 1) }, false).reason).toBe("Deck too small");
   });
 });

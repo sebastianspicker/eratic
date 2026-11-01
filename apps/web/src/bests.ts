@@ -1,4 +1,5 @@
 import { normalizeOptions, type Session } from "./core/session";
+import { defaultStorage } from "./storage";
 
 // Personal bests on this device, per deck and kind of game: Relay's team score, and
 // the score of any finished game with exactly one player (except Daily, which has
@@ -10,13 +11,6 @@ export interface Best {
 }
 export type Bests = Record<string, Record<string, Best>>;
 
-function defaultStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 

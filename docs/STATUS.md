@@ -97,3 +97,35 @@ Local checks for this maintenance pass passed on Node 22.23.4/npm 11.17:
 iOS Simulator builds. No app launch, music-account access or physical-device
 qualification was performed. The production build still reports its existing
 large-chunk advisory; no size limit was relaxed.
+
+## Audit fixes (2026-11-01)
+
+A whole-repository audit found 15 items. Thirteen are fixed in both apps where
+they apply; the playlist-candidate code is kept for the planned playlist tool,
+and the round label on the final reveal stays as designed (GAME_MODES_AUDIT
+HOST-08).
+
+- **Playback:** a temporary Spotify error (429 or 5xx) during token refresh no
+  longer signs the user out; only 400/401 do. A timed clip that is stopped,
+  revealed or skipped while its track is still loading no longer starts
+  afterwards, and a second Play is ignored while one is starting. On the web,
+  drawing a card stops an unscored audio-only clip. On Apple, a clip cancelled
+  while starting is stopped once the provider answers.
+- **Saved data:** a game's deck copy from an earlier game can no longer be
+  matched to a new game after a failed write. The web saves a long game about
+  twice as fast (a 2,178-action game: about 58 ms to 29 ms per save on a Mac).
+  Daily Eratic remembers each deck played on the same day (one streak per
+  device; older records stay readable).
+- **Smaller fixes:** the Apple clip-start field accepts 0–3600 s instead of
+  crashing on huge values; Space on the Snippet Ladder song backup opens it
+  instead of playing a step (web); Timeline is offered for a 2-card deck; a
+  resumed game drops an old storage warning; a 429 without `Retry-After` waits
+  1 s; dead code removed.
+
+Checks: `make web-check` 2,105 tests, type check and build; EraticCore 104
+tests; app sources type-checked for macOS and the iOS Simulator;
+`make apple-preview-test` 13 scenarios. Inside the agent sandbox, SwiftPM and
+`swiftc` need `--disable-sandbox` / `-disable-sandbox` (they cannot nest their
+own sandbox); the OS sandbox stays on. Not run: `make apple-build`, the
+changed flows in a browser or the Apple app, live provider accounts and
+devices.

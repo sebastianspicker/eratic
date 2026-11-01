@@ -3,28 +3,28 @@ export const STORAGE_KEY = "qr-song-quiz.deck.v1";
 export const UNREADABLE_KEY = "qr-song-quiz.deck.v1.unreadable";
 export class UnreadableSlotError extends Error {}
 
-function defaultStorage(): Storage | undefined {
+export function defaultStorage(): Storage | undefined {
   try {
     return globalThis.localStorage;
   } catch {
     return undefined;
   }
 }
-function isReadable(raw: string): boolean {
+export function readable(parse: (raw: string) => unknown, raw: string): boolean {
   try {
-    parseDeck(raw);
+    parse(raw);
     return true;
   } catch {
     return false;
   }
 }
-// Keep an unreadable value in its own slot so it is never destroyed; false if
-// the slot already holds something else.
-function quarantine(storage: Storage, raw: string): boolean {
-  const held = storage.getItem(UNREADABLE_KEY);
+// Keep an unreadable value in its own slot (key) so it is never destroyed; false
+// if the slot already holds something else.
+export function quarantine(storage: Storage, key: string, raw: string): boolean {
+  const held = storage.getItem(key);
   if (held === raw) return true;
   if (held !== null) return false;
-  storage.setItem(UNREADABLE_KEY, raw);
+  storage.setItem(key, raw);
   return true;
 }
 export function readUnreadable(storage = defaultStorage()): string | null {
@@ -68,7 +68,7 @@ export function loadDeck(storage = defaultStorage()): {
     } catch {
       let kept = false;
       try {
-        kept = quarantine(storage!, saved);
+        kept = quarantine(storage!, UNREADABLE_KEY, saved);
       } catch {
         // Storage is read-only or full; the main key is still untouched.
       }
@@ -95,7 +95,7 @@ export function persistDeck(deck: Deck, storage = defaultStorage()): void {
   const json = exportDeck(deck);
   if (!storage) throw new Error("Browser storage is unavailable.");
   const current = storage.getItem(STORAGE_KEY);
-  if (current !== null && !isReadable(current) && !quarantine(storage, current))
+  if (current !== null && !readable(parseDeck, current) && !quarantine(storage, UNREADABLE_KEY, current))
     throw new UnreadableSlotError(
       "Browser storage holds an unreadable saved deck, and a different unreadable deck is already kept. Download or discard the unreadable saved deck first.",
     );

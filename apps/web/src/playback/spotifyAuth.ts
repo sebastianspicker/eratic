@@ -152,8 +152,12 @@ async function tokenRequest(
   } catch {
     throw new PlaybackError("network", "Could not reach Spotify.");
   }
+  // Only 400 (invalid_grant) and 401 reject the sign-in; a 429 or 5xx is temporary
+  // and must not sign the user out (refreshTokens signs out on notAuthorised).
   if (!response.ok)
-    throw new PlaybackError("notAuthorised", "Spotify sign-in was refused. Try connecting again.");
+    throw response.status === 400 || response.status === 401
+      ? new PlaybackError("notAuthorised", "Spotify sign-in was refused. Try connecting again.")
+      : new PlaybackError("network", "Spotify isn't answering right now. Try again in a moment.");
   const json = (await response.json().catch(() => undefined)) as
     | { access_token?: unknown; refresh_token?: unknown; expires_in?: unknown }
     | undefined;
