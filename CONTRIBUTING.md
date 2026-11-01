@@ -1,12 +1,12 @@
 # Contributing
 
-Start with [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md). Before editing, check `git status --short` and the local `.agents/handoff.md`, and preserve changes from other contributors.
+Start with [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md). Before editing, check `git status --short`, and preserve changes from other contributors.
 
 ## Setup
 
 - **Web:** Node.js `^22.13 || ^24 || >=26` (CI uses 22) and npm. Run `npm --prefix apps/web ci`.
 - **Apple:** full Xcode with a macOS/iOS SDK, and XcodeGen 2.44 or later. The Swift package declares tools version 5.9; the code was last checked with Xcode's Swift 6.4 compiler.
-- No provider credentials are needed for deck editing, the tests, or playing with "Play it yourself". Spotify and Apple Music playback need your own app registration: `VITE_SPOTIFY_CLIENT_ID` / `VITE_MUSICKIT_DEVELOPER_TOKEN` for the web (in an ignored `.env.local`), `AppConfig.spotifyClientID` and the MusicKit app service for Apple. Never commit tokens or keys.
+- No provider credentials are needed for deck editing, the tests, song links, account-free previews or playing with "Play it yourself". Timed, authorized Spotify and Apple Music playback needs your own app registration: `VITE_SPOTIFY_CLIENT_ID` / `VITE_MUSICKIT_DEVELOPER_TOKEN` for the web (in an ignored `.env.local`), `AppConfig.spotifyClientID` and the MusicKit app service for Apple. Never commit tokens or keys.
 
 ```sh
 make web-check     # web tests, type check, production build
@@ -19,7 +19,7 @@ make apple-build   # generates the Xcode project, then unsigned macOS + iOS Simu
 ## Making a change
 
 - Deck and game rules belong in the two cores (`apps/apple/EraticCore`, `apps/web/src/core`), UI belongs in the app layers, and provider integrations live in their own modules (`Sources/Playback`, `src/playback`) ([ARCHITECTURE.md](ARCHITECTURE.md#where-new-code-goes)).
-- **A contract change** updates the relevant schema (`deck-v1`, `deck-v2`, `session-v1`, `candidate-v1`) and `contract/README.md` or `contract/game-rules.md`, adds cases under `contract/cases/`, implements the rule in Swift and TypeScript, and runs both suites. Bump the schema version for a breaking change.
+- **A contract change** updates the relevant schema (`deck-v1`, `deck-v2`, `session-v1`, `session-v2`, `candidate-v1`) and `contract/README.md` or `contract/game-rules.md`, adds cases under `contract/cases/`, implements the rule in Swift and TypeScript, and runs both suites. Bump the schema version for a breaking change.
 - Preserve stable card IDs, optional provider metadata, and year provenance through edits and export.
 - Record consequential decisions as a new numbered [ADR](docs/adr/README.md). Supersede old decisions explicitly; don't rewrite them.
 - Update the [attribution map](docs/ATTRIBUTION.md) when adopting an external project's idea. Before copying code, record its source, revision, licence and notices; conceptual attribution is not enough.
@@ -29,3 +29,16 @@ make apple-build   # generates the Xcode project, then unsigned macOS + iOS Simu
 ## Review
 
 For UI work, exercise the changed workflow in a browser or the Apple app; a successful compile does not verify UI. Don't treat the fictional example.com destinations as playable tracks. Update [docs/STATUS.md](docs/STATUS.md) when capabilities or verification change. The user owns commits and publication. Never commit credentials, research binaries, generated output, or `.agents/handoff.md`.
+
+
+## CI and the public demo
+
+General web and Apple checks run automatically for Dependabot-authored pull
+requests and can be started manually for other changes. The dependency security
+audit also runs on ordinary pull requests, pushes, a weekly schedule and manual
+dispatch. Dependabot covers the web package and GitHub Actions weekly.
+
+Pages builds and publishes only after a manual dispatch on `main`, with provider
+credentials empty. A passing build does not qualify live music-service playback,
+signing or physical devices. Agent instructions and audit ledgers are local and
+ignored; contract fixtures and tests run by CI remain public.

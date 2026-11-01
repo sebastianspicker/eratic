@@ -4,16 +4,25 @@
 
 [Try the web demo](https://sebastianspicker.github.io/eratic/) · [Game modes](docs/game-modes.md)
 
-Eratic is a music year quiz built from cards you curate. A native SwiftUI app for **Mac, iPad, and iPhone** and a **standalone web companion** prepare the decks and their QR cards, then host the games, and every era gets its own style: a song from 1984 looks like the eighties, one from 1997 like a photocopied zine. Both applications read and write the same versioned JSON deck files. The web companion works without the Apple app, an account, or a backend.
+Eratic is a music year quiz built from cards you curate. A native SwiftUI app for **Mac, iPad, and iPhone** and an **independent web app** edit decks, preview their QR codes and host games, and every era gets its own style: a song from 1984 looks like the eighties, one from 1997 like a photocopied zine. Both applications read and write the same versioned JSON deck files. The web companion works without the Apple app, an account, or a backend.
 
-Current scope:
+<details>
+<summary>Status and limitations</summary>
 
-- **Deck:** import and export a deck, select a card, curate its answer year and evidence, set the optional game fields (clip start, difficulty, related recording), and preview an explicitly chosen QR route.
-- **Play:** nine [game modes](docs/game-modes.md) — Timeline, Bullseye, Era Sort, Snippet Ladder, Higher or Lower, Relay, Lineup, Daily Eratic, Original or Imposter — on one host device, drawing cards from the loaded deck or scanning QR codes linked to its cards, with Spotify or Apple Music playback (or "play it yourself" without an account). Both apps compute the same scores from the same [rules](contract/game-rules.md).
+Eratic is an independent experimental project for user-curated music quizzes
+across native Apple and browser apps. Developed independently alongside my
+main professional work. Deck handling and game rules are implemented, while
+live subscription/device playback still needs verification and playlist
+import and print output remain planned. Treat it as a work in progress and a
+starting point to adapt and test, rather than a finished event-hosting
+product.
 
-The bundled songs and example.com links are fictional. Live playlist import and print-ready output are planned, not implemented. Without any account or setup, every card shows its song's QR code and link, and single-card rounds can play the provider's short preview from a hidden player; this works in Chrome with Spotify and Apple Music but is not yet verified on devices. Timed clips need your own Spotify app registration and MusicKit setup and have not been tried against live accounts. See [status](docs/STATUS.md).
+**Disclaimer.** Curated song years and provider links need review. You are
+responsible for your decks, account permissions and music-service use; the
+implementation does not establish official-card compatibility or permission
+to play music publicly.
 
-## Music, artists and legal notes
+### Music, artists and legal notes
 
 **Support the artists.** If the game brings back songs you love or introduces new ones, please listen with a paid Spotify Premium or Apple Music subscription, or buy the music, so artists and songwriters get paid.
 
@@ -21,6 +30,26 @@ The bundled songs and example.com links are fictional. Live playlist import and 
 - **Your use is your responsibility.** Follow the terms of the music service you use. Playing music in public or commercially, for example at an event or venue, may need a performance licence from a collecting society (in Germany, GEMA).
 - **No affiliation.** Eratic is an independent project, not affiliated with or endorsed by Spotify, Apple or the makers of HITSTER. Their names and trademarks belong to their owners and are used only to identify their services.
 - **No warranty.** The software is provided as is, without warranty. This section is not legal advice.
+
+</details>
+
+```mermaid
+flowchart LR
+    Curate[Curate or import your cards] --> Deck[Shared JSON deck]
+    Deck --> Apple[Mac, iPad and iPhone app]
+    Deck --> Browser[Independent browser app]
+    Apple --> Host[Host nine game modes]
+    Browser --> Host
+    Host --> Manual[Play music yourself]
+    Host --> Provider[Optional configured music service]
+```
+
+Current scope:
+
+- **Deck:** import and export a deck, select a card, curate its answer year and evidence, set the optional game fields (clip start, difficulty, related recording), and preview an explicitly chosen QR route.
+- **Play:** nine [game modes](docs/game-modes.md) — Timeline, Bullseye, Era Sort, Snippet Ladder, Higher or Lower, Relay, Lineup, Daily Eratic, Original or Imposter — on one host device, drawing cards from the loaded deck or scanning QR codes linked to its cards, with Spotify or Apple Music playback (or "play it yourself" without an account). Both apps compute the same scores from the same [rules](contract/game-rules.md).
+
+The bundled songs and example.com links are fictional. Live playlist import and print-ready output are planned, not implemented. Without any account or setup, every card shows its song's QR code and link, and single-card rounds can play the provider's short preview from a hidden player; this works in Chrome with Spotify and Apple Music but is not yet verified on devices. Timed clips need your own Spotify app registration and MusicKit setup and have not been tried against live accounts. See [status](docs/STATUS.md).
 
 ## Run it
 
@@ -33,7 +62,7 @@ make web-check      # tests, type check, production build into apps/web/dist
 make check          # web-check + core-test
 ```
 
-The build is a static site; serve `apps/web/dist` from any static host. Optional build-time settings, all empty by default: `VITE_SPOTIFY_CLIENT_ID` (Spotify playback; register the deployed URL as a redirect URI), `VITE_MUSICKIT_DEVELOPER_TOKEN` (Apple Music; a developer token you mint offline — never the signing key), `VITE_ERATIC_CARD_HOSTS` (the Eratic card QR domain, once one is chosen).
+The build is a static site; serve `apps/web/dist` from any static host. Optional build-time settings, all empty by default: `VITE_SPOTIFY_CLIENT_ID` (timed Spotify playback; register the deployed URL as a redirect URI), `VITE_MUSICKIT_DEVELOPER_TOKEN` (Apple Music; a developer token you mint offline — never the signing key), `VITE_ERATIC_CARD_HOSTS` (the Eratic card QR domain, once one is chosen).
 
 Apple app (macOS with full Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen); deployment targets macOS 14 and iOS/iPadOS 17):
 
@@ -43,7 +72,7 @@ make apple-project  # generate the ignored apps/apple/Eratic.xcodeproj
 make apple-build    # unsigned macOS and generic iOS Simulator builds
 ```
 
-Open the generated project and run `Eratic-macOS`, or run `Eratic-iOS` on an iPhone or iPad simulator. Running on a device needs your own signing team. Spotify playback needs `AppConfig.spotifyClientID` set (`apps/apple/Sources/Playback/AppConfig.swift`) and the redirect `eratic://spotify-callback` registered; Apple Music needs the MusicKit app service enabled for your bundle IDs. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and conventions.
+Open the generated project and run `Eratic-macOS`, or run `Eratic-iOS` on an iPhone or iPad simulator. Running on a device needs your own signing team. Timed Spotify playback needs `AppConfig.spotifyClientID` set (`apps/apple/Sources/Playback/AppConfig.swift`) and the redirect `eratic://spotify-callback` registered; Apple Music needs the MusicKit app service enabled for your bundle IDs. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup and conventions.
 
 ## Repository map
 

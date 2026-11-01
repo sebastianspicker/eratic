@@ -74,3 +74,26 @@ These are focused checks, not exhaustive acceptance. Still unverified:
 ## Public demo
 
 [Source repository](https://github.com/sebastianspicker/eratic) and [GitHub Pages demo](https://sebastianspicker.github.io/eratic/) are public. The Pages workflow deployed successfully, and the live site passed the same twelve desktop/phone smoke scenarios for Timeline, Era Sort, Higher or Lower, Relay, Lineup by name and Daily Eratic. The first hosted Apple CI run exposed a compiler-sensitive array concatenation; explicit appends preserve the standings order and pass all 94 local Swift tests. See [Checks](https://github.com/sebastianspicker/eratic/actions/workflows/check.yml) for hosted verification. The demo uses fictional sample data and has no provider credentials. Account-free editing and manual game hosting remain usable. Do not upload local research, private decks, exports or credentials; publication boundaries are recorded in [ADR 0012](adr/0012-public-repository-and-private-archive.md).
+
+
+## Maintenance verification (2026-11-01)
+
+The dependency graph now resolves fast-uri 3.1.9 and Undici 7.30.1, clearing
+the two current npm advisory groups without changing direct package versions.
+fast-uri is used while generating validators from the repository schemas;
+Undici is a development dependency of the jsdom test environment. This does
+not imply those advisory paths were exploitable in the deployed browser app.
+
+General web and Apple CI is automatic for Dependabot-authored PRs and otherwise
+manual. Dependency auditing remains automatic; Pages publishing requires a
+manual run on `main`. The current GitHub alert endpoints were unavailable for
+Dependabot and CodeQL during review, so a clean npm audit is not a claim of
+complete GitHub security coverage. Live-provider, device and signing limits
+above remain in effect.
+
+Local checks for this maintenance pass passed on Node 22.23.4/npm 11.17:
+2,095 web tests, generated validators, typechecking and the production build;
+104 Swift core tests, the native preview harness, and unsigned macOS and generic
+iOS Simulator builds. No app launch, music-account access or physical-device
+qualification was performed. The production build still reports its existing
+large-chunk advisory; no size limit was relaxed.

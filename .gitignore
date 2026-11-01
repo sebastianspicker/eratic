@@ -28,3 +28,15 @@ exports/
 
 # Historical research belongs in private/, including any old-path leftovers.
 /research/
+
+# Private agent guidance and audit records; public product tests stay tracked.
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/THINGS_TO_DO_LEDGER.md
+/ALPHA_AUDIT_LEDGER.md
+/ALPHA_AUDIT_REPORT.md
+/ALPHA_IMPLEMENTATION_LEDGER.md
+/ALPHA_PR_DESCRIPTION.md
+/GAME_MODES_AUDIT.md
+/CODEX.md

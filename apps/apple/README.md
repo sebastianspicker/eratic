@@ -12,7 +12,7 @@ make apple-build     # unsigned macOS and generic iOS Simulator builds
 
 Use your own bundle identifiers and development team for signed or device builds.
 
-The run script stops the existing Eratic process before rebuilding; export unsaved deck edits first. It also accepts `--debug`, `--logs` and `--telemetry`. The ignored local Codex Run action can point to `./script/build_and_run.sh`.
+The run script stops the existing Eratic process before rebuilding; export unsaved deck edits first. It also accepts `--debug`, `--logs` and `--telemetry`.
 
 ## Layout
 
@@ -30,7 +30,7 @@ The preview regression harness compiles the actual `ApplePreviewPlayer.swift` ag
 
 - Deck edits are held in memory until you export. Games save their action log and deck snapshot automatically for resume.
 - Import and export use `fileImporter`, `fileExporter` and `FileDocument`.
-- Official-card mode is the default. It previews only a supplied recognized URL, labelled **Supplied mapping — unverified**. Direct-link mode encodes the chosen provider URL exactly.
+- The default QR route previews only a supplied recognized URL, labelled **Supplied mapping — unverified**; it does not establish compatibility with another app or card catalogue. Direct-link mode encodes the chosen provider URL exactly.
 - Play hosts all nine game modes, camera QR scanning, Spotify/Apple Music playback and manual playback. Provider configuration and live-account checks are still required; see the root README and [status](../../docs/STATUS.md).
 - There is no live playlist fetch, backend or PDF export.
 
