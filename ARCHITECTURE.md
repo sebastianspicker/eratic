@@ -2,29 +2,36 @@
 
 Two independent applications share file formats and rules, not code. A native SwiftUI app serves Mac, iPad, and iPhone. A static React/TypeScript app serves browsers without the Apple app or a backend. Both read and write the versioned deck JSON and the game session files defined in [`contract/`](contract/README.md), both implement the game rules of [`contract/game-rules.md`](contract/game-rules.md), and both prove it by running the same contract cases.
 
+What the repository is made of, and which way the parts depend on each other:
+
 ```mermaid
 flowchart LR
   subgraph contract["contract/ (canonical)"]
-    S[deck-v1 schema + rules]
-    C[cases/*.json]
-    D[demo-deck.json]
+    schemas["deck, session and<br/>candidate schemas"]
+    rules["game-rules.md"]
+    cases["cases/*.json"]
   end
+  design["design/eras.json"]
   subgraph apple["apps/apple"]
-    AUI[SwiftUI Sources] --> AC[EraticCore]
+    aui["SwiftUI Sources"] --> acore["EraticCore"]
   end
   subgraph web["apps/web/src"]
-    WUI[ui/] --> WC[core/]
-    WUI --> ST[storage.ts]
-    WUI --> QS[qrSvg.ts]
-    ST --> WC
+    wui["ui/"] --> wcore["core/"]
+    wui --> wio["playback, scanner,<br/>storage, sessions"]
   end
-  AC -. tests run .-> C
-  WC -. tests run .-> C
-  WC -- validates with --> S
-  AUI -- bundles --> D
-  WC -- bundles --> D
-  AUI <-- deck JSON files --> WUI
+  acore -.->|"swift test runs"| cases
+  wcore -.->|"vitest runs"| cases
+  wcore -->|"AJV validators from"| schemas
+  acore -->|implements| rules
+  wcore -->|implements| rules
+  aui -->|bundles| design
+  wui -->|imports| design
+  aui <-->|"deck JSON files"| wui
 ```
+
+The two `core` boxes are the heart of the system: each implements the deck format and the rules engine once, and each proves it by running the same `contract/cases/`. The UI layers on top only build actions, render state and talk to the outside world (files, browser storage, music providers, the camera). The only thing the two apps exchange at runtime is a deck file the user moves between them.
+
+Where in the code: [contract/README.md](contract/README.md), [contract/game-rules.md](contract/game-rules.md), [apps/apple/EraticCore/Sources/EraticCore/](apps/apple/EraticCore/Sources/EraticCore/), [apps/web/src/core/](apps/web/src/core/), [design/eras.json](design/eras.json).
 
 ## Components
 
@@ -60,6 +67,145 @@ Dependencies point one way: UI → core → contract. The two cores hold the sam
 | Scan and provider tracks | `Scan.swift` (`ScanRules`) | `scan.ts` |
 | Playlist candidates | `Playlist.swift` (`PlaylistRules`) | `playlist.ts` |
 
+## How it runs
+
+There is no server of our own. The web app is a static bundle; everything runs in one browser tab and talks only to the music providers. This is the web runtime when a host plays a game:
+
+```mermaid
+flowchart LR
+  host((Host))
+  pages["Static host<br/>(GitHub Pages demo)"]
+  subgraph tab["Browser tab"]
+    ui["React ui/"]
+    ctrl["GameController"]
+    core["core/ engine"]
+    hub["PlaybackHub"]
+    scanner["qrScanner"]
+    ls[("localStorage")]
+  end
+  providers["Spotify / Apple Music"]
+  pages -->|"HTML + JS bundle"| ui
+  host -->|"clicks, camera"| ui
+  ui -->|"draw, scan, dispatch"| ctrl
+  ctrl -->|"applyAction, replay"| core
+  ctrl -->|"persistSession"| ls
+  ui -->|"persistDeck"| ls
+  ui -->|"play clip"| hub
+  hub -->|"Web Playback SDK,<br/>MusicKit JS"| providers
+  ui -->|"start camera"| scanner
+  classDef focus fill:#fde68a,stroke:#b45309,color:#1f2937
+  class ctrl focus
+```
+
+`GameController` is the only stateful game piece in the UI: it turns a host's input into an action, asks the core to apply it, and saves the whole session after every action. `PlaybackHub` creates a provider adapter only when the host picks one (Play it yourself needs no network at all). Provider scripts load from the provider's CDN on demand, and the scanner decodes frames locally with `BarcodeDetector` or jsQR. The public demo is built without provider credentials, so it only offers previews, links and Play it yourself.
+
+The Apple app is one SwiftUI process with the same pieces under different names. It stores the deck only through files the user exports, and the running game under Application Support:
+
+| Piece | Web (`apps/web/src`) | Apple (`apps/apple/Sources`) |
+| --- | --- | --- |
+| Game controller | [ui/game/useGame.ts](apps/web/src/ui/game/useGame.ts) `GameController` | [Game/GameController.swift](apps/apple/Sources/Game/GameController.swift) |
+| Session storage | [sessions.ts](apps/web/src/sessions.ts) → `localStorage` `eratic.session.v1` | [Game/SessionStore.swift](apps/apple/Sources/Game/SessionStore.swift) → `Eratic/Sessions/current.json` + `current-deck.json` |
+| Deck storage | [storage.ts](apps/web/src/storage.ts) → `localStorage` `qr-song-quiz.deck.v1` | import/export dialogs in [DeckWorkspace.swift](apps/apple/Sources/DeckWorkspace.swift) |
+| Playback | [playback/hub.ts](apps/web/src/playback/hub.ts): Web Playback SDK + Web API, MusicKit JS, manual | [Playback/PlaybackHub.swift](apps/apple/Sources/Playback/PlaybackHub.swift): Spotify Connect via Web API, MusicKit `ApplicationMusicPlayer`, manual |
+| Clip timing | [playback/clip.ts](apps/web/src/playback/clip.ts) | [Playback/ClipController.swift](apps/apple/Sources/Playback/ClipController.swift) |
+| QR scanner | [scanner/qrScanner.ts](apps/web/src/scanner/qrScanner.ts) (`getUserMedia`) | [Scanner/QRScanner.swift](apps/apple/Sources/Scanner/QRScanner.swift) (AVFoundation + Vision) |
+
+## User journeys
+
+### Importing a deck (web)
+
+What happens between choosing a file and seeing its cards:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor H as Host
+  participant app as App.tsx
+  participant deck as core/deck.ts
+  participant store as storage.ts
+  participant ls as localStorage
+  H->>app: Choose a .json file
+  app->>app: Reject files over 8 MiB
+  app->>deck: decodeDeckBytes(bytes)
+  deck->>deck: UTF-8, duplicate names, schema, semantic rules
+  alt invalid
+    deck-->>app: throws with the reason
+    app-->>H: Notice with the reason
+  else valid
+    deck-->>app: Deck
+    app-->>H: Confirm replacing the current deck
+    app->>store: persistDeck(deck)
+    store->>ls: setItem(qr-song-quiz.deck.v1)
+    app-->>H: Card list shows the new deck
+  end
+```
+
+Validation (step 4) is the same strict pipeline the contract cases test, so a file either opens identically in both apps or is refused in both. Saving (steps 9–10) never overwrites a stored value it cannot read: `storage.ts` first copies it to the `.unreadable` key. On Apple the file arrives through the system import dialog and goes through `DeckCodec.decode`; nothing is stored until the user exports.
+
+Where in the code: [apps/web/src/ui/App.tsx](apps/web/src/ui/App.tsx) (`importFile`, `installDeck`), [apps/web/src/core/deck.ts](apps/web/src/core/deck.ts) (`decodeDeckBytes`), [apps/web/src/storage.ts](apps/web/src/storage.ts) (`persistDeck`), [apps/apple/EraticCore/Sources/EraticCore/DeckCodec.swift](apps/apple/EraticCore/Sources/EraticCore/DeckCodec.swift).
+
+### Playing one card (web)
+
+What happens in a round from drawing a card to the reveal:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor H as Host
+  participant ui as Host / Stage
+  participant ctrl as GameController
+  participant core as core/game/engine
+  participant hub as PlaybackHub + ClipController
+  participant ls as localStorage
+  H->>ui: Draw (or scan a QR code)
+  ui->>ctrl: draw(deck) / scan(payload, deck)
+  ctrl->>core: applyAction(draw)
+  core-->>ctrl: state, phase open
+  ctrl->>ls: persistSession
+  H->>ui: Play
+  ui->>hub: prepare + clip.start(from, length)
+  hub--)ui: audible
+  ui->>ctrl: dispatch(clip)
+  H->>ui: Enter each player's answer
+  ui->>ctrl: dispatch(guess / place / pickEra …)
+  H->>ui: Reveal
+  ui->>ctrl: dispatch(reveal)
+  ctrl->>core: applyAction(reveal)
+  core-->>ctrl: scores, phase awaitingDraw or finished
+  ctrl->>ls: persistSession
+  ctrl-->>ui: new summary
+```
+
+Every arrow into `GameController` ends the same way: the core applies one action to the state, the action is appended to the session log, and the log is saved (drawn out for the draw and the reveal, and the same after steps 9 and 11). A rejected action throws a `GameError`, so the state and the log stay unchanged and the host sees the reason. The `clip` action (step 9) is recorded only once audio is actually audible, so the log says what players heard; it does not change scores. A scan (step 2) only selects a card through `resolveScan`; it never starts playback.
+
+Where in the code: [apps/web/src/ui/game/Host.tsx](apps/web/src/ui/game/Host.tsx), [apps/web/src/ui/game/Stage.tsx](apps/web/src/ui/game/Stage.tsx), [apps/web/src/ui/game/useGame.ts](apps/web/src/ui/game/useGame.ts) (`draw`, `scan`, `dispatch`), [apps/web/src/ui/game/playback.ts](apps/web/src/ui/game/playback.ts) (`useCardPlayer`), [apps/web/src/core/game/engine.ts](apps/web/src/core/game/engine.ts) (`applyAction`, `replay`), [apps/web/src/core/scan.ts](apps/web/src/core/scan.ts).
+
+### Game phases
+
+The states a game goes through in the engine (`Phase` in both cores):
+
+```mermaid
+stateDiagram-v2
+  [*] --> setup: Timeline, Relay, Higher or Lower
+  [*] --> awaitingDraw: other modes
+  setup --> awaitingDraw: anchor / reference
+  awaitingDraw --> open: draw
+  open --> awaitingDraw: reveal, skip
+  open --> finished: reveal, end (no tie)
+  awaitingDraw --> finished: end (no tie)
+  open --> suddenDeath: reveal, end (tie)
+  awaitingDraw --> suddenDeath: end (tie)
+  suddenDeath --> suddenDeathOpen: sdDraw
+  suddenDeathOpen --> suddenDeath: reveal (still tied), skip
+  suddenDeathOpen --> finished: reveal (winner), end
+  suddenDeath --> finished: end
+  finished --> [*]
+```
+
+A reveal ends the game when the mode's own end condition is met (target score, rounds, lives); a tie for first place then enters sudden death if the mode defines one. Answers and wagers are only accepted in `open` and `suddenDeathOpen`, which is also the only time Undo can take an entry back.
+
+Where in the code: [apps/web/src/core/game/common.ts](apps/web/src/core/game/common.ts) (`Phase`), [apps/web/src/core/game/engine.ts](apps/web/src/core/game/engine.ts) (`step`, `reveal`, `end`, `evaluateEnd`), [apps/apple/EraticCore/Sources/EraticCore/GameEngine.swift](apps/apple/EraticCore/Sources/EraticCore/GameEngine.swift).
+
 ## Contract and parity
 
 The JSON Schema is canonical, and `contract/README.md` adds the rules a schema cannot express: duplicate IDs, well-formed strings, and the URL grammar. The rules are written out explicitly rather than delegated to a platform URL parser, because WHATWG `URL` and Foundation `URLComponents` disagree ([ADR 0008](docs/adr/0008-explicit-text-and-url-rules.md)). Both test suites run every file in `contract/cases/`. A rule exists in the contract once it has a case there, and a change lands in the schema, the README, the cases, Swift, and TypeScript together.
@@ -86,6 +232,23 @@ Official mode is the default. It encodes only a supplied official-card URL of a 
 - Synchronization, multi-device play and distribution are separate future capabilities, each needing its own requirements and ADR.
 
 ## Build and tooling
+
+How code gets checked and the demo gets published:
+
+```mermaid
+flowchart LR
+  dev["Developer"] -->|"make check"| make["Makefile"]
+  ci["check.yml<br/>(manual, Dependabot PRs)"] -->|"web-check, core-test,<br/>apple-preview-test, apple-build"| make
+  audit["dependency-security.yml<br/>(push, PR, weekly)"] -->|"npm audit"| lock["package-lock.json"]
+  make -->|"vitest, tsc, vite build"| dist["apps/web/dist"]
+  make -->|"swift test, xcodebuild"| appbuild["unsigned app builds"]
+  pagesci["pages.yml<br/>(manual, main only)"] -->|"build without credentials"| dist
+  dist -.->|"deploy-pages"| pages["GitHub Pages demo"]
+```
+
+There is no release pipeline for the Apple app: `make apple-build` only proves it compiles unsigned, and running on a device needs your own signing team. The full CI run is manual (`workflow_dispatch`) except on Dependabot pull requests, so `make check` locally is the usual gate. The demo is deployed only by a manual run of `pages.yml` on `main`, with all `VITE_*` provider settings empty.
+
+Where in the code: [Makefile](Makefile), [.github/workflows/check.yml](.github/workflows/check.yml), [.github/workflows/pages.yml](.github/workflows/pages.yml), [.github/workflows/dependency-security.yml](.github/workflows/dependency-security.yml), [apps/apple/project.yml](apps/apple/project.yml).
 
 The root `Makefile` is the single entry point that CI (`.github/workflows/check.yml`) and developers use. The Xcode project is generated from `apps/apple/project.yml` and is not committed. The Swift package is consumed by path from that spec. The web app is a single npm package with a lockfile. There is no JavaScript workspace or monorepo tooling, because only one JavaScript package exists.
 

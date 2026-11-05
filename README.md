@@ -6,6 +6,8 @@
 
 Eratic is a music year quiz built from cards you curate. A native SwiftUI app for **Mac, iPad, and iPhone** and an **independent web app** edit decks, preview their QR codes and host games, and every era gets its own style: a song from 1984 looks like the eighties, one from 1997 like a photocopied zine. Both applications read and write the same versioned JSON deck files. The web companion works without the Apple app, an account, or a backend.
 
+> _Claude was used to polish and proof-read the code and documentation of this repository._
+
 <details>
 <summary>Status and limitations</summary>
 
@@ -88,7 +90,7 @@ Open the generated project and run `Eratic-macOS`, or run `Eratic-iOS` on an iPh
 
 | Document | Use it for |
 | --- | --- |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Components, boundaries, dependency direction, where new code goes |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | **How it works**, with diagrams: components, how each app runs, importing a deck and playing a card step by step, game phases, CI and the demo deploy, where new code goes |
 | [DESIGN.md](DESIGN.md) | Interaction model, visual tokens, platform behaviour, accessibility |
 | [docs/STATUS.md](docs/STATUS.md) | What works, what has been verified, what's next, open decisions. **Start here when resuming.** |
 | [contract/README.md](contract/README.md) | File format semantics and validation rules |
