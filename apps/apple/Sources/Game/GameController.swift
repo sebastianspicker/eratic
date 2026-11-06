@@ -40,6 +40,24 @@ struct DailyRecord: Codable, Equatable {
     }
 }
 
+extension DailyRecord {
+    /// Read like the web's `loadDaily`: a bad date or a streak below 1 makes the record absent, and a malformed
+    /// `played` map is dropped while the streak still counts.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        lastDate = try container.decode(String.self, forKey: .lastDate)
+        streak = try container.decode(Int.self, forKey: .streak)
+        lastScore = try container.decode(Int.self, forKey: .lastScore)
+        deckId = try container.decode(String.self, forKey: .deckId)
+        shareText = try container.decodeIfPresent(String.self, forKey: .shareText)
+        played = try? container.decodeIfPresent([String: DailyDeckResult].self, forKey: .played)
+        // dailyStreak with no previous record throws only for an invalid date.
+        guard streak >= 1, (try? Scoring.dailyStreak(previous: nil, date: lastDate)) != nil else {
+            throw DecodingError.dataCorruptedError(forKey: .lastDate, in: container, debugDescription: "Not a valid Daily record.")
+        }
+    }
+}
+
 struct DailyDeckResult: Codable, Equatable {
     var score: Int
     var shareText: String?
@@ -51,6 +69,8 @@ final class GameController: ObservableObject {
     static let dailyKey = "eratic.daily.v1"
     private static let easyOnlyKey = "eratic.play.easyOnlySession.v1"
     private static let kidsKey = "eratic.play.kidsSession.v1"
+    /// The ID of the saved session that takes its cards by scanning, so Resume keeps the card source.
+    private static let scanKey = "eratic.play.scanSession.v1"
     /// The ID of the saved session whose reveal or results the host hasn't seen yet (a new key, no migration).
     private static let unseenKey = "eratic.play.unseen.v1"
 
@@ -108,6 +128,7 @@ final class GameController: ObservableObject {
                 session = saved
                 easyOnly = defaults.string(forKey: Self.easyOnlyKey) == saved.id
                 kids = defaults.string(forKey: Self.kidsKey) == saved.id
+                cardSource = defaults.string(forKey: Self.scanKey) == saved.id ? .scan : .draw
                 loadSnapshot(for: saved)
                 restoreUnseen(for: saved)
             } catch {
@@ -262,6 +283,7 @@ final class GameController: ObservableObject {
             self.kids = kids
             defaults.set(easyOnly ? created.id : nil, forKey: Self.easyOnlyKey)
             defaults.set(kids ? created.id : nil, forKey: Self.kidsKey)
+            defaults.set(cardSource == .scan ? created.id : nil, forKey: Self.scanKey)
             lastReveal = nil
             showingReveal = false
             unseenResults = false
@@ -275,12 +297,13 @@ final class GameController: ObservableObject {
             // can never match this game by deck ID if the new copy below isn't written. loadDeck quarantines an unreadable one.
             if lastError == nil, case let .deck(old) = store.loadDeck(), old != deck { try? store.discardDeck() }
             snapshotDeck = deck
-            do {
-                try store.saveDeck(deck)
-            } catch {
-                // Keep an earlier save error: both matter.
-                let message = "The deck copy couldn't be saved, so resuming will need the deck loaded: \(Self.message(error))"
-                lastError = [lastError, message].compactMap { $0 }.joined(separator: "\n")
+            // Like the web: a game that wasn't saved gets no deck copy, so a kept-aside game's copy is never overwritten.
+            if lastError == nil {
+                do {
+                    try store.saveDeck(deck)
+                } catch {
+                    lastError = "The deck copy couldn't be saved, so resuming will need the deck loaded: \(Self.message(error))"
+                }
             }
             isHosting = true
         } catch {

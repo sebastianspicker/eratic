@@ -11,7 +11,7 @@ struct BestEntry: Codable, Equatable {
 /// Kinds, by game length: `relay-<target>-<lives>` (the team score) and `solo-<mode>-<length>` for a finished one-player
 /// game other than Daily, where the length is the rounds, cards (Higher or Lower), target (Timeline) or `k x rounds` as
 /// `4x5` (Lineup). A game the host ended early keeps no best.
-/// Unreadable data counts as no bests.
+/// Unreadable data counts as no bests; a malformed entry is skipped.
 enum Bests {
     static let key = "eratic.bests.v1"
     typealias Table = [String: [String: BestEntry]]
@@ -41,9 +41,21 @@ enum Bests {
         return "solo-\(session.mode.rawValue)-\(length)"
     }
 
+    /// Keeps the well-formed entries and skips the rest, like the web's `parseBests`, so one bad entry can't wipe
+    /// every other best on the next `record`.
     static func load(_ defaults: UserDefaults = .standard) -> Table {
-        guard let data = defaults.data(forKey: key), let table = try? JSONDecoder().decode(Table.self, from: data) else { return [:] }
-        return table
+        guard let data = defaults.data(forKey: key),
+              let raw = try? JSONDecoder().decode([String: Lenient<[String: Lenient<BestEntry>]>].self, from: data) else { return [:] }
+        return raw.compactMapValues { kinds in
+            let entries = kinds.value?.compactMapValues(\.value) ?? [:]
+            return entries.isEmpty ? nil : entries
+        }
+    }
+
+    /// A value that decodes to nil instead of failing its container.
+    private struct Lenient<Value: Decodable>: Decodable {
+        let value: Value?
+        init(from decoder: Decoder) throws { value = try? Value(from: decoder) }
     }
 
     /// Records a finished session's score once: a session already stored isn't counted again, and a score replaces

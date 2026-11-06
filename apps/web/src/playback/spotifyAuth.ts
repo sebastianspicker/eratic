@@ -231,7 +231,10 @@ export async function refreshTokens(
       signOutSpotify(deps.local ?? webStorage("localStorage"));
     throw error;
   });
-  saveTokens(fresh, deps.local ?? webStorage("localStorage"));
+  const local = deps.local ?? webStorage("localStorage");
+  // A sign-out while the request was out wins: the fresh tokens are dropped, not stored again.
+  if (!loadTokens(local)) throw new PlaybackError("notAuthorised", "Spotify was disconnected.");
+  saveTokens(fresh, local);
   return fresh;
 }
 

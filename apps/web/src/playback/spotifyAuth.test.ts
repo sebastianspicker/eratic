@@ -9,6 +9,7 @@ import {
   loadTokens,
   makeVerifier,
   saveTokens,
+  signOutSpotify,
   type SpotifyAuthDeps,
 } from "./spotifyAuth";
 import { PlaybackError } from "./player";
@@ -145,6 +146,20 @@ describe("tokens", () => {
     saveTokens({ access: "A1", refresh: "R1", expiresAt: 0 }, d.local as Storage);
     await expect(accessToken(d)).rejects.toMatchObject({ code: "notAuthorised" });
     expect(d.local!.getItem(SPOTIFY_AUTH_KEY)).toBeNull();
+  });
+
+  it("stays signed out when sign-out happens during a refresh", async () => {
+    let answer!: (response: Response) => void;
+    const { d } = deps({
+      fetch: (() => new Promise<Response>((resolve) => (answer = resolve))) as unknown as typeof fetch,
+    });
+    saveTokens({ access: "A1", refresh: "R1", expiresAt: 0 }, d.local as Storage);
+    const pending = accessToken(d);
+    await vi.waitFor(() => expect(answer).toBeDefined());
+    signOutSpotify(d.local as Storage);
+    answer(jsonResponse({ access_token: "A2", refresh_token: "R2", expires_in: 3600 }));
+    await expect(pending).rejects.toMatchObject({ code: "notAuthorised" });
+    expect(loadTokens(d.local as Storage)).toBeUndefined();
   });
 
   it("keeps the sign-in when Spotify is down or rate-limiting", async () => {

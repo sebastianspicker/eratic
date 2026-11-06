@@ -40,7 +40,7 @@ final class SessionStore {
             return .session(try SessionCodec.decode(Data(contentsOf: url)))
         } catch {
             let reason = error.localizedDescription
-            if let name = Self.quarantine(url, base: "current") { return .quarantined(fileName: name, reason: reason) }
+            if let name = keepCurrentAside() { return .quarantined(fileName: name, reason: reason) }
             blocked = "The saved game couldn't be read or moved aside, so Eratic won't overwrite it."
             return .quarantined(fileName: "current.json", reason: reason)
         }
@@ -50,16 +50,22 @@ final class SessionStore {
     /// or nil when it couldn't be moved (then saving is blocked so it isn't overwritten).
     func quarantineCurrent() -> String? {
         guard let url = currentURL, FileManager.default.fileExists(atPath: url.path) else { return nil }
-        if let name = Self.quarantine(url, base: "current") {
+        if let name = keepCurrentAside() {
             blocked = nil
-            // Keep the game's deck copy with it, so the next game can't overwrite it.
-            if let deckURL, FileManager.default.fileExists(atPath: deckURL.path), Self.quarantine(deckURL, base: "current-deck") == nil {
-                deckBlocked = "The saved deck copy couldn't be moved aside, so Eratic won't overwrite it."
-            }
             return name
         }
         blocked = "The saved game couldn't be replayed or moved aside, so Eratic won't overwrite it."
         return nil
+    }
+
+    /// Moves `current.json` aside and its deck copy with it, so the next game can't delete or overwrite that copy.
+    /// Both unreadable paths (can't decode, can't replay) use this. Returns the game's new name, or nil.
+    private func keepCurrentAside() -> String? {
+        guard let url = currentURL, let name = Self.quarantine(url, base: "current") else { return nil }
+        if let deckURL, FileManager.default.fileExists(atPath: deckURL.path), Self.quarantine(deckURL, base: "current-deck") == nil {
+            deckBlocked = "The saved deck copy couldn't be moved aside, so Eratic won't overwrite it."
+        }
+        return name
     }
 
     /// The deck snapshot saved with the current game.

@@ -25,7 +25,7 @@ final class SpotifyAuth: NSObject, ASWebAuthenticationPresentationContextProvidi
     private struct TokenResponse: Decodable {
         let access_token: String
         let refresh_token: String?
-        let expires_in: Double
+        let expires_in: Double?
     }
 
     private var tokens: Tokens?
@@ -76,16 +76,19 @@ final class SpotifyAuth: NSObject, ASWebAuthenticationPresentationContextProvidi
     private func performRefresh() async throws -> String {
         guard let clientID = AppConfig.spotifyClientID else { throw PlaybackError.notConfigured }
         guard let current = tokens else { throw PlaybackError.notAuthorised }
+        let fresh: Tokens
         do {
-            try await requestTokens(clientID: clientID, form: [
+            fresh = try await requestTokens(clientID: clientID, form: [
                 "grant_type": "refresh_token", "refresh_token": current.refreshToken,
             ], fallbackRefresh: current.refreshToken)
         } catch PlaybackError.notAuthorised {
             signOut()
             throw PlaybackError.notAuthorised
         }
-        guard let tokens else { throw PlaybackError.notAuthorised }
-        return tokens.accessToken
+        // A sign-out while the request was out wins: the fresh tokens are dropped, not stored again.
+        guard tokens?.refreshToken == current.refreshToken else { throw PlaybackError.notAuthorised }
+        store(fresh)
+        return fresh.accessToken
     }
 
     private func signIn(clientID: String) async throws {
@@ -114,13 +117,13 @@ final class SpotifyAuth: NSObject, ASWebAuthenticationPresentationContextProvidi
         let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
         guard items.first(where: { $0.name == "state" })?.value == state,
               let code = items.first(where: { $0.name == "code" })?.value else { throw PlaybackError.notAuthorised }
-        try await requestTokens(clientID: clientID, form: [
+        store(try await requestTokens(clientID: clientID, form: [
             "grant_type": "authorization_code", "code": code,
             "redirect_uri": Self.redirectURI, "code_verifier": verifier,
-        ], fallbackRefresh: nil)
+        ], fallbackRefresh: nil))
     }
 
-    private func requestTokens(clientID: String, form: [String: String], fallbackRefresh: String?) async throws {
+    private func requestTokens(clientID: String, form: [String: String], fallbackRefresh: String?) async throws -> Tokens {
         var request = URLRequest(url: URL(string: "https://accounts.spotify.com/api/token")!)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -138,10 +141,14 @@ final class SpotifyAuth: NSObject, ASWebAuthenticationPresentationContextProvidi
         }
         guard let decoded = try? JSONDecoder().decode(TokenResponse.self, from: data), !decoded.access_token.isEmpty,
               let refreshToken = decoded.refresh_token ?? fallbackRefresh, !refreshToken.isEmpty else { throw PlaybackError.notAuthorised }
-        let stored = Tokens(accessToken: decoded.access_token, refreshToken: refreshToken,
-                            expiresAt: Date().addingTimeInterval(decoded.expires_in))
-        tokens = stored
-        if let encoded = try? JSONEncoder().encode(stored) {
+        // A missing expiry counts as Spotify's usual hour, as on the web.
+        return Tokens(accessToken: decoded.access_token, refreshToken: refreshToken,
+                      expiresAt: Date().addingTimeInterval(decoded.expires_in ?? 3600))
+    }
+
+    private func store(_ fresh: Tokens) {
+        tokens = fresh
+        if let encoded = try? JSONEncoder().encode(fresh) {
             Keychain.write(encoded, service: Self.service, account: Self.account)
         }
     }
