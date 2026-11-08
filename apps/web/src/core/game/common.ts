@@ -1,4 +1,5 @@
 import { eraOf } from "../eras";
+import { ID_PATTERN } from "../cardUrls";
 import type {
   CardRef,
   GameAction,
@@ -126,7 +127,6 @@ export function checkYear(year: unknown): number {
     fail("A year must be an integer from 1850 to 2100.");
   return year as number;
 }
-export const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 export function checkCard(card: CardRef): void {
   if (typeof card !== "object" || card === null) fail("A card reference is an object.");
   if (typeof card.cardId !== "string" || !ID_PATTERN.test(card.cardId))

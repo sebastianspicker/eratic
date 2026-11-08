@@ -108,4 +108,25 @@ describe("ClipController", () => {
     await expect(controller.start(player, 0, 1000)).rejects.toThrow("nope");
     expect(controller.state).toEqual({ state: "idle" });
   });
+
+  it("a superseded start does not stop the newer clip on the same player", async () => {
+    const clock = new FakeClock();
+    const player = fakePlayer(clock, 0);
+    const pending: Array<() => void> = [];
+    const realPlay = player.play.bind(player);
+    player.play = (fromMs) =>
+      new Promise<AudibleStart>((resolve) => pending.push(() => void realPlay(fromMs).then(resolve)));
+    const controller = new ClipController(clock);
+    const states = record(controller);
+    const stale = controller.start(player, 0, 5000);
+    await controller.cancel(); // Skip without a player, as the next stage does
+    void controller.start(player, 0, 5000);
+    pending[1](); // the new card becomes audible first
+    await clock.advance(500);
+    pending[0](); // then the old request settles
+    await clock.advance(1000);
+    await stale;
+    expect(player.stops).toBe(0);
+    expect(states.at(-1)?.state).toBe("playing");
+  });
 });

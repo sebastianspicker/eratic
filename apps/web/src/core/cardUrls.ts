@@ -44,7 +44,8 @@ export function isOfficialCardURL(value: string): boolean {
 export function isValidEraticHost(host: string): boolean {
   return isSafeHTTPS(`https://${host}/`) && !/[:/?#]/u.test(host);
 }
-const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
+// Deck and card IDs (deck schema); the one copy every core check uses.
+export const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 // Nothing when the host is invalid or either ID fails the deck ID pattern.
 export function eraticCardURL(
   host: string,

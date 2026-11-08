@@ -1,5 +1,6 @@
 import {
   eraticCardURL,
+  ID_PATTERN,
   isOfficialCardURL,
   isSafeHTTPS,
   isValidEraticHost,
@@ -17,7 +18,6 @@ export interface ProviderTrack {
 }
 export const SPOTIFY_ID = /^[0-9A-Za-z]{22}$/u;
 export const APPLE_ID = /^[0-9]{1,15}$/u;
-const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 
 // Hosts compare as exact strings after ASCII-only lowercasing (section 1.1):
 // no Unicode case mapping, no canonical equivalence.

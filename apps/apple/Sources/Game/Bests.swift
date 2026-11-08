@@ -27,13 +27,20 @@ enum Bests {
         if session.actions.last.map({ $0.action == .end }) == true { return nil }
         if case let .relay(options) = session.options { return "relay-\(options.target)-\(options.lives)" }
         guard session.players.count == 1 else { return nil }
+        // Same kinds as the web's `bestKind`: options that change the score add a suffix only off their default.
         let length: String
         switch session.options {
-        case let .ladder(options): length = String(options.rounds)
+        case let .ladder(options):
+            length = String(options.rounds)
+                + (options.guess != .name ? "-\(options.guess.rawValue)" : "")
+                + (options.steps.count != 5 ? "-\(options.steps.count)steps" : "")
+                + (options.stakes ? "-stakes" : "")
+                + (options.buzzer ? "-buzzer" : "")
         case let .timeline(options): length = String(options.target)
-        case let .bullseye(options): length = String(options.rounds)
-        case let .eraSort(options): length = String(options.rounds)
-        case let .higherLower(options): length = String(options.cards)
+        case let .bullseye(options): length = String(options.rounds) + (options.stakes ? "-stakes" : "")
+        case let .eraSort(options): length = String(options.rounds) + (options.kids ? "-kids" : "")
+        case let .higherLower(options):
+            length = options.play == .everyone ? "everyone-\(options.lives ?? HigherLowerOptions.defaultLives)" : "turns"
         case let .lineup(options): length = "\(options.k)x\(options.rounds)"
         case let .imposter(options): length = String(options.rounds)
         case .relay, .daily: return nil

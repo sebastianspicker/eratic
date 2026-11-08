@@ -11,7 +11,7 @@ import { LineupTiles, lineupByName, lineupDeckByName, OrderEntry } from "./modes
 import { LockedEntry, send } from "./modes/LockedEntry";
 import { MODE_UI } from "./modes/registry";
 import type { ModeInputProps } from "./modes/types";
-import { MODE_INFO } from "./modes";
+import { MODE_INFO, scanAllowed } from "./modes";
 import { backupTrack, cardsKey as cardsKeyOf, openLink, PROVIDER_NAMES, useCardPlayer, usePlayback, type PlaybackProps } from "./playback";
 import { Results } from "./Results";
 import { Reveal } from "./Reveal";
@@ -288,8 +288,7 @@ export function Host({
   const showReveal = reveal !== undefined && dismissedAt !== session.actions.length;
   const finished = state.phase === "finished";
   const cards = currentCards(state);
-  const canScan =
-    hasCamera && !["daily", "higherLower", "lineup", "imposter"].includes(session.mode);
+  const canScan = hasCamera && scanAllowed(session.mode);
   const suddenDeathNames = summary.suddenDeath
     ? listNames(summary.suddenDeath.players.map((id) => playerName(session, id)))
     : "";
@@ -350,12 +349,14 @@ export function Host({
   // Drawing stops anything still playing, such as an unscored audio-only clip.
   function next() {
     stopClip();
+    setScanning(false);
     setScanMessage(undefined);
     setDismissedAt(session.actions.length);
     if ((view.source === "draw" || !scanHere) && !outOfCards) controller.draw(deck);
   }
   function draw() {
     stopClip();
+    setScanning(false);
     setScanMessage(undefined);
     controller.draw(deck);
   }
@@ -538,7 +539,7 @@ export function Host({
               ) : null}
             </div>
           )}
-          {scanning ? (
+          {scanning && scanHere ? (
             <div
               className="scanner-panel"
               role="dialog"

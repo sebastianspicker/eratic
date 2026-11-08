@@ -1,6 +1,6 @@
 import type { Card, Deck } from "../../core/deck";
 import { imposterPairs } from "../../core/scoring";
-import type { GameMode, SessionOptions } from "../../core/session";
+import { LADDER_STEPS_DEFAULT, type GameMode, type SessionOptions } from "../../core/session";
 import { previewUrl } from "./SnippetPreview";
 
 // Display metadata for the nine modes of docs/game-modes.md, in gallery order.
@@ -69,6 +69,10 @@ export const MODE_INFO: Record<GameMode, ModeInfo> = {
     players: [2, 8],
   },
 };
+
+// Modes that can take a scanned printed card; the others draw from the deck.
+export const scanAllowed = (mode: GameMode): boolean =>
+  !["daily", "higherLower", "lineup", "imposter"].includes(mode);
 
 export const isEasy = (card: Card): boolean =>
   card.difficulty !== undefined && card.difficulty <= 2;
@@ -250,7 +254,7 @@ export const OPTION_FIELDS: Record<GameMode, OptionField[]> = {
       name: "steps",
       label: "Clip steps",
       kind: "steps",
-      fallback: [1000, 5000, 10000, 20000, 30000],
+      fallback: LADDER_STEPS_DEFAULT[2],
       choices: [1000, 5000, 10000, 20000, 30000],
     },
     {

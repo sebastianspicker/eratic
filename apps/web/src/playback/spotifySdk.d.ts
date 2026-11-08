@@ -3,6 +3,8 @@ declare namespace Spotify {
   interface Track {
     id: string | null;
     uri: string;
+    // Set when Spotify plays a market-specific copy (relinking) of the requested track.
+    linked_from?: { id: string | null; uri: string | null };
   }
   interface PlaybackState {
     paused: boolean;

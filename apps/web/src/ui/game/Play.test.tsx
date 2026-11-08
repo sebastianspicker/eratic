@@ -393,6 +393,20 @@ describe("Bullseye", () => {
     await click(button("Fake scan"));
     expect($(".scan-message")?.textContent).toContain("Already played; scan another card.");
   });
+
+  it("closes the scanner when the host draws instead, so it never reopens by itself", async () => {
+    Object.defineProperty(navigator, "mediaDevices", { value: { getUserMedia: vi.fn() }, configurable: true });
+    await render();
+    await toPlay();
+    await setUp("Bullseye", ["Ada"], { 'input[value="scan"]': "" });
+    await click(button("Scan card"));
+    expect(hasButton("Close scanner")).toBe(true);
+    await click(button("Draw card"));
+    await submit("#guess-p1", "1997");
+    await click(button("Reveal"));
+    await click(button("Next card"));
+    expect(hasButton("Close scanner")).toBe(false);
+  });
 });
 
 describe("Era Sort and Higher or Lower", () => {

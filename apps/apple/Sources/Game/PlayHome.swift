@@ -246,6 +246,8 @@ private struct CalibrationSheet: View {
                 }
             }
         }
+        // Swiping the sheet away on iPhone and iPad skips Done; stop the clips there too.
+        .onDisappear { run.cancel() }
         #if os(macOS)
         .frame(width: 480, height: 420)
         #endif

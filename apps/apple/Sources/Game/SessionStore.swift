@@ -46,20 +46,8 @@ final class SessionStore {
         }
     }
 
-    /// Moves a session that decoded but couldn't be replayed aside like an unreadable one; returns its new name,
-    /// or nil when it couldn't be moved (then saving is blocked so it isn't overwritten).
-    func quarantineCurrent() -> String? {
-        guard let url = currentURL, FileManager.default.fileExists(atPath: url.path) else { return nil }
-        if let name = keepCurrentAside() {
-            blocked = nil
-            return name
-        }
-        blocked = "The saved game couldn't be replayed or moved aside, so Eratic won't overwrite it."
-        return nil
-    }
-
     /// Moves `current.json` aside and its deck copy with it, so the next game can't delete or overwrite that copy.
-    /// Both unreadable paths (can't decode, can't replay) use this. Returns the game's new name, or nil.
+    /// Returns the game's new name, or nil.
     private func keepCurrentAside() -> String? {
         guard let url = currentURL, let name = Self.quarantine(url, base: "current") else { return nil }
         if let deckURL, FileManager.default.fileExists(atPath: deckURL.path), Self.quarantine(deckURL, base: "current-deck") == nil {

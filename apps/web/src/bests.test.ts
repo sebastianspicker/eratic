@@ -58,7 +58,15 @@ describe("personal bests", () => {
     expect(bestKind(session("relay", 3, { target: 5, lives: 2 }))).toBe("relay-5-2");
     expect(bestKind(session("bullseye", 1))).toBe("solo-bullseye-10");
     expect(bestKind(session("bullseye", 1, { rounds: 3 }))).toBe("solo-bullseye-3");
-    expect(bestKind(session("higherLower", 1, { cards: 20 }))).toBe("solo-higherLower-20");
+    expect(bestKind(session("higherLower", 1, { cards: 20 }))).toBe("solo-higherLower-turns");
+    expect(bestKind(session("higherLower", 1, { cards: 10 }))).toBe("solo-higherLower-turns");
+    expect(bestKind(session("higherLower", 1, { play: "everyone", lives: 5 }))).toBe("solo-higherLower-everyone-5");
+    expect(bestKind(session("bullseye", 1, { stakes: true }))).toBe("solo-bullseye-10-stakes");
+    expect(bestKind(session("eraSort", 1, { kids: true }))).toBe("solo-eraSort-10-kids");
+    expect(bestKind(session("ladder", 1))).toBe("solo-ladder-10");
+    expect(bestKind(session("ladder", 1, { guess: "year", steps: [1000, 5000], buzzer: true }))).toBe(
+      "solo-ladder-10-year-2steps-buzzer",
+    );
     expect(bestKind(session("timeline", 1, { target: 7 }))).toBe("solo-timeline-7");
     expect(bestKind(session("lineup", 1, { k: 4, rounds: 5 }))).toBe("solo-lineup-4x5");
     expect(bestKind(session("lineup", 1))).toBe("solo-lineup-4x5");

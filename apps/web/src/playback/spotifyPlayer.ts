@@ -179,7 +179,8 @@ export class SpotifyPlayer implements Player {
   async play(fromMs: number): Promise<AudibleStart> {
     if (!this.sdk || !this.deviceId)
       throw new PlaybackError("noActiveDevice", "Spotify's player is not ready. Connect first.");
-    if (!this.trackId) throw new PlaybackError("trackUnavailable", "No track is prepared.");
+    const trackId = this.trackId; // the next prepare() must not change what this call waits for
+    if (!trackId) throw new PlaybackError("trackUnavailable", "No track is prepared.");
     const requestedAt = this.clock.now();
     const response = await this.api(
       `/me/player/play?device_id=${encodeURIComponent(this.deviceId)}`,
@@ -187,7 +188,7 @@ export class SpotifyPlayer implements Player {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          uris: [`spotify:track:${this.trackId}`],
+          uris: [`spotify:track:${trackId}`],
           position_ms: Math.round(fromMs),
         }),
       },
@@ -205,7 +206,8 @@ export class SpotifyPlayer implements Player {
       if (
         state &&
         !state.paused &&
-        state.track_window.current_track.id === this.trackId &&
+        (state.track_window.current_track.id === trackId ||
+          state.track_window.current_track.linked_from?.id === trackId) &&
         state.position >= fromMs
       ) {
         if (previous !== undefined && state.position > previous) {

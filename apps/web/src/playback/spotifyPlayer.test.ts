@@ -17,6 +17,7 @@ function setup(opts: {
   playStatuses?: number[]; // statuses for successive play requests
   meStatuses?: number[];
   retryAfter?: string;
+  relinkTo?: string; // the SDK reports this ID, with the requested one in linked_from
   accountError?: boolean;
   noReady?: boolean;
 }) {
@@ -26,6 +27,7 @@ function setup(opts: {
   const calls: Call[] = [];
   let playedAt: number | undefined;
   let playedFrom = 0;
+  let playedId = "trk";
   let paused = true;
   const playStatuses = [...(opts.playStatuses ?? [204])];
   const meStatuses = [...(opts.meStatuses ?? [200])];
@@ -50,7 +52,9 @@ function setup(opts: {
       const headers: Record<string, string> = opts.retryAfter ? { "Retry-After": opts.retryAfter } : {};
       if (status === 204) {
         playedAt = clock.now();
-        playedFrom = JSON.parse(String(init.body)).position_ms;
+        const body = JSON.parse(String(init.body));
+        playedFrom = body.position_ms;
+        playedId = body.uris[0].replace("spotify:track:", "");
         paused = false;
       }
       return new Response(null, { status, headers });
@@ -85,7 +89,11 @@ function setup(opts: {
         paused: paused || !audible,
         position,
         duration: 200_000,
-        track_window: { current_track: { id: "trk", uri: "spotify:track:trk" } },
+        track_window: {
+          current_track: opts.relinkTo
+            ? { id: opts.relinkTo, uri: `spotify:track:${opts.relinkTo}`, linked_from: { id: playedId, uri: `spotify:track:${playedId}` } }
+            : { id: playedId, uri: `spotify:track:${playedId}` },
+        },
       } as Spotify.PlaybackState;
     }
   }
@@ -268,6 +276,37 @@ describe("SpotifyPlayer", () => {
     );
     await clock.advance(11_000);
     expect(await result).toBe("timeout");
+  });
+
+  it("a play still waiting does not count the next prepared track as its own", async () => {
+    const { player, clock } = setup({ audibleDelay: 400 });
+    await player.connect();
+    await player.prepare(track);
+    let firstSettled = false;
+    const first = player.play(0).then(
+      () => (firstSettled = true),
+      (e) => e.code,
+    );
+    await clock.advance(100);
+    await player.prepare({ provider: "spotify", id: "trk2" });
+    const second = player.play(0);
+    await clock.advance(1000);
+    await second;
+    expect(firstSettled).toBe(false);
+    await clock.advance(11_000);
+    expect(await first).toBe("timeout");
+  });
+
+  it("counts a relinked copy of the requested track as audible", async () => {
+    const { player, clock } = setup({ audibleDelay: 400, relinkTo: "relinked" });
+    await player.connect();
+    await player.prepare(track);
+    const started = player.play(0).then(
+      () => "ok",
+      (e) => e.code,
+    );
+    await clock.advance(1000);
+    expect(await started).toBe("ok");
   });
 
   it("stop pauses the SDK player", async () => {

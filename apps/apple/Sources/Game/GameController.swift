@@ -123,24 +123,15 @@ final class GameController: ObservableObject {
         switch store.load() {
         case .none: break
         case let .session(saved):
-            do {
-                state = try GameEngine.replay(saved)
-                session = saved
-                easyOnly = defaults.string(forKey: Self.easyOnlyKey) == saved.id
-                kids = defaults.string(forKey: Self.kidsKey) == saved.id
-                cardSource = defaults.string(forKey: Self.scanKey) == saved.id ? .scan : .draw
-                loadSnapshot(for: saved)
-                restoreUnseen(for: saved)
-            } catch {
-                // Kept aside like an unreadable file, so the next game doesn't overwrite it.
-                let reason = Self.message(error)
-                if let name = store.quarantineCurrent() {
-                    unreadableFile = name
-                    storeNotice = "Your saved game couldn't be replayed (\(reason)). It was kept as \(name) in Eratic's Sessions folder."
-                } else {
-                    storeNotice = "Your saved game couldn't be replayed (\(reason)) or moved aside, so Eratic won't overwrite it."
-                }
-            }
+            // load() already replayed it (SessionCodec.decode), and replay is deterministic, so this can't fail.
+            guard let replayed = try? GameEngine.replay(saved) else { break }
+            state = replayed
+            session = saved
+            easyOnly = defaults.string(forKey: Self.easyOnlyKey) == saved.id
+            kids = defaults.string(forKey: Self.kidsKey) == saved.id
+            cardSource = defaults.string(forKey: Self.scanKey) == saved.id ? .scan : .draw
+            loadSnapshot(for: saved)
+            restoreUnseen(for: saved)
         case let .quarantined(fileName, reason):
             unreadableFile = fileName
             storeNotice = "Your saved game couldn't be read (\(reason)). It was kept as \(fileName) in Eratic's Sessions folder."
@@ -574,18 +565,19 @@ final class GameController: ObservableObject {
                   !state.usedCardIDs.contains(card.id) else { return nil }
             return [card]
         }
+        let used = state.usedCardIDs // computed; building it once keeps the filters below linear in the deck
         if case let .higherLower(higherLower) = session.options, higherLower.closer, count == 1, let reference = state.referenceCard {
             // Closer years (game-rules.md 1.5): the unused cards in draw order, the pick nearest the reference year first.
             let pool = drawPool(deck)
             let byID = Dictionary(pool.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            let candidates = GameRandom.drawOrder(pool.map(\.id), seed: session.seed).filter { !state.usedCardIDs.contains($0) }.compactMap { id in
+            let candidates = GameRandom.drawOrder(pool.map(\.id), seed: session.seed).filter { !used.contains($0) }.compactMap { id in
                 byID[id].map { AnchorCandidate(id: $0.id, year: $0.gameYear.value) }
             }
             guard let id = GameRandom.closerPick(candidates, referenceYear: reference.year, revealed: state.round),
                   let card = deck.cards.first(where: { $0.id == id }) else { return nil }
             return [card]
         }
-        let ids = GameRandom.drawOrder(drawPool(deck).map(\.id), seed: session.seed).filter { !state.usedCardIDs.contains($0) }.prefix(count)
+        let ids = GameRandom.drawOrder(drawPool(deck).map(\.id), seed: session.seed).filter { !used.contains($0) }.prefix(count)
         let cards = ids.compactMap { id in deck.cards.first { $0.id == id } }
         return cards.count == count ? cards : nil
     }

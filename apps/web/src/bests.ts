@@ -44,9 +44,11 @@ export function loadBests(storage = defaultStorage()): Bests {
 }
 
 // The kind a finished game counts as, or none: "relay-<target>-<lives>", or
-// "solo-<mode>-<length>" where the length is the game's rounds, cards (Higher or
-// Lower), target (Timeline) or k x rounds (Lineup, "4x5"). A game cut short with
-// End game (the session's last action is "end") counts as none.
+// "solo-<mode>-<length>" where the length is the game's rounds, target (Timeline)
+// or k x rounds (Lineup, "4x5"); solo Higher or Lower is "solo-higherLower-turns"
+// or "-everyone-<lives>" (solo ignores cards). Options that change the score add a
+// suffix only when not at their default, so default games keep their old kind.
+// A game cut short with End game (the session's last action is "end") counts as none.
 export function bestKind(session: Session): string | undefined {
   if (session.actions.at(-1)?.type === "end") return undefined;
   if (session.mode === "daily" || (session.mode !== "relay" && session.players.length !== 1)) return undefined;
@@ -60,13 +62,29 @@ export function bestKind(session: Session): string | undefined {
     case "relay":
       return `relay-${options.target}-${options.lives}`;
     case "higherLower":
-      return `solo-higherLower-${options.cards}`;
+      return options.play === "everyone"
+        ? `solo-higherLower-everyone-${options.lives ?? 3}`
+        : "solo-higherLower-turns";
     case "timeline":
       return `solo-timeline-${options.target}`;
     case "lineup":
       return `solo-lineup-${options.k}x${options.rounds}`;
+    case "ladder": {
+      const steps = options.steps as number[];
+      return (
+        `solo-ladder-${options.rounds}` +
+        (options.guess !== "name" ? `-${options.guess}` : "") +
+        (steps.length !== 5 ? `-${steps.length}steps` : "") +
+        (options.stakes ? "-stakes" : "") +
+        (options.buzzer ? "-buzzer" : "")
+      );
+    }
     default:
-      return `solo-${session.mode}-${options.rounds}`;
+      return (
+        `solo-${session.mode}-${options.rounds}` +
+        (options.stakes ? "-stakes" : "") +
+        (options.kids ? "-kids" : "")
+      );
   }
 }
 

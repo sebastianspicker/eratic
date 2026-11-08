@@ -48,7 +48,12 @@ private final class Fixture {
         subject.load(id: "123", storefront: "us", autoplay: autoplay)
         await eventually { self.lookups.count == expected }
     }
-    func resolve(_ index: Int) { lookups[index].resume(returning: .success(URL(string: "https://audio.apple.com/preview"))) }
+    private var resolved = Set<Int>()
+    private var expired = Set<Int>()
+    func resolve(_ index: Int) {
+        resolved.insert(index)
+        lookups[index].resume(returning: .success(URL(string: "https://audio.apple.com/preview")))
+    }
     func attach(_ index: Int, autoplay: Bool = false) async -> PreviewPlayer {
         await load(autoplay: autoplay)
         resolve(index)
@@ -58,7 +63,15 @@ private final class Fixture {
         await eventually { self.subject.status == (autoplay ? "starting" : "ready") }
         return player
     }
-    func expire(_ index: Int) { deadlines[index].resume() }
+    func expire(_ index: Int) { expired.insert(index); deadlines[index].resume() }
+    /// Ends every lookup and deadline a scenario left waiting (the product cancels superseded ones), so no
+    /// continuation leaks and a real leak in ApplePreviewPlayer would show as "CONTINUATION MISUSE".
+    func finish() {
+        for (index, lookup) in lookups.enumerated() where !resolved.contains(index) { lookup.resume(returning: .success(nil)) }
+        for (index, deadline) in deadlines.enumerated() where !expired.contains(index) { deadline.resume(throwing: CancellationError()) }
+        resolved = Set(lookups.indices)
+        expired = Set(deadlines.indices)
+    }
 }
 
 @MainActor
@@ -80,6 +93,7 @@ struct NativePreviewTests {
         // Lookup expiry is terminal, even when the suspended lookup ignores cancellation.
         do {
             let f = Fixture()
+            defer { f.finish() }
             await f.load(autoplay: true)
             await eventually { f.deadlines.count == 1 }
             f.expire(0)
@@ -91,6 +105,7 @@ struct NativePreviewTests {
         // Readiness cancels loading; a requested start gets its own bounded deadline.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0, autoplay: true)
             await eventually { f.deadlines.count == 2 }
             f.expire(0)
@@ -107,6 +122,7 @@ struct NativePreviewTests {
         // A resumed stall is bounded and repeated waiting cannot extend the deadline.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0, autoplay: true)
             await eventually { f.deadlines.count == 2 }
             p.report(.playing)
@@ -125,6 +141,7 @@ struct NativePreviewTests {
         // Pause invalidates pending seek-play and cancels startup expiry.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0)
             f.subject.restart()
             await eventually { f.deadlines.count == 2 }
@@ -138,6 +155,7 @@ struct NativePreviewTests {
         // Restart -> seek transfers intent to the newest seek, keeping the original bound.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0)
             f.subject.restart()
             f.subject.seek(to: 10)
@@ -154,6 +172,7 @@ struct NativePreviewTests {
         // Read current control state after the actor hop, not a stale playing snapshot.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0, autoplay: true)
             await eventually { f.deadlines.count == 2 }
             p.report(.playing)
@@ -170,6 +189,7 @@ struct NativePreviewTests {
         // Retry protects a new player from old queued KVO, seeks and expiry.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let old = await f.attach(0)
             f.subject.restart()
             await eventually { f.deadlines.count == 2 }
@@ -189,6 +209,7 @@ struct NativePreviewTests {
         // Disposal stops playback and rejects lookup and observation callbacks.
         do {
             let f = Fixture()
+            defer { f.finish() }
             await f.load(autoplay: true)
             await eventually { f.deadlines.count == 1 }
             f.subject.dispose()
@@ -219,6 +240,7 @@ struct NativePreviewTests {
         // A snippet reports sound once, stops itself at its length, and a replay reuses the loaded player.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0)
             var audible = 0
             f.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
@@ -255,6 +277,7 @@ struct NativePreviewTests {
         // Pause, play and restart cancel a snippet, before or after sound starts.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0)
             var audible = 0
             f.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
@@ -283,6 +306,7 @@ struct NativePreviewTests {
         // A newer snippet supersedes the older one's seek, sound report and timer.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0)
             var first = 0, second = 0
             f.subject.snippet(from: 0, lengthMs: 1000) { first += 1 }
@@ -307,6 +331,7 @@ struct NativePreviewTests {
         // Disposal cancels a snippet's timer and late seek and playback callbacks.
         do {
             let f = Fixture()
+            defer { f.finish() }
             let p = await f.attach(0)
             var audible = 0
             f.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
@@ -317,6 +342,7 @@ struct NativePreviewTests {
             await drain()
             precondition(p.playCalls == 0 && audible == 0, "Disposed snippet played")
             let g = Fixture()
+            defer { g.finish() }
             let q = await g.attach(0)
             g.subject.snippet(from: 0, lengthMs: 1000) { audible += 1 }
             await eventually { q.seeks.count == 1 }

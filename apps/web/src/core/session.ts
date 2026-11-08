@@ -2,6 +2,7 @@ import { sessionV1 as validateSchemaV1, sessionV2 as validateSchemaV2 } from "./
 import { assertNoDuplicateNames, assertWellFormed } from "./deck";
 import type { AnchorKind } from "./random";
 import { isValidDate } from "./scoring";
+import { ID_PATTERN } from "./cardUrls";
 import { replay, type GameState } from "./game/engine";
 
 // Session file format versions 1 and 2 (contract/game-rules.md section 4).
@@ -200,14 +201,13 @@ export const LADDER_STEPS_DEFAULT: Record<SessionVersion, number[]> = {
   1: STEPS_V1.fallback as number[],
   2: STEPS_V2.fallback as number[],
 };
-const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 const DAILY_CARDS: Spec = {
   valid: (value) =>
     Array.isArray(value) &&
     value.length >= 1 &&
     value.length <= 5 &&
     new Set(value).size === value.length &&
-    value.every((id) => typeof id === "string" && ID.test(id)),
+    value.every((id) => typeof id === "string" && ID_PATTERN.test(id)),
 };
 const DATE: Spec = {
   valid: (value) => typeof value === "string" && isValidDate(value),

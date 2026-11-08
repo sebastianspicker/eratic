@@ -12,6 +12,7 @@ const STALL_MS = 1000;
 export class ClipController {
   private listeners = new Set<(state: ClipState) => void>();
   private run = 0;
+  private owner?: Player; // the player the newest start uses, until cancel
   private current: ClipState = { state: "idle" };
 
   constructor(private clock: Clock = systemClock) {}
@@ -40,6 +41,7 @@ export class ClipController {
     onAudible?: (start: AudibleStart) => void,
   ): Promise<void> {
     const run = ++this.run;
+    this.owner = player;
     this.emit({ state: "starting" });
     let started: AudibleStart;
     try {
@@ -49,7 +51,8 @@ export class ClipController {
       throw error;
     }
     if (run !== this.run) {
-      await player.stop().catch(() => {});
+      // A newer clip on the same player owns the audio now; stopping would cut it off.
+      if (this.owner !== player) await player.stop().catch(() => {});
       return;
     }
     const { audibleAt } = started;
@@ -89,6 +92,7 @@ export class ClipController {
 
   async cancel(player?: Player): Promise<void> {
     this.run++;
+    this.owner = undefined;
     this.emit({ state: "idle" });
     if (player) await player.stop().catch(() => {});
   }

@@ -9,6 +9,7 @@ import {
   isEasy,
   MODE_INFO,
   OPTION_FIELDS,
+  scanAllowed,
   sessionOptions,
   startingOptions,
   type OptionField,
@@ -145,8 +146,7 @@ export function Setup({
   const [options, setOptions] = useState(() => startingOptions(mode, names.length, deck.cards));
   const [kids, setKids] = useState(false);
   const [easyOnly, setEasyOnly] = useState(false);
-  const scanPossible =
-    hasCamera && !["daily", "higherLower", "lineup", "imposter"].includes(mode);
+  const scanPossible = hasCamera && scanAllowed(mode);
   const [source, setSource] = useState<CardSource>("draw");
   const [problem, setProblem] = useState("");
   // Rule 6.4: a preview-only account drops the steps longer than its preview before the session starts.
