@@ -1,0 +1,9 @@
+---
+# Test code is not shipped; its assertions trip security patterns (non-literal RegExp, dynamic lookups).
+exclude_paths:
+  - "apps/web/src/**/*.test.ts"
+  - "apps/web/src/**/*.test.tsx"
+  - "apps/apple/EraticCore/Tests/**"
+  - "script/native_preview_tests.swift"
+  - "**/package-lock.json"
+  - "package-lock.json"
